@@ -90,7 +90,8 @@ class Partner(db.Model):
     discount_percent = db.Column(db.Float, default=0.0)
     contacts = db.relationship("Contact", backref="partner", cascade="all, delete-orphan")
     addresses = db.relationship(
-        "PartnerAddress", backref="partner", cascade="all, delete-orphan"
+        "PartnerAddress", backref="partner", cascade="all, delete-orphan",
+        foreign_keys="PartnerAddress.partner_id"
     )
 
 
