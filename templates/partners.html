@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Partneri</h4>
+<form method="post" class="row g-3 mb-4">
+  <div class="col-md-4">
+    <input class="form-control" name="name" placeholder="Názov partnera" required>
+  </div>
+  <div class="col-md-4">
+    <input class="form-control" name="email" placeholder="Email">
+  </div>
+  <div class="col-md-4">
+    <input class="form-control" name="phone" placeholder="Telefón">
+  </div>
+  <div class="col-md-3">
+    <input class="form-control" name="street" placeholder="Ulica">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="street_number" placeholder="Číslo">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="postal_code" placeholder="PSČ">
+  </div>
+  <div class="col-md-3">
+    <input class="form-control" name="city" placeholder="Mesto">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="ico" placeholder="IČO">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="dic" placeholder="DIČ">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="ic_dph" placeholder="IČ DPH">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="group_code" placeholder="Skupina partnera">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="price_level" placeholder="Cenová hladina">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="discount_percent" type="number" step="0.1" placeholder="Zľava %">
+  </div>
+  <div class="col-md-8">
+    <input class="form-control" name="note" placeholder="Poznámka">
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-primary" type="submit">Uložiť partnera</button>
+  </div>
+</form>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Názov</th>
+      <th>Adresa</th>
+      <th>IČO</th>
+      <th>DIČ</th>
+      <th>IČ DPH</th>
+      <th>Skupina</th>
+      <th>Cena/Zľava</th>
+      <th>Kontakty</th>
+      <th>Adresy</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for partner in partners %}
+    <tr>
+      <td>{{ partner.name }}</td>
+      <td>
+        {{ partner.street }} {{ partner.street_number }}<br>
+        {{ partner.postal_code }} {{ partner.city }}<br>
+        {{ partner.email }} / {{ partner.phone }}
+      </td>
+      <td>{{ partner.ico }}</td>
+      <td>{{ partner.dic }}</td>
+      <td>{{ partner.ic_dph }}</td>
+      <td>{{ partner.group_code }}</td>
+      <td>{{ partner.price_level }} / {{ partner.discount_percent }} %</td>
+      <td>
+        <ul class="list-unstyled mb-2">
+          {% for contact in partner.contacts %}
+          <li>
+            <strong>{{ contact.name }}</strong> ({{ contact.role }})<br>
+            {{ contact.email }} / {{ contact.phone }}
+          </li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="{{ url_for('add_contact', partner_id=partner.id) }}" class="row g-2">
+          <div class="col-6"><input class="form-control form-control-sm" name="name" placeholder="Meno" required></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="role" placeholder="Rola"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="email" placeholder="Email"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="phone" placeholder="Telefón"></div>
+          <div class="col-12">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="can_order" id="can_order_{{ partner.id }}">
+              <label class="form-check-label" for="can_order_{{ partner.id }}">Objednáva</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="can_receive" id="can_receive_{{ partner.id }}">
+              <label class="form-check-label" for="can_receive_{{ partner.id }}">Preberá</label>
+            </div>
+          </div>
+          <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Pridať kontakt</button></div>
+        </form>
+      </td>
+      <td>
+        <ul class="list-unstyled mb-2">
+          {% for address in partner.addresses %}
+          <li>
+            <strong>{{ address.address_type }}</strong>
+            {% if address.related_partner %}
+              ({{ address.related_partner.name }})
+            {% endif %}
+            <br>
+            {{ address.street }} {{ address.street_number }}, {{ address.postal_code }} {{ address.city }}
+          </li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="{{ url_for('add_address', partner_id=partner.id) }}" class="row g-2">
+          <div class="col-6">
+            <select class="form-select form-select-sm" name="address_type">
+              <option value="headquarters">Sídlo</option>
+              <option value="ordering">Objednávacia</option>
+              <option value="delivery">Dodacia</option>
+              <option value="invoice">Fakturačná</option>
+              <option value="other">Iná</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <input class="form-control form-control-sm" name="related_partner_id" placeholder="ID partnera (voliteľné)">
+          </div>
+          <div class="col-6"><input class="form-control form-control-sm" name="street" placeholder="Ulica"></div>
+          <div class="col-3"><input class="form-control form-control-sm" name="street_number" placeholder="Číslo"></div>
+          <div class="col-3"><input class="form-control form-control-sm" name="postal_code" placeholder="PSČ"></div>
+          <div class="col-6"><input class="form-control form-control-sm" name="city" placeholder="Mesto"></div>
+          <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Pridať adresu</button></div>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

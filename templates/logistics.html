@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Plán zvozov a dodávok</h4>
+<div class="mb-3">
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics_dashboard', interval='daily') }}">Denný</a>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics_dashboard', interval='weekly') }}">Týždenný</a>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics_dashboard', interval='monthly') }}">Mesačný</a>
+</div>
+<form method="post" class="card card-body shadow-sm mb-4">
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label class="form-label">Typ</label>
+      <select class="form-select" name="plan_type">
+        <option value="pickup">Zvoz</option>
+        <option value="delivery">Dodanie</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Objednávka</label>
+      <select class="form-select" name="order_id">
+        <option value="">--</option>
+        {% for order in orders %}
+        <option value="{{ order.id }}">#{{ order.id }} - {{ order.partner.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Dodací list</label>
+      <select class="form-select" name="delivery_note_id">
+        <option value="">--</option>
+        {% for delivery in delivery_notes %}
+        <option value="{{ delivery.id }}">#{{ delivery.id }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Vozidlo</label>
+      <select class="form-select" name="vehicle_id">
+        <option value="">--</option>
+        {% for vehicle in vehicles %}
+        <option value="{{ vehicle.id }}">{{ vehicle.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Plánovaný dátum/čas</label>
+      <input type="datetime-local" class="form-control" name="planned_datetime" required>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary" type="submit">Pridať plán</button>
+    </div>
+  </div>
+</form>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Typ</th>
+      <th>Dátum/čas</th>
+      <th>Objednávka</th>
+      <th>Dodací list</th>
+      <th>Vozidlo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for plan in plans %}
+    <tr>
+      <td>{{ plan.plan_type }}</td>
+      <td>{{ plan.planned_datetime }}</td>
+      <td>{% if plan.order %}#{{ plan.order.id }} - {{ plan.order.partner.name }}{% endif %}</td>
+      <td>{% if plan.delivery_note %}#{{ plan.delivery_note.id }}{% endif %}</td>
+      <td>{% if plan.vehicle %}{{ plan.vehicle.name }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

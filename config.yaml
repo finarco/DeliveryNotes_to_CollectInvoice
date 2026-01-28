@@ -1,0 +1,24 @@
+app:
+  name: "Dodacie listy"
+  secret_key: "change-me"
+  base_currency: "EUR"
+  show_prices_default: true
+
+database:
+  uri: "sqlite:///delivery_notes.db"
+
+email:
+  enabled: false
+  smtp_host: "smtp.example.com"
+  smtp_port: 587
+  smtp_user: "user@example.com"
+  smtp_password: "change-me"
+  sender: "noreply@example.com"
+  operator_cc: "operator@example.com"
+
+superfaktura:
+  enabled: false
+  api_email: "api@example.com"
+  api_key: "change-me"
+  company_id: "12345"
+  base_url: "https://api.superfaktura.sk"
