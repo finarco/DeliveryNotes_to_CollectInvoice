@@ -90,7 +90,7 @@
         {{ delivery.actual_delivery_datetime }}
       </td>
       <td>
-        {% if current_user() and current_user().role != 'customer' and delivery.show_prices %}
+        {% if current_user and current_user.role != 'customer' and delivery.show_prices %}
           Áno
         {% else %}
           Nie
