@@ -1327,7 +1327,6 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
     for item in delivery.items:
         name = item.product.name if item.product else item.bundle.name if item.bundle else "Položka"
         line = f"{name} - {item.quantity}x"
-        if show_prices:
         if delivery.show_prices:
             line += f" | {item.unit_price:.2f} {app_cfg.base_currency}"
             line += f" | {item.line_total:.2f} {app_cfg.base_currency}"
@@ -1345,7 +1344,6 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
 
 
 def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig, show_prices: bool) -> str:
-def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_dir, exist_ok=True)
     filename = os.path.join(output_dir, f"invoice_{invoice.id}.pdf")
