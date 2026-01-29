@@ -3,10 +3,12 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-from datetime import timezone
+import secrets
+from datetime import timedelta, timezone
 from typing import Optional
 
 import yaml
+from dotenv import load_dotenv
 from flask import (
     Flask,
     flash,
@@ -18,19 +20,23 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from sqlalchemy import event
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_models import AppConfig, EmailConfig, SuperfakturaConfig
 from mailer import MailerError, send_document_email
 from superfaktura_client import SuperFakturaClient, SuperFakturaError
 
+load_dotenv()
 
 db = SQLAlchemy()
+csrf = CSRFProtect()
 
 # Configure logging
 logging.basicConfig(
@@ -351,10 +357,18 @@ def load_config():
     sf_cfg = raw.get("superfaktura", {})
     db_cfg = raw.get("database", {})
 
+    secret_key = os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", ""))
+    if not secret_key or secret_key == "change-me":
+        secret_key = secrets.token_hex(32)
+        logger.warning(
+            "Using auto-generated secret key. Set APP_SECRET_KEY env var "
+            "or app.secret_key in config.yaml for stable sessions across restarts."
+        )
+
     return (
         AppConfig(
             name=app_cfg.get("name", "Dodacie listy"),
-            secret_key=os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", "change-me")),
+            secret_key=secret_key,
             base_currency=app_cfg.get("base_currency", "EUR"),
             show_prices_default=app_cfg.get("show_prices_default", True),
         ),
@@ -384,6 +398,13 @@ def load_config():
     )
 
 
+def _enable_sqlite_fks(dbapi_conn, _connection_record):
+    """Enable foreign key enforcement for SQLite connections."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 def create_app():
     app_cfg, email_cfg, sf_cfg, db_uri = load_config()
     app = Flask(__name__)
@@ -394,7 +415,18 @@ def create_app():
     app.config["EMAIL_CONFIG"] = email_cfg
     app.config["SF_CONFIG"] = sf_cfg
 
+    # Session security
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+
+    csrf.init_app(app)
     db.init_app(app)
+
+    # Enable SQLite FK enforcement
+    if "sqlite" in db_uri:
+        with app.app_context():
+            event.listen(db.engine, "connect", _enable_sqlite_fks)
 
     with app.app_context():
         db.create_all()
@@ -402,7 +434,15 @@ def create_app():
 
     @app.context_processor
     def inject_globals():
-        return {"app_config": app_cfg}
+        user = current_user()
+        user_permissions = set()
+        if user:
+            user_permissions = ROLE_PERMISSIONS.get(user.role, set())
+        return {
+            "app_config": app_cfg,
+            "current_user": user,
+            "user_permissions": user_permissions,
+        }
 
     def current_user() -> Optional[User]:
         user_id = session.get("user_id")
@@ -421,9 +461,17 @@ def create_app():
             return redirect(url_for("login"))
         permissions = ROLE_PERMISSIONS.get(user.role, set())
         if required_permission not in permissions and "manage_all" not in permissions:
-            flash("Nemáte oprávnenie na tento krok.")
+            flash("Nemáte oprávnenie na tento krok.", "danger")
             return redirect(url_for("index"))
         return None
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("error.html", code=404, message="Stránka nebola nájdená."), 404
+
+    @app.errorhandler(500)
+    def server_error(_error):
+        return render_template("error.html", code=500, message="Vnútorná chyba servera."), 500
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -433,9 +481,9 @@ def create_app():
             user = User.query.filter_by(username=username).first()
             if user and check_password_hash(user.password_hash, password):
                 session["user_id"] = user.id
-                flash("Prihlásenie úspešné.")
+                flash("Prihlásenie úspešné.", "success")
                 return redirect(url_for("index"))
-            flash("Nesprávne prihlasovacie údaje.")
+            flash("Nesprávne prihlasovacie údaje.", "danger")
         return render_template("login.html")
 
     @app.route("/logout")
@@ -491,7 +539,7 @@ def create_app():
                 )
             )
             db.session.commit()
-            flash("Partner uložený.")
+            flash("Partner uložený.", "success")
             return redirect(url_for("partners"))
         return render_template("partners.html", partners=Partner.query.all())
 
@@ -512,7 +560,7 @@ def create_app():
         )
         db.session.add(contact)
         db.session.commit()
-        flash("Kontakt uložený.")
+        flash("Kontakt uložený.", "success")
         return redirect(url_for("partners"))
 
     @app.route("/partners/<int:partner_id>/addresses", methods=["POST"])
@@ -533,7 +581,7 @@ def create_app():
         )
         db.session.add(address)
         db.session.commit()
-        flash("Adresa uložená.")
+        flash("Adresa uložená.", "success")
         return redirect(url_for("partners"))
 
     @app.route("/products", methods=["GET", "POST"])
@@ -555,7 +603,7 @@ def create_app():
             db.session.flush()
             product.price_history.append(ProductPriceHistory(price=price))
             db.session.commit()
-            flash("Produkt uložený.")
+            flash("Produkt uložený.", "success")
             return redirect(url_for("products"))
         return render_template("products.html", products=Product.query.all())
 
@@ -582,7 +630,7 @@ def create_app():
                     )
             bundle.price_history.append(BundlePriceHistory(price=bundle_price))
             db.session.commit()
-            flash("Kombinácia uložená.")
+            flash("Kombinácia uložená.", "success")
             return redirect(url_for("bundles"))
         return render_template(
             "bundles.html",
@@ -601,7 +649,7 @@ def create_app():
         if request.method == "POST":
             partner_id = safe_int(request.form.get("partner_id"))
             if not partner_id:
-                flash("Partner je povinný.")
+                flash("Partner je povinný.", "danger")
                 return redirect(url_for("orders"))
             show_prices = request.form.get("show_prices") == "on"
             pickup_address_id = request.form.get("pickup_address_id")
@@ -629,7 +677,7 @@ def create_app():
                         OrderItem(product_id=product.id, quantity=qty, unit_price=price)
                     )
             db.session.commit()
-            flash("Objednávka vytvorená.")
+            flash("Objednávka vytvorená.", "success")
             return redirect(url_for("orders"))
         return render_template(
             "orders.html",
@@ -647,7 +695,7 @@ def create_app():
         order = db.get_or_404(Order, order_id)
         order.confirmed = True
         db.session.commit()
-        flash("Objednávka potvrdená.")
+        flash("Objednávka potvrdená.", "success")
         return redirect(url_for("orders"))
 
     @app.route("/orders/<int:order_id>/unconfirm", methods=["POST"])
@@ -658,7 +706,7 @@ def create_app():
         order = db.get_or_404(Order, order_id)
         order.confirmed = False
         db.session.commit()
-        flash("Potvrdenie objednávky zrušené.")
+        flash("Potvrdenie objednávky zrušené.", "warning")
         return redirect(url_for("orders"))
 
     @app.route("/delivery-notes", methods=["GET", "POST"])
@@ -673,12 +721,12 @@ def create_app():
             order_ids = request.form.getlist("order_ids")
             selected_orders = Order.query.filter(Order.id.in_(order_ids)).all()
             if not selected_orders:
-                flash("Objednávka neexistuje.")
+                flash("Objednávka neexistuje.", "danger")
                 return redirect(url_for("delivery_notes"))
             group_codes = {order.partner.group_code or None for order in selected_orders}
             group_codes.discard(None)
             if len(group_codes) > 1:
-                flash("Objednávky musia byť v rovnakej partnerskej skupine.")
+                flash("Objednávky musia byť v rovnakej partnerskej skupine.", "danger")
                 return redirect(url_for("delivery_notes"))
             delivery = DeliveryNote(
                 primary_order_id=selected_orders[0].id,
@@ -731,7 +779,7 @@ def create_app():
                         )
                     delivery.items.append(delivery_item)
             db.session.commit()
-            flash("Dodací list vytvorený.")
+            flash("Dodací list vytvorený.", "success")
             return redirect(url_for("delivery_notes"))
         return render_template(
             "delivery_notes.html",
@@ -754,7 +802,7 @@ def create_app():
             )
             db.session.add(vehicle)
             db.session.commit()
-            flash("Vozidlo uložené.")
+            flash("Vozidlo uložené.", "success")
             return redirect(url_for("vehicles"))
         return render_template("vehicles.html", vehicles=Vehicle.query.all())
 
@@ -772,7 +820,7 @@ def create_app():
         )
         db.session.add(schedule)
         db.session.commit()
-        flash("Operačný čas uložený.")
+        flash("Operačný čas uložený.", "success")
         return redirect(url_for("vehicles"))
 
     @app.route("/logistics", methods=["GET", "POST"])
@@ -796,7 +844,7 @@ def create_app():
             )
             db.session.add(plan)
             db.session.commit()
-            flash("Plán zvozu/dodania uložený.")
+            flash("Plán zvozu/dodania uložený.", "success")
             return redirect(url_for("logistics_dashboard", interval=interval))
         return render_template(
             "logistics.html",
@@ -816,7 +864,7 @@ def create_app():
         delivery.confirmed = True
         delivery.actual_delivery_datetime = utc_now()
         db.session.commit()
-        flash("Dodací list potvrdený.")
+        flash("Dodací list potvrdený.", "success")
         return redirect(url_for("delivery_notes"))
 
     @app.route("/delivery-notes/<int:delivery_id>/unconfirm", methods=["POST"])
@@ -827,7 +875,7 @@ def create_app():
         delivery = db.get_or_404(DeliveryNote, delivery_id)
         delivery.confirmed = False
         db.session.commit()
-        flash("Potvrdenie dodacieho listu zrušené.")
+        flash("Potvrdenie dodacieho listu zrušené.", "warning")
         return redirect(url_for("delivery_notes"))
 
     @app.route("/delivery-notes/<int:delivery_id>/pdf")
@@ -848,13 +896,13 @@ def create_app():
         if request.method == "POST":
             partner_id = safe_int(request.form.get("partner_id"))
             if not partner_id:
-                flash("Partner je povinný.")
+                flash("Partner je povinný.", "danger")
                 return redirect(url_for("invoices"))
             try:
                 invoice = build_invoice_for_partner(partner_id)
-                flash(f"Faktúra {invoice.id} vytvorená.")
+                flash(f"Faktúra {invoice.id} vytvorená.", "success")
             except ValueError as e:
-                flash(str(e))
+                flash(str(e), "danger")
             return redirect(url_for("invoices"))
         return render_template(
             "invoices.html",
@@ -883,7 +931,7 @@ def create_app():
         )
         invoice.total += total
         db.session.commit()
-        flash("Manuálna položka pridaná.")
+        flash("Manuálna položka pridaná.", "success")
         return redirect(url_for("invoices"))
 
     @app.route("/invoices/<int:invoice_id>/pdf")
@@ -913,12 +961,12 @@ def create_app():
                     body=f"Dobrý deň, v prílohe posielame faktúru {invoice.id}.",
                     attachment_path=pdf_path,
                 )
-                flash("Faktúra odoslaná emailom.")
+                flash("Faktúra odoslaná emailom.", "success")
             except MailerError as e:
                 logger.error(f"Failed to send invoice {invoice_id} email: {e}")
-                flash(f"Chyba pri odosielaní emailu: {e}")
+                flash(f"Chyba pri odosielaní emailu: {e}", "danger")
         else:
-            flash("Odosielanie emailov nie je zapnuté alebo chýba email.")
+            flash("Odosielanie emailov nie je zapnuté alebo chýba email.", "warning")
         return redirect(url_for("invoices"))
 
     @app.route("/invoices/<int:invoice_id>/export", methods=["POST"])
@@ -929,19 +977,19 @@ def create_app():
         invoice = db.get_or_404(Invoice, invoice_id)
         sf_cfg = app.config["SF_CONFIG"]
         if not sf_cfg.enabled:
-            flash("Superfaktúra API nie je zapnutá.")
+            flash("Superfaktúra API nie je zapnutá.", "warning")
             return redirect(url_for("invoices"))
         client = SuperFakturaClient(sf_cfg)
         try:
             result = client.send_invoice(invoice)
             invoice.status = "sent" if result else "error"
             db.session.commit()
-            flash("Faktúra exportovaná do Superfaktúry.")
+            flash("Faktúra exportovaná do Superfaktúry.", "success")
         except SuperFakturaError as e:
             logger.error(f"Failed to export invoice {invoice_id} to Superfaktura: {e}")
             invoice.status = "error"
             db.session.commit()
-            flash(f"Chyba pri exporte do Superfaktúry: {e}")
+            flash(f"Chyba pri exporte do Superfaktúry: {e}", "danger")
         return redirect(url_for("invoices"))
 
     return app
