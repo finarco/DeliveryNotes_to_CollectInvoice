@@ -1235,14 +1235,26 @@ def parse_time(raw: Optional[str]):
 
 
 def ensure_admin_user():
-    if User.query.count() == 0:
-        admin = User(
-            username="admin",
-            password_hash=generate_password_hash("admin"),
-            role="admin",
-        )
-        db.session.add(admin)
-        db.session.commit()
+    # Prefer "does an admin already exist?" over "is table empty?"
+    admin_exists = User.query.filter_by(role="admin").first() is not None
+    if admin_exists:
+        return
+
+    username = os.environ.get("ADMIN_USERNAME", "admin")
+    password = os.environ.get("ADMIN_PASSWORD", "")
+
+    # If password not provided, generate one and log it once (so you can copy it)
+    if not password or password == "admin":
+        password = secrets.token_urlsafe(16)
+        logger.warning("Created admin user '%s' with generated password: %s", username, password)
+
+    admin = User(
+        username=username,
+        password_hash=generate_password_hash(password),
+        role="admin",
+    )
+    db.session.add(admin)
+    db.session.commit()
 
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:
