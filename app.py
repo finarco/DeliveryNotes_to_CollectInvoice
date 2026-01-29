@@ -723,11 +723,6 @@ def create_app():
             order = Order(
                 partner_id=partner_id,
                 pickup_address_id=int(pickup_address_id)
-                if pickup_address_id
-                else None,
-                delivery_address_id=int(delivery_address_id)
-                if delivery_address_id
-                else None,
                 pickup_address_id=safe_int(pickup_address_id) or None,
                 delivery_address_id=safe_int(delivery_address_id) or None,
                 created_by_id=session.get("user_id"),
