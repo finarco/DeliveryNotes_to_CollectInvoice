@@ -749,7 +749,6 @@ def create_app():
             return redirect(url_for("orders"))
         return render_template(
             "orders.html",
-            orders=orders_list,
             total=total,
             page=page,
             per_page=per_page,
