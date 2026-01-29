@@ -96,6 +96,7 @@
           Nie
         {% endif %}
       </td>
+      <td>{{ "Áno" if delivery.show_prices else "Nie" }}</td>
       <td>
         {% if delivery.confirmed %}
           <span class="badge bg-success">Potvrdený</span>

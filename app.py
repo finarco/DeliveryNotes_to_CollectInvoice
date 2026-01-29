@@ -3,6 +3,9 @@ from __future__ import annotations
 import datetime
 import math
 import os
+import logging
+import os
+from datetime import timezone
 from typing import Optional
 
 import yaml
@@ -25,9 +28,45 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from config_models import AppConfig, EmailConfig, SuperfakturaConfig
 from mailer import send_document_email
 from superfaktura_client import SuperFakturaClient
+from mailer import MailerError, send_document_email
+from superfaktura_client import SuperFakturaClient, SuperFakturaError
 
 
 db = SQLAlchemy()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+def utc_now():
+    """Return current UTC datetime. Used as SQLAlchemy default."""
+    return datetime.datetime.now(timezone.utc)
+
+
+def safe_int(value, default: int = 0) -> int:
+    """Safely convert value to int, returning default on failure."""
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        logger.warning(f"Could not convert '{value}' to int, using default {default}")
+        return default
+
+
+def safe_float(value, default: float = 0.0) -> float:
+    """Safely convert value to float, returning default on failure."""
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        logger.warning(f"Could not convert '{value}' to float, using default {default}")
+        return default
 
 
 class User(db.Model):
@@ -56,6 +95,8 @@ class Partner(db.Model):
     contacts = db.relationship("Contact", backref="partner", cascade="all, delete-orphan")
     addresses = db.relationship(
         "PartnerAddress", backref="partner", cascade="all, delete-orphan"
+        "PartnerAddress", backref="partner", cascade="all, delete-orphan",
+        foreign_keys="PartnerAddress.partner_id"
     )
 
 
@@ -100,6 +141,7 @@ class ProductPriceHistory(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     price = db.Column(db.Float, nullable=False)
     changed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=utc_now)
 
 
 class Bundle(db.Model):
@@ -118,6 +160,7 @@ class BundlePriceHistory(db.Model):
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"), nullable=False)
     price = db.Column(db.Float, nullable=False)
     changed_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=utc_now)
 
 
 class BundleItem(db.Model):
@@ -151,6 +194,7 @@ class Order(db.Model):
     show_prices = db.Column(db.Boolean, default=True)
     confirmed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     partner = db.relationship("Partner")
     pickup_address = db.relationship("PartnerAddress", foreign_keys=[pickup_address_id])
     delivery_address = db.relationship("PartnerAddress", foreign_keys=[delivery_address_id])
@@ -173,6 +217,7 @@ class DeliveryNote(db.Model):
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     show_prices = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utc_now)
     invoiced = db.Column(db.Boolean, default=False)
     planned_delivery_datetime = db.Column(db.DateTime)
     actual_delivery_datetime = db.Column(db.DateTime)
@@ -264,6 +309,10 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+class Invoice(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
+    created_at = db.Column(db.DateTime, default=utc_now)
     total = db.Column(db.Float, default=0.0)
     status = db.Column(db.String(30), default="draft")
     partner = db.relationship("Partner")
@@ -299,6 +348,32 @@ def load_config():
         AppConfig(
             name=app_cfg.get("name", "Dodacie listy"),
             secret_key=app_cfg.get("secret_key", "change-me"),
+    """Load configuration from config.yaml with environment variable overrides.
+
+    Environment variables take precedence over config.yaml values.
+    Supported environment variables:
+    - APP_SECRET_KEY: Flask secret key
+    - DATABASE_URI: Database connection string
+    - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD: Email settings
+    - EMAIL_SENDER, EMAIL_OPERATOR_CC: Email addresses
+    - SUPERFAKTURA_API_EMAIL, SUPERFAKTURA_API_KEY: Superfaktura credentials
+    - SUPERFAKTURA_COMPANY_ID, SUPERFAKTURA_BASE_URL: Superfaktura settings
+    """
+    config_path = os.environ.get("CONFIG_PATH", "config.yaml")
+    raw = {}
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as handle:
+            raw = yaml.safe_load(handle) or {}
+
+    app_cfg = raw.get("app", {})
+    email_cfg = raw.get("email", {})
+    sf_cfg = raw.get("superfaktura", {})
+    db_cfg = raw.get("database", {})
+
+    return (
+        AppConfig(
+            name=app_cfg.get("name", "Dodacie listy"),
+            secret_key=os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", "change-me")),
             base_currency=app_cfg.get("base_currency", "EUR"),
             show_prices_default=app_cfg.get("show_prices_default", True),
         ),
@@ -319,6 +394,28 @@ def load_config():
             base_url=sf_cfg.get("base_url", "https://api.superfaktura.sk"),
         ),
         raw.get("database", {}).get("uri", "sqlite:///delivery_notes.db"),
+            enabled=os.environ.get("EMAIL_ENABLED", str(email_cfg.get("enabled", False))).lower()
+            in ("true", "1", "yes"),
+            smtp_host=os.environ.get("SMTP_HOST", email_cfg.get("smtp_host", "")),
+            smtp_port=int(os.environ.get("SMTP_PORT", email_cfg.get("smtp_port", 587))),
+            smtp_user=os.environ.get("SMTP_USER", email_cfg.get("smtp_user", "")),
+            smtp_password=os.environ.get("SMTP_PASSWORD", email_cfg.get("smtp_password", "")),
+            sender=os.environ.get("EMAIL_SENDER", email_cfg.get("sender", "")),
+            operator_cc=os.environ.get("EMAIL_OPERATOR_CC", email_cfg.get("operator_cc", "")),
+        ),
+        SuperfakturaConfig(
+            enabled=os.environ.get("SUPERFAKTURA_ENABLED", str(sf_cfg.get("enabled", False))).lower()
+            in ("true", "1", "yes"),
+            api_email=os.environ.get("SUPERFAKTURA_API_EMAIL", sf_cfg.get("api_email", "")),
+            api_key=os.environ.get("SUPERFAKTURA_API_KEY", sf_cfg.get("api_key", "")),
+            company_id=os.environ.get(
+                "SUPERFAKTURA_COMPANY_ID", str(sf_cfg.get("company_id", ""))
+            ),
+            base_url=os.environ.get(
+                "SUPERFAKTURA_BASE_URL", sf_cfg.get("base_url", "https://api.superfaktura.sk")
+            ),
+        ),
+        os.environ.get("DATABASE_URI", db_cfg.get("uri", "sqlite:///delivery_notes.db")),
     )
 
 
@@ -341,12 +438,14 @@ def create_app():
     @app.context_processor
     def inject_globals():
         return {"app_config": app_cfg, "current_user": current_user}
+        return {"app_config": app_cfg}
 
     def current_user() -> Optional[User]:
         user_id = session.get("user_id")
         if not user_id:
             return None
         return User.query.get(user_id)
+        return db.session.get(User, user_id)
 
     def require_login():
         if not current_user():
@@ -436,6 +535,7 @@ def create_app():
                 phone=request.form.get("phone", ""),
                 price_level=request.form.get("price_level", ""),
                 discount_percent=float(request.form.get("discount_percent", 0) or 0),
+                discount_percent=safe_float(request.form.get("discount_percent")),
             )
             db.session.add(partner)
             db.session.flush()
@@ -460,6 +560,7 @@ def create_app():
         if login_redirect:
             return login_redirect
         partner = Partner.query.get_or_404(partner_id)
+        partner = db.get_or_404(Partner, partner_id)
         contact = Contact(
             partner_id=partner.id,
             name=request.form.get("name", "").strip(),
@@ -480,6 +581,7 @@ def create_app():
         if login_redirect:
             return login_redirect
         partner = Partner.query.get_or_404(partner_id)
+        partner = db.get_or_404(Partner, partner_id)
         related_partner_id = request.form.get("related_partner_id")
         address = PartnerAddress(
             partner_id=partner.id,
@@ -502,6 +604,7 @@ def create_app():
             return login_redirect
         if request.method == "POST":
             price = float(request.form.get("price", 0) or 0)
+            price = safe_float(request.form.get("price"))
             product = Product(
                 name=request.form.get("name", "").strip(),
                 description=request.form.get("description", ""),
@@ -526,6 +629,7 @@ def create_app():
         products = Product.query.all()
         if request.method == "POST":
             bundle_price = float(request.form.get("bundle_price", 0) or 0)
+            bundle_price = safe_float(request.form.get("bundle_price"))
             bundle = Bundle(
                 name=request.form.get("name", "").strip(),
                 bundle_price=bundle_price,
@@ -535,6 +639,7 @@ def create_app():
             db.session.flush()
             for product in products:
                 qty = int(request.form.get(f"bundle_product_{product.id}", 0) or 0)
+                qty = safe_int(request.form.get(f"bundle_product_{product.id}"))
                 if qty > 0:
                     bundle.items.append(
                         BundleItem(product_id=product.id, quantity=qty)
@@ -570,6 +675,11 @@ def create_app():
         orders_list = query.offset((page - 1) * per_page).limit(per_page).all()
         if request.method == "POST":
             partner_id = int(request.form.get("partner_id"))
+        if request.method == "POST":
+            partner_id = safe_int(request.form.get("partner_id"))
+            if not partner_id:
+                flash("Partner je povinný.")
+                return redirect(url_for("orders"))
             show_prices = request.form.get("show_prices") == "on"
             pickup_address_id = request.form.get("pickup_address_id")
             delivery_address_id = request.form.get("delivery_address_id")
@@ -581,6 +691,8 @@ def create_app():
                 delivery_address_id=int(delivery_address_id)
                 if delivery_address_id
                 else None,
+                pickup_address_id=safe_int(pickup_address_id) or None,
+                delivery_address_id=safe_int(delivery_address_id) or None,
                 created_by_id=session.get("user_id"),
                 pickup_datetime=parse_datetime(request.form.get("pickup_datetime")),
                 delivery_datetime=parse_datetime(request.form.get("delivery_datetime")),
@@ -594,6 +706,7 @@ def create_app():
             db.session.flush()
             for product in products:
                 qty = int(request.form.get(f"product_{product.id}", 0) or 0)
+                qty = safe_int(request.form.get(f"product_{product.id}"))
                 if qty > 0:
                     price = product.price
                     order.items.append(
@@ -609,6 +722,7 @@ def create_app():
             total=total,
             page=page,
             per_page=per_page,
+            orders=Order.query.order_by(Order.created_at.desc()).all(),
             partners=partners,
             addresses=addresses,
             products=products,
@@ -623,6 +737,9 @@ def create_app():
         order.confirmed = True
         db.session.commit()
         log_action("confirm", "order", order.id, "confirmed")
+        order = db.get_or_404(Order, order_id)
+        order.confirmed = True
+        db.session.commit()
         flash("Objednávka potvrdená.")
         return redirect(url_for("orders"))
 
@@ -635,6 +752,9 @@ def create_app():
         order.confirmed = False
         db.session.commit()
         log_action("unconfirm", "order", order.id, "unconfirmed")
+        order = db.get_or_404(Order, order_id)
+        order.confirmed = False
+        db.session.commit()
         flash("Potvrdenie objednávky zrušené.")
         return redirect(url_for("orders"))
 
@@ -688,6 +808,7 @@ def create_app():
                     delivery.items.append(delivery_item)
             for product in products:
                 extra_qty = int(request.form.get(f"extra_{product.id}", 0) or 0)
+                extra_qty = safe_int(request.form.get(f"extra_{product.id}"))
                 if extra_qty > 0:
                     line_total = product.price * extra_qty
                     delivery_item = DeliveryItem(
@@ -699,6 +820,7 @@ def create_app():
                     delivery.items.append(delivery_item)
             for bundle in bundles:
                 bundle_qty = int(request.form.get(f"bundle_{bundle.id}", 0) or 0)
+                bundle_qty = safe_int(request.form.get(f"bundle_{bundle.id}"))
                 if bundle_qty > 0:
                     line_total = bundle.bundle_price * bundle_qty
                     delivery_item = DeliveryItem(
@@ -725,6 +847,7 @@ def create_app():
             total=total,
             page=page,
             per_page=per_page,
+            delivery_notes=DeliveryNote.query.order_by(DeliveryNote.created_at.desc()).all(),
             orders=orders,
             products=products,
             bundles=bundles,
@@ -775,6 +898,15 @@ def create_app():
         db.session.add(schedule)
         db.session.commit()
         log_action("create", "vehicle_schedule", schedule.id, f"vehicle={vehicle.id}")
+        vehicle = db.get_or_404(Vehicle, vehicle_id)
+        schedule = VehicleSchedule(
+            vehicle_id=vehicle.id,
+            day_of_week=safe_int(request.form.get("day_of_week")),
+            start_time=parse_time(request.form.get("start_time")) or datetime.time(8, 0),
+            end_time=parse_time(request.form.get("end_time")) or datetime.time(16, 0),
+        )
+        db.session.add(schedule)
+        db.session.commit()
         flash("Operačný čas uložený.")
         return redirect(url_for("vehicles"))
 
@@ -807,6 +939,7 @@ def create_app():
         per_page = 20
         total = plans_query.count()
         plans = plans_query.offset((page - 1) * per_page).limit(per_page).all()
+        plans = LogisticsPlan.query.order_by(LogisticsPlan.planned_datetime.desc()).all()
         orders = Order.query.order_by(Order.created_at.desc()).all()
         delivery_notes = DeliveryNote.query.order_by(DeliveryNote.created_at.desc()).all()
         vehicles = Vehicle.query.filter_by(active=True).all()
@@ -824,6 +957,15 @@ def create_app():
             db.session.add(plan)
             db.session.commit()
             log_action("create", "logistics_plan", plan.id, plan.plan_type)
+                order_id=safe_int(request.form.get("order_id")) or None,
+                delivery_note_id=safe_int(request.form.get("delivery_note_id")) or None,
+                plan_type=request.form.get("plan_type", "pickup"),
+                planned_datetime=parse_datetime(request.form.get("planned_datetime"))
+                or utc_now(),
+                vehicle_id=safe_int(request.form.get("vehicle_id")) or None,
+            )
+            db.session.add(plan)
+            db.session.commit()
             flash("Plán zvozu/dodania uložený.")
             return redirect(url_for("logistics_dashboard", interval=interval))
         return render_template(
@@ -851,6 +993,10 @@ def create_app():
         delivery.actual_delivery_datetime = datetime.datetime.utcnow()
         db.session.commit()
         log_action("confirm", "delivery_note", delivery.id, "confirmed")
+        delivery = db.get_or_404(DeliveryNote, delivery_id)
+        delivery.confirmed = True
+        delivery.actual_delivery_datetime = utc_now()
+        db.session.commit()
         flash("Dodací list potvrdený.")
         return redirect(url_for("delivery_notes"))
 
@@ -863,6 +1009,9 @@ def create_app():
         delivery.confirmed = False
         db.session.commit()
         log_action("unconfirm", "delivery_note", delivery.id, "unconfirmed")
+        delivery = db.get_or_404(DeliveryNote, delivery_id)
+        delivery.confirmed = False
+        db.session.commit()
         flash("Potvrdenie dodacieho listu zrušené.")
         return redirect(url_for("delivery_notes"))
 
@@ -873,6 +1022,8 @@ def create_app():
             return login_redirect
         delivery = DeliveryNote.query.get_or_404(delivery_id)
         pdf_path = generate_delivery_pdf(delivery, app_cfg, can_view_prices(delivery.show_prices))
+        delivery = db.get_or_404(DeliveryNote, delivery_id)
+        pdf_path = generate_delivery_pdf(delivery, app_cfg)
         return send_file(pdf_path, as_attachment=True)
 
     @app.route("/invoices", methods=["GET", "POST"])
@@ -893,6 +1044,12 @@ def create_app():
             partner_id = int(request.form.get("partner_id"))
             invoice = build_invoice_for_partner(partner_id)
             log_action("create", "invoice", invoice.id, f"partner={partner_id}")
+        if request.method == "POST":
+            partner_id = safe_int(request.form.get("partner_id"))
+            if not partner_id:
+                flash("Partner je povinný.")
+                return redirect(url_for("invoices"))
+            invoice = build_invoice_for_partner(partner_id)
             flash(f"Faktúra {invoice.id} vytvorená.")
             return redirect(url_for("invoices"))
         return render_template(
@@ -901,6 +1058,7 @@ def create_app():
             total=total,
             page=page,
             per_page=per_page,
+            invoices=Invoice.query.order_by(Invoice.created_at.desc()).all(),
             partners=partners,
         )
 
@@ -913,6 +1071,10 @@ def create_app():
         description = request.form.get("description", "").strip()
         quantity = int(request.form.get("quantity", 1) or 1)
         unit_price = float(request.form.get("unit_price", 0) or 0)
+        invoice = db.get_or_404(Invoice, invoice_id)
+        description = request.form.get("description", "").strip()
+        quantity = safe_int(request.form.get("quantity"), default=1)
+        unit_price = safe_float(request.form.get("unit_price"))
         total = unit_price * quantity
         invoice.items.append(
             InvoiceItem(
@@ -936,6 +1098,8 @@ def create_app():
             return login_redirect
         invoice = Invoice.query.get_or_404(invoice_id)
         pdf_path = generate_invoice_pdf(invoice, app_cfg, can_view_prices(True))
+        invoice = db.get_or_404(Invoice, invoice_id)
+        pdf_path = generate_invoice_pdf(invoice, app_cfg)
         return send_file(pdf_path, as_attachment=True)
 
     @app.route("/invoices/<int:invoice_id>/send")
@@ -957,6 +1121,23 @@ def create_app():
             )
             log_action("email", "invoice", invoice.id, "sent")
             flash("Faktúra odoslaná emailom.")
+        invoice = db.get_or_404(Invoice, invoice_id)
+        pdf_path = generate_invoice_pdf(invoice, app_cfg)
+        email_cfg = app.config["EMAIL_CONFIG"]
+        if email_cfg.enabled and invoice.partner.email:
+            try:
+                send_document_email(
+                    email_cfg,
+                    subject=f"Faktúra {invoice.id}",
+                    recipient=invoice.partner.email,
+                    cc=email_cfg.operator_cc,
+                    body=f"Dobrý deň, v prílohe posielame faktúru {invoice.id}.",
+                    attachment_path=pdf_path,
+                )
+                flash("Faktúra odoslaná emailom.")
+            except MailerError as e:
+                logger.error(f"Failed to send invoice {invoice_id} email: {e}")
+                flash(f"Chyba pri odosielaní emailu: {e}")
         else:
             flash("Odosielanie emailov nie je zapnuté alebo chýba email.")
         return redirect(url_for("invoices"))
@@ -967,6 +1148,7 @@ def create_app():
         if login_redirect:
             return login_redirect
         invoice = Invoice.query.get_or_404(invoice_id)
+        invoice = db.get_or_404(Invoice, invoice_id)
         sf_cfg = app.config["SF_CONFIG"]
         if not sf_cfg.enabled:
             flash("Superfaktúra API nie je zapnutá.")
@@ -977,6 +1159,16 @@ def create_app():
         db.session.commit()
         log_action("export", "invoice", invoice.id, invoice.status)
         flash("Faktúra exportovaná do Superfaktúry.")
+        try:
+            result = client.send_invoice(invoice)
+            invoice.status = "sent" if result else "error"
+            db.session.commit()
+            flash("Faktúra exportovaná do Superfaktúry.")
+        except SuperFakturaError as e:
+            logger.error(f"Failed to export invoice {invoice_id} to Superfaktura: {e}")
+            invoice.status = "error"
+            db.session.commit()
+            flash(f"Chyba pri exporte do Superfaktúry: {e}")
         return redirect(url_for("invoices"))
 
     return app
@@ -1013,6 +1205,7 @@ def ensure_admin_user():
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:
     partner = Partner.query.get_or_404(partner_id)
+    partner = db.get_or_404(Partner, partner_id)
     query = DeliveryNote.query.join(Order, DeliveryNote.primary_order_id == Order.id).join(
         Partner, Order.partner_id == Partner.id
     )
@@ -1052,6 +1245,7 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
 def generate_delivery_pdf(
     delivery: DeliveryNote, app_cfg: AppConfig, show_prices: bool
 ) -> str:
+def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
     os.makedirs("output", exist_ok=True)
     filename = f"output/delivery_{delivery.id}.pdf"
     pdf = canvas.Canvas(filename, pagesize=A4)
@@ -1062,6 +1256,7 @@ def generate_delivery_pdf(
     pdf.drawString(20 * mm, 278 * mm, f"Partner: {partner_name}")
     pdf.drawString(20 * mm, 272 * mm, f"Dátum: {delivery.created_at.date()}")
     pdf.drawString(20 * mm, 266 * mm, f"Ceny: {'Áno' if show_prices else 'Nie'}")
+    pdf.drawString(20 * mm, 266 * mm, f"Ceny: {'Áno' if delivery.show_prices else 'Nie'}")
     pdf.drawString(
         20 * mm,
         260 * mm,
@@ -1076,6 +1271,7 @@ def generate_delivery_pdf(
         name = item.product.name if item.product else item.bundle.name
         line = f"{name} - {item.quantity}x"
         if show_prices:
+        if delivery.show_prices:
             line += f" | {item.unit_price:.2f} {app_cfg.base_currency}"
             line += f" | {item.line_total:.2f} {app_cfg.base_currency}"
         pdf.drawString(25 * mm, y * mm, line)
@@ -1092,6 +1288,7 @@ def generate_delivery_pdf(
 
 
 def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig, show_prices: bool) -> str:
+def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
     os.makedirs("output", exist_ok=True)
     filename = f"output/invoice_{invoice.id}.pdf"
     pdf = canvas.Canvas(filename, pagesize=A4)
@@ -1110,6 +1307,10 @@ def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig, show_prices: bool
         line = f"{item.description}{source} | {item.quantity}x"
         if show_prices:
             line += f" | {item.unit_price:.2f} {app_cfg.base_currency}"
+        line = (
+            f"{item.description} | {item.quantity}x | "
+            f"{item.unit_price:.2f} {app_cfg.base_currency}"
+        )
         pdf.drawString(25 * mm, y * mm, line)
         y -= 5
         if y < 20:
@@ -1126,3 +1327,8 @@ def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig, show_prices: bool
 if __name__ == "__main__":
     app = create_app()
     app.run(host="0.0.0.0", port=5000, debug=True)
+    debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
+    host = os.environ.get("FLASK_HOST", "0.0.0.0")
+    port = int(os.environ.get("FLASK_PORT", 5000))
+    logger.info(f"Starting application on {host}:{port} (debug={debug_mode})")
+    app.run(host=host, port=port, debug=debug_mode)
