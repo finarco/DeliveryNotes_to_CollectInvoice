@@ -28,7 +28,6 @@ def send_document_email(
     cc: str,
     body: str,
     attachment_path: str,
-):
 ) -> bool:
     """Send email with document attachment.
 
