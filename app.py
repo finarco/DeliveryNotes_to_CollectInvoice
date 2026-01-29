@@ -368,7 +368,7 @@ def load_config():
         AppConfig(
             name=app_cfg.get("name", "Dodacie listy"),
             secret_key=app_cfg.get("secret_key", "change-me"),
-    config_path = os.environ.get("CONFIG_PATH", "config.yaml")
+            config_path = os.environ.get("CONFIG_PATH", "config.yaml"),
     raw = {}
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as handle:
