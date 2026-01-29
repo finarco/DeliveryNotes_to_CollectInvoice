@@ -1,3 +1,9 @@
+import smtplib
+from email.message import EmailMessage
+from pathlib import Path
+
+from config_models import EmailConfig
+
 import logging
 import smtplib
 from email.message import EmailMessage
