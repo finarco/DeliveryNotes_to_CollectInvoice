@@ -368,17 +368,6 @@ def load_config():
         AppConfig(
             name=app_cfg.get("name", "Dodacie listy"),
             secret_key=app_cfg.get("secret_key", "change-me"),
-    """Load configuration from config.yaml with environment variable overrides.
-
-    Environment variables take precedence over config.yaml values.
-    Supported environment variables:
-    - APP_SECRET_KEY: Flask secret key
-    - DATABASE_URI: Database connection string
-    - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD: Email settings
-    - EMAIL_SENDER, EMAIL_OPERATOR_CC: Email addresses
-    - SUPERFAKTURA_API_EMAIL, SUPERFAKTURA_API_KEY: Superfaktura credentials
-    - SUPERFAKTURA_COMPANY_ID, SUPERFAKTURA_BASE_URL: Superfaktura settings
-    """
     config_path = os.environ.get("CONFIG_PATH", "config.yaml")
     raw = {}
     if os.path.exists(config_path):
