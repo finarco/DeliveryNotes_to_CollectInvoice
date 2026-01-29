@@ -130,7 +130,7 @@
       </td>
       <td>{{ order.payment_method }}<br>{{ order.payment_terms }}</td>
       <td>
-        {% if current_user() and current_user().role != 'customer' and order.show_prices %}
+        {% if current_user and current_user.role != 'customer' and order.show_prices %}
           Áno
         {% else %}
           Nie
