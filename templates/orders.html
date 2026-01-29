@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Objednávky</h4>
+<form method="get" class="row g-3 mb-3">
+  <div class="col-md-4">
+    <select class="form-select" name="partner_id">
+      <option value="">-- všetci partneri --</option>
+      {% for partner in partners %}
+      <option value="{{ partner.id }}" {% if request.args.get('partner_id') == partner.id|string %}selected{% endif %}>{{ partner.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="confirmed">
+      <option value="">-- stav --</option>
+      <option value="true" {% if request.args.get('confirmed') == 'true' %}selected{% endif %}>Potvrdené</option>
+      <option value="false" {% if request.args.get('confirmed') == 'false' %}selected{% endif %}>Nepotvrdené</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-outline-primary" type="submit">Filtrovať</button>
+  </div>
+</form>
+<form method="post" class="card card-body shadow-sm mb-4">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label">Partner</label>
+      <select class="form-select" name="partner_id" required>
+        {% for partner in partners %}
+        <option value="{{ partner.id }}">{{ partner.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Adresa zvozu</label>
+      <select class="form-select" name="pickup_address_id">
+        <option value="">-- vyberte --</option>
+        {% for address in addresses %}
+        <option value="{{ address.id }}">
+          {{ address.partner.name }} / {{ address.address_type }}
+          {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
+          - {{ address.street }} {{ address.street_number }}, {{ address.city }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Adresa doručenia</label>
+      <select class="form-select" name="delivery_address_id">
+        <option value="">-- vyberte --</option>
+        {% for address in addresses %}
+        <option value="{{ address.id }}">
+          {{ address.partner.name }} / {{ address.address_type }}
+          {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
+          - {{ address.street }} {{ address.street_number }}, {{ address.city }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Termín zvozu</label>
+      <input type="datetime-local" class="form-control" name="pickup_datetime">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Termín doručenia</label>
+      <input type="datetime-local" class="form-control" name="delivery_datetime">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Spôsob zvozu</label>
+      <input class="form-control" name="pickup_method" placeholder="Osobne/kuriér/vlastný zvoz">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Spôsob dodania</label>
+      <input class="form-control" name="delivery_method" placeholder="Osobný odber/kuriér/rozvoz">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Spôsob platby</label>
+      <input class="form-control" name="payment_method" placeholder="Bankový prevod/hotovosť">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Platobné podmienky</label>
+      <input class="form-control" name="payment_terms" placeholder="Splatnosť 14 dní">
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="show_prices" checked>
+        <label class="form-check-label">Zobraziť ceny</label>
+      </div>
+    </div>
+  </div>
+  <hr>
+  <div class="row g-3">
+    {% for product in products %}
+    <div class="col-md-3">
+      <label class="form-label">{{ product.name }}</label>
+      <input class="form-control" type="number" name="product_{{ product.id }}" min="0" value="0">
+    </div>
+    {% endfor %}
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-primary" type="submit">Vytvoriť objednávku</button>
+  </div>
+</form>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Partner</th>
+      <th>Zvoz</th>
+      <th>Doručenie</th>
+      <th>Platba</th>
+      <th>Ceny</th>
+      <th>Stav</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for order in orders %}
+    <tr>
+      <td>{{ order.id }}</td>
+      <td>{{ order.partner.name }}</td>
+      <td>
+        {{ order.pickup_address.street if order.pickup_address }} {{ order.pickup_address.street_number if order.pickup_address }}<br>
+        {{ order.pickup_datetime }}<br>
+        {{ order.pickup_method }}
+      </td>
+      <td>
+        {{ order.delivery_address.street if order.delivery_address }} {{ order.delivery_address.street_number if order.delivery_address }}<br>
+        {{ order.delivery_datetime }}<br>
+        {{ order.delivery_method }}
+      </td>
+      <td>{{ order.payment_method }}<br>{{ order.payment_terms }}</td>
+      <td>
+        {% if current_user() and current_user().role != 'customer' and order.show_prices %}
+          Áno
+        {% else %}
+          Nie
+        {% endif %}
+      </td>
+      <td>
+        {% if order.confirmed %}
+          <span class="badge bg-success">Potvrdená</span>
+          <form method="post" action="{{ url_for('unconfirm_order', order_id=order.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Zrušiť potvrdenie</button>
+          </form>
+        {% else %}
+          <span class="badge bg-warning text-dark">Nepotvrdená</span>
+          <form method="post" action="{{ url_for('confirm_order', order_id=order.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-primary" type="submit">Potvrdiť</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
+{% if total_pages > 1 %}
+<nav>
+  <ul class="pagination">
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="{{ url_for('orders', page=p, partner_id=request.args.get('partner_id'), confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

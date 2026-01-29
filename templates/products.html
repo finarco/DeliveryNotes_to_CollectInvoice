@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Produkty a služby</h4>
+<form method="post" class="row g-3 mb-4">
+  <div class="col-md-4">
+    <input class="form-control" name="name" placeholder="Názov" required>
+  </div>
+  <div class="col-md-4">
+    <input class="form-control" name="description" placeholder="Popis">
+  </div>
+  <div class="col-md-4">
+    <input class="form-control" name="long_text" placeholder="Dlhý text">
+  </div>
+  <div class="col-md-2">
+    <input class="form-control" name="price" type="number" step="0.01" placeholder="Cena" required>
+  </div>
+  <div class="col-md-2 d-flex align-items-center">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="is_service" id="is_service" checked>
+      <label class="form-check-label" for="is_service">Služba</label>
+    </div>
+  </div>
+  <div class="col-md-2 d-flex align-items-center">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="discount_excluded" id="discount_excluded">
+      <label class="form-check-label" for="discount_excluded">Bez zliav</label>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-primary" type="submit">Uložiť produkt</button>
+  </div>
+</form>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Názov</th>
+      <th>Popis</th>
+      <th>Dlhý text</th>
+      <th>Cena</th>
+      <th>Typ</th>
+      <th>Zľavy</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for product in products %}
+    <tr>
+      <td>{{ product.name }}</td>
+      <td>{{ product.description }}</td>
+      <td>{{ product.long_text }}</td>
+      <td>{{ "%.2f"|format(product.price) }}</td>
+      <td>{{ "Služba" if product.is_service else "Tovar" }}</td>
+      <td>{{ "Zakázané" if product.discount_excluded else "Povolené" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

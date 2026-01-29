@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Partneri</h6>
+        <p class="display-6">{{ partner_count }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Objednávky</h6>
+        <p class="display-6">{{ order_count }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Dodacie listy</h6>
+        <p class="display-6">{{ delivery_count }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title">Faktúry</h6>
+        <p class="display-6">{{ invoice_count }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mt-4">
+  <h5>Rýchly prehľad</h5>
+  <p class="text-muted">Aplikácia pokrýva evidenciu partnerov, tvorbu objednávok, dodacie listy a zúčtovacie faktúry s exportom do Superfaktúry.</p>
+</div>
+{% endblock %}
