@@ -873,7 +873,6 @@ def create_app():
             return redirect(url_for("delivery_notes"))
         return render_template(
             "delivery_notes.html",
-            delivery_notes=delivery_list,
             total=total,
             page=page,
             per_page=per_page,
@@ -1007,13 +1006,10 @@ if request.method == "POST":
         if delivery.confirmed:
             flash("Dodací list je už potvrdený.")
             return redirect(url_for("delivery_notes"))
-        delivery.confirmed = True
-        delivery.actual_delivery_datetime = datetime.datetime.utcnow()
-        db.session.commit()
         log_action("confirm", "delivery_note", delivery.id, "confirmed")
         delivery = db.get_or_404(DeliveryNote, delivery_id)
         delivery.confirmed = True
-        delivery.actual_delivery_datetime = utc_now()
+        delivery.actual_delivery_datetime = datetime.datetime.utcnow()
         db.session.commit()
         flash("Dodací list potvrdený.", "success")
         return redirect(url_for("delivery_notes"))
@@ -1023,9 +1019,6 @@ if request.method == "POST":
         login_redirect = require_role("manage_all")
         if login_redirect:
             return login_redirect
-        delivery = DeliveryNote.query.get_or_404(delivery_id)
-        delivery.confirmed = False
-        db.session.commit()
         log_action("unconfirm", "delivery_note", delivery.id, "unconfirmed")
         delivery = db.get_or_404(DeliveryNote, delivery_id)
         delivery.confirmed = False
@@ -1038,8 +1031,6 @@ if request.method == "POST":
         login_redirect = require_login()
         if login_redirect:
             return login_redirect
-        delivery = DeliveryNote.query.get_or_404(delivery_id)
-        pdf_path = generate_delivery_pdf(delivery, app_cfg, can_view_prices(delivery.show_prices))
         delivery = db.get_or_404(DeliveryNote, delivery_id)
         pdf_path = generate_delivery_pdf(delivery, app_cfg)
         return send_file(pdf_path, as_attachment=True)
@@ -1088,10 +1079,6 @@ if request.method == "POST":
         login_redirect = require_role("manage_invoices")
         if login_redirect:
             return login_redirect
-        invoice = Invoice.query.get_or_404(invoice_id)
-        description = request.form.get("description", "").strip()
-        quantity = int(request.form.get("quantity", 1) or 1)
-        unit_price = float(request.form.get("unit_price", 0) or 0)
         invoice = db.get_or_404(Invoice, invoice_id)
         description = request.form.get("description", "").strip()
         quantity = safe_int(request.form.get("quantity"), default=1)
@@ -1119,8 +1106,6 @@ if request.method == "POST":
             return login_redirect
         invoice = Invoice.query.get_or_404(invoice_id)
         pdf_path = generate_invoice_pdf(invoice, app_cfg, can_view_prices(True))
-        invoice = db.get_or_404(Invoice, invoice_id)
-        pdf_path = generate_invoice_pdf(invoice, app_cfg)
         return send_file(pdf_path, as_attachment=True)
 
     @app.route("/invoices/<int:invoice_id>/send", methods=["POST"])
@@ -1128,22 +1113,8 @@ if request.method == "POST":
         login_redirect = require_role("manage_invoices")
         if login_redirect:
             return login_redirect
-        invoice = Invoice.query.get_or_404(invoice_id)
-        pdf_path = generate_invoice_pdf(invoice, app_cfg, True)
-        email_cfg = app.config["EMAIL_CONFIG"]
-        if email_cfg.enabled and invoice.partner.email:
-            send_document_email(
-                email_cfg,
-                subject=f"Faktúra {invoice.id}",
-                recipient=invoice.partner.email,
-                cc=email_cfg.operator_cc,
-                body=f"Dobrý deň, v prílohe posielame faktúru {invoice.id}.",
-                attachment_path=pdf_path,
-            )
-            log_action("email", "invoice", invoice.id, "sent")
-            flash("Faktúra odoslaná emailom.")
         invoice = db.get_or_404(Invoice, invoice_id)
-        pdf_path = generate_invoice_pdf(invoice, app_cfg)
+        pdf_path = generate_invoice_pdf(invoice, app_cfg, True)
         email_cfg = app.config["EMAIL_CONFIG"]
         if email_cfg.enabled and invoice.partner.email:
             try:
@@ -1169,7 +1140,6 @@ if request.method == "POST":
         if login_redirect:
             return login_redirect
         invoice = Invoice.query.get_or_404(invoice_id)
-        invoice = db.get_or_404(Invoice, invoice_id)
         sf_cfg = app.config["SF_CONFIG"]
         if not sf_cfg.enabled:
             flash("Superfaktúra API nie je zapnutá.", "warning")
@@ -1250,7 +1220,6 @@ def ensure_admin_user():
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:
     partner = Partner.query.get_or_404(partner_id)
-    partner = db.get_or_404(Partner, partner_id)
     query = DeliveryNote.query.join(
         DeliveryNoteOrder, DeliveryNote.id == DeliveryNoteOrder.delivery_note_id
     ).join(
