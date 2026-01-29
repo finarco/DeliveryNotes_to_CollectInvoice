@@ -47,7 +47,10 @@ class SuperFakturaClient:
                 "client_ico": invoice.partner.ico,
                 "client_dic": invoice.partner.dic,
                 "client_ic_dph": invoice.partner.ic_dph,
-                "client_address": f"\{invoice.partner.street} {invoice.partner.street_number}, {invoice.partner.postal_code} {invoice.partner.city}\",
+                "client_address": (
+                    f"{invoice.partner.street} {invoice.partner.street_number}, "
+                    f"{invoice.partner.postal_code} {invoice.partner.city}"
+                ),
                 "items": [
                     {
                         "name": item.description,
@@ -57,6 +60,7 @@ class SuperFakturaClient:
                     for item in invoice.items
                 ],
             }
+        }
         }
         response = requests.post(
             url,
