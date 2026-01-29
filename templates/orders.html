@@ -1,6 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 <h4>Objednávky</h4>
+<form method="get" class="row g-3 mb-3">
+  <div class="col-md-4">
+    <select class="form-select" name="partner_id">
+      <option value="">-- všetci partneri --</option>
+      {% for partner in partners %}
+      <option value="{{ partner.id }}" {% if request.args.get('partner_id') == partner.id|string %}selected{% endif %}>{{ partner.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select class="form-select" name="confirmed">
+      <option value="">-- stav --</option>
+      <option value="true" {% if request.args.get('confirmed') == 'true' %}selected{% endif %}>Potvrdené</option>
+      <option value="false" {% if request.args.get('confirmed') == 'false' %}selected{% endif %}>Nepotvrdené</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-outline-primary" type="submit">Filtrovať</button>
+  </div>
+</form>
 <form method="post" class="card card-body shadow-sm mb-4">
   <div class="row g-3">
     <div class="col-md-4">
@@ -109,6 +129,13 @@
         {{ order.delivery_method }}
       </td>
       <td>{{ order.payment_method }}<br>{{ order.payment_terms }}</td>
+      <td>
+        {% if current_user() and current_user().role != 'customer' and order.show_prices %}
+          Áno
+        {% else %}
+          Nie
+        {% endif %}
+      </td>
       <td>{{ "Áno" if order.show_prices else "Nie" }}</td>
       <td>
         {% if order.confirmed %}
@@ -127,4 +154,16 @@
     {% endfor %}
   </tbody>
 </table>
+{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
+{% if total_pages > 1 %}
+<nav>
+  <ul class="pagination">
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="{{ url_for('orders', page=p, partner_id=request.args.get('partner_id'), confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
 {% endblock %}

@@ -1,3 +1,9 @@
+import smtplib
+from email.message import EmailMessage
+from pathlib import Path
+
+from config_models import EmailConfig
+
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -22,6 +28,7 @@ def send_document_email(
     cc: str,
     body: str,
     attachment_path: str,
+):
 ) -> bool:
     """Send email with document attachment.
 
@@ -59,6 +66,10 @@ def send_document_email(
         filename=attachment.name,
     )
 
+    with smtplib.SMTP(config.smtp_host, config.smtp_port) as server:
+        server.starttls()
+        server.login(config.smtp_user, config.smtp_password)
+        server.send_message(message)
     try:
         logger.info(f"Sending email to {recipient} with subject: {subject}")
         with smtplib.SMTP(config.smtp_host, config.smtp_port, timeout=30) as server:

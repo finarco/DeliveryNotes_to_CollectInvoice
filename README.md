@@ -15,6 +15,7 @@ Jednoduchá webová aplikácia (Flask + SQLite) na evidenciu partnerov, tvorbu o
 - PDF výstupy dodacích listov a faktúr.
 - Integrácia na export faktúr do Superfaktúry cez API.
 - Plán zvozov a dodávok s evidenciou vozidiel a operačných dní/hodín.
+- Audit log pre kľúčové udalosti (potvrdenia, exporty, plánovanie) a základné filtre/paginácia v prehľadoch.
 - Konfiguračný súbor pre variabilné nastavenia (`config.yaml`).
 
 ## Prístupové práva (návrh)
@@ -30,6 +31,25 @@ Práva sú mapované v `ROLE_PERMISSIONS` v aplikácii, aby sa dali rozširovať
 2. Skontrolujte `config.yaml` a nastavte hodnoty.
 3. Spustite aplikáciu: `python app.py`
 4. Prihláste sa: **admin / admin** (po prvej inicializácii databázy).
+
+## VPS (Ubuntu) rýchle nasadenie
+1. Nainštalujte Python a nginx:
+   - `sudo apt update && sudo apt install -y python3 python3-venv python3-pip nginx`
+2. Stiahnite repo:
+   - `git clone <VAS_REPO_URL> /opt/delivery-notes`
+   - Ak je repo súkromné, použite SSH URL (napr. `git@github.com:<org>/<repo>.git`).
+   - `git clone https://github.com/DeliveryNotes_to_CollectInvoice/DeliveryNotes_to_CollectInvoice.git /opt/delivery-notes`
+3. Vytvorte virtualenv a nainštalujte závislosti:
+   - `python3 -m venv /opt/delivery-notes/.venv`
+   - `source /opt/delivery-notes/.venv/bin/activate && pip install -r /opt/delivery-notes/requirements.txt`
+4. Spustite aplikáciu:
+   - `source /opt/delivery-notes/.venv/bin/activate && python /opt/delivery-notes/app.py`
+
+### Riešenie SyntaxError
+Ak hlásenie uvádza `SyntaxError` pri spustení, odporúčané kroky:
+1. Overte, že súbory sú aktuálne: `cd /opt/delivery-notes && git pull`.
+2. Skontrolujte syntaktickú chybu: `python -m py_compile /opt/delivery-notes/app.py`.
+3. Ak sa chyba objaví, prekopírujte súbor z repozitára alebo zmažte lokálny súbor a zopakujte `git pull`.
 
 ## Poznámky
 - Konfiguračné hodnoty (SMTP, Superfaktúra, defaultné nastavenia) sa nachádzajú v `config.yaml`.
