@@ -359,26 +359,21 @@ ROLE_PERMISSIONS = {
 
 
 def load_config():
-    with open("config.yaml", "r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle)
-    app_cfg = raw.get("app", {})
-    email_cfg = raw.get("email", {})
-    sf_cfg = raw.get("superfaktura", {})
-    return (
-        AppConfig(
-            name=app_cfg.get("name", "Dodacie listy"),
-            secret_key=app_cfg.get("secret_key", "change-me"),
-            config_path = os.environ.get("CONFIG_PATH", "config.yaml"),
+    # Resolve config path (env overrides default)
+    config_path = os.environ.get("CONFIG_PATH", "config.yaml")
+
+    # Load YAML (optional)
     raw = {}
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as handle:
             raw = yaml.safe_load(handle) or {}
 
-    app_cfg = raw.get("app", {})
-    email_cfg = raw.get("email", {})
-    sf_cfg = raw.get("superfaktura", {})
-    db_cfg = raw.get("database", {})
+    app_cfg = raw.get("app", {}) or {}
+    email_cfg = raw.get("email", {}) or {}
+    sf_cfg = raw.get("superfaktura", {}) or {}
+    db_cfg = raw.get("database", {}) or {}
 
+    # Secret key (env > yaml > auto-generate)
     secret_key = os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", ""))
     if not secret_key or secret_key == "change-me":
         secret_key = secrets.token_hex(32)
@@ -387,53 +382,46 @@ def load_config():
             "or app.secret_key in config.yaml for stable sessions across restarts."
         )
 
-    return (
-        AppConfig(
-            name=app_cfg.get("name", "Dodacie listy"),
-            secret_key=secret_key,
-            base_currency=app_cfg.get("base_currency", "EUR"),
-            show_prices_default=app_cfg.get("show_prices_default", True),
-        ),
-        EmailConfig(
-            enabled=email_cfg.get("enabled", False),
-            smtp_host=email_cfg.get("smtp_host", ""),
-            smtp_port=int(email_cfg.get("smtp_port", 587)),
-            smtp_user=email_cfg.get("smtp_user", ""),
-            smtp_password=email_cfg.get("smtp_password", ""),
-            sender=email_cfg.get("sender", ""),
-            operator_cc=email_cfg.get("operator_cc", ""),
-        ),
-        SuperfakturaConfig(
-            enabled=sf_cfg.get("enabled", False),
-            api_email=sf_cfg.get("api_email", ""),
-            api_key=sf_cfg.get("api_key", ""),
-            company_id=str(sf_cfg.get("company_id", "")),
-            base_url=sf_cfg.get("base_url", "https://api.superfaktura.sk"),
-        ),
-        raw.get("database", {}).get("uri", "sqlite:///delivery_notes.db"),
-            enabled=os.environ.get("EMAIL_ENABLED", str(email_cfg.get("enabled", False))).lower()
-            in ("true", "1", "yes"),
-            smtp_host=os.environ.get("SMTP_HOST", email_cfg.get("smtp_host", "")),
-            smtp_port=int(os.environ.get("SMTP_PORT", email_cfg.get("smtp_port", 587))),
-            smtp_user=os.environ.get("SMTP_USER", email_cfg.get("smtp_user", "")),
-            smtp_password=os.environ.get("SMTP_PASSWORD", email_cfg.get("smtp_password", "")),
-            sender=os.environ.get("EMAIL_SENDER", email_cfg.get("sender", "")),
-            operator_cc=os.environ.get("EMAIL_OPERATOR_CC", email_cfg.get("operator_cc", "")),
-        ),
-        SuperfakturaConfig(
-            enabled=os.environ.get("SUPERFAKTURA_ENABLED", str(sf_cfg.get("enabled", False))).lower()
-            in ("true", "1", "yes"),
-            api_email=os.environ.get("SUPERFAKTURA_API_EMAIL", sf_cfg.get("api_email", "")),
-            api_key=os.environ.get("SUPERFAKTURA_API_KEY", sf_cfg.get("api_key", "")),
-            company_id=os.environ.get(
-                "SUPERFAKTURA_COMPANY_ID", str(sf_cfg.get("company_id", ""))
-            ),
-            base_url=os.environ.get(
-                "SUPERFAKTURA_BASE_URL", sf_cfg.get("base_url", "https://api.superfaktura.sk")
-            ),
-        ),
-        os.environ.get("DATABASE_URI", db_cfg.get("uri", "sqlite:///delivery_notes.db")),
+    app_config = AppConfig(
+        name=os.environ.get("APP_NAME", app_cfg.get("name", "Dodacie listy")),
+        secret_key=secret_key,
+        base_currency=os.environ.get("BASE_CURRENCY", app_cfg.get("base_currency", "EUR")),
+        show_prices_default=str(
+            os.environ.get(
+                "SHOW_PRICES_DEFAULT",
+                str(app_cfg.get("show_prices_default", True)),
+            )
+        ).lower()
+        in ("true", "1", "yes"),
     )
+
+    email_config = EmailConfig(
+        enabled=str(os.environ.get("EMAIL_ENABLED", str(email_cfg.get("enabled", False)))).lower()
+        in ("true", "1", "yes"),
+        smtp_host=os.environ.get("SMTP_HOST", email_cfg.get("smtp_host", "")),
+        smtp_port=int(os.environ.get("SMTP_PORT", email_cfg.get("smtp_port", 587))),
+        smtp_user=os.environ.get("SMTP_USER", email_cfg.get("smtp_user", "")),
+        smtp_password=os.environ.get("SMTP_PASSWORD", email_cfg.get("smtp_password", "")),
+        sender=os.environ.get("EMAIL_SENDER", email_cfg.get("sender", "")),
+        operator_cc=os.environ.get("EMAIL_OPERATOR_CC", email_cfg.get("operator_cc", "")),
+    )
+
+    superfaktura_config = SuperfakturaConfig(
+        enabled=str(
+            os.environ.get("SUPERFAKTURA_ENABLED", str(sf_cfg.get("enabled", False)))
+        ).lower()
+        in ("true", "1", "yes"),
+        api_email=os.environ.get("SUPERFAKTURA_API_EMAIL", sf_cfg.get("api_email", "")),
+        api_key=os.environ.get("SUPERFAKTURA_API_KEY", sf_cfg.get("api_key", "")),
+        company_id=os.environ.get("SUPERFAKTURA_COMPANY_ID", str(sf_cfg.get("company_id", ""))),
+        base_url=os.environ.get(
+            "SUPERFAKTURA_BASE_URL", sf_cfg.get("base_url", "https://api.superfaktura.sk")
+        ),
+    )
+
+    database_uri = os.environ.get("DATABASE_URI", db_cfg.get("uri", "sqlite:///delivery_notes.db"))
+
+    return app_config, email_config, superfaktura_config, database_uri
 
 
 def _enable_sqlite_fks(dbapi_conn, _connection_record):
