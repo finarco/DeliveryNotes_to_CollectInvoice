@@ -1301,10 +1301,6 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
     db.session.commit()
     return invoice
 
-
-def generate_delivery_pdf(
-    delivery: DeliveryNote, app_cfg: AppConfig, show_prices: bool
-) -> str:
 def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_dir, exist_ok=True)
