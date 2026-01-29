@@ -1066,7 +1066,6 @@ def create_app():
             return redirect(url_for("invoices"))
         return render_template(
             "invoices.html",
-            invoices=invoices_list,
             total=total,
             page=page,
             per_page=per_page,
