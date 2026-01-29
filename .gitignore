@@ -3,3 +3,5 @@ __pycache__/
 *.db
 output/
 .env
+instance/
+.pytest_cache/
