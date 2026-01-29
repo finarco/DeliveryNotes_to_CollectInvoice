@@ -28,10 +28,10 @@
 </form>
 <div class="card card-body shadow-sm mb-4">
   <h6>Manuálna položka</h6>
-  <form id="manual-item-form" method="post" action="{{ url_for('add_invoice_item', invoice_id=0) }}" onsubmit="this.action = '/invoices/' + this.invoice_id.value + '/items';">
+  <form id="manual-item-form" method="post" data-url-template="{{ url_for('add_invoice_item', invoice_id=0) }}">
     <div class="row g-2">
       <div class="col-md-2">
-        <input class="form-control" name="invoice_id" placeholder="ID faktúry" required>
+        <input class="form-control" id="manual-invoice-id" name="invoice_id" placeholder="ID faktúry" required>
       </div>
       <div class="col-md-4">
         <input class="form-control" name="description" placeholder="Popis" required>
@@ -47,6 +47,14 @@
       </div>
     </div>
   </form>
+  <script>
+  document.getElementById('manual-item-form').addEventListener('submit', function(e) {
+    var invoiceId = document.getElementById('manual-invoice-id').value;
+    if (invoiceId) {
+      this.action = this.dataset.urlTemplate.replace('/0/', '/' + invoiceId + '/');
+    }
+  });
+  </script>
 </div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
@@ -75,8 +83,12 @@
       </td>
       <td>
         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('invoice_pdf', invoice_id=invoice.id) }}">PDF</a>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('send_invoice', invoice_id=invoice.id) }}">Email</a>
-        <a class="btn btn-sm btn-outline-success" href="{{ url_for('export_invoice', invoice_id=invoice.id) }}">Superfaktúra</a>
+        <form method="post" action="{{ url_for('send_invoice', invoice_id=invoice.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-secondary" type="submit">Email</button>
+        </form>
+        <form method="post" action="{{ url_for('export_invoice', invoice_id=invoice.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" type="submit">Superfaktúra</button>
+        </form>
       </td>
     </tr>
     {% endfor %}

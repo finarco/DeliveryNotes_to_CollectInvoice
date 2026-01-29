@@ -5,10 +5,12 @@ import math
 import os
 import logging
 import os
-from datetime import timezone
+import secrets
+from datetime import timedelta, timezone
 from typing import Optional
 
 import yaml
+from dotenv import load_dotenv
 from flask import (
     Flask,
     flash,
@@ -20,9 +22,13 @@ from flask import (
     url_for,
 )
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from sqlalchemy import event
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from config_models import AppConfig, EmailConfig, SuperfakturaConfig
@@ -31,8 +37,10 @@ from superfaktura_client import SuperFakturaClient
 from mailer import MailerError, send_document_email
 from superfaktura_client import SuperFakturaClient, SuperFakturaError
 
+load_dotenv()
 
 db = SQLAlchemy()
+csrf = CSRFProtect()
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +48,18 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Register DejaVu Sans font for proper Slovak diacritics in PDFs
+_FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+_FONT_REGULAR = os.path.join(_FONT_DIR, "DejaVuSans.ttf")
+_FONT_BOLD = os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")
+if os.path.exists(_FONT_REGULAR):
+    pdfmetrics.registerFont(TTFont("DejaVuSans", _FONT_REGULAR))
+if os.path.exists(_FONT_BOLD):
+    pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", _FONT_BOLD))
+
+PDF_FONT = "DejaVuSans" if os.path.exists(_FONT_REGULAR) else "Helvetica"
+PDF_FONT_BOLD = "DejaVuSans-Bold" if os.path.exists(_FONT_BOLD) else "Helvetica-Bold"
 
 
 def utc_now():
@@ -370,10 +390,18 @@ def load_config():
     sf_cfg = raw.get("superfaktura", {})
     db_cfg = raw.get("database", {})
 
+    secret_key = os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", ""))
+    if not secret_key or secret_key == "change-me":
+        secret_key = secrets.token_hex(32)
+        logger.warning(
+            "Using auto-generated secret key. Set APP_SECRET_KEY env var "
+            "or app.secret_key in config.yaml for stable sessions across restarts."
+        )
+
     return (
         AppConfig(
             name=app_cfg.get("name", "Dodacie listy"),
-            secret_key=os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", "change-me")),
+            secret_key=secret_key,
             base_currency=app_cfg.get("base_currency", "EUR"),
             show_prices_default=app_cfg.get("show_prices_default", True),
         ),
@@ -419,6 +447,13 @@ def load_config():
     )
 
 
+def _enable_sqlite_fks(dbapi_conn, _connection_record):
+    """Enable foreign key enforcement for SQLite connections."""
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 def create_app():
     app_cfg, email_cfg, sf_cfg, db_uri = load_config()
     app = Flask(__name__)
@@ -429,7 +464,18 @@ def create_app():
     app.config["EMAIL_CONFIG"] = email_cfg
     app.config["SF_CONFIG"] = sf_cfg
 
+    # Session security
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+
+    csrf.init_app(app)
     db.init_app(app)
+
+    # Enable SQLite FK enforcement
+    if "sqlite" in db_uri:
+        with app.app_context():
+            event.listen(db.engine, "connect", _enable_sqlite_fks)
 
     with app.app_context():
         db.create_all()
@@ -437,6 +483,15 @@ def create_app():
 
     @app.context_processor
     def inject_globals():
+        user = current_user()
+        user_permissions = set()
+        if user:
+            user_permissions = ROLE_PERMISSIONS.get(user.role, set())
+        return {
+            "app_config": app_cfg,
+            "current_user": user,
+            "user_permissions": user_permissions,
+        }
         return {"app_config": app_cfg, "current_user": current_user}
         return {"app_config": app_cfg}
 
@@ -458,10 +513,17 @@ def create_app():
             return redirect(url_for("login"))
         permissions = ROLE_PERMISSIONS.get(user.role, set())
         if required_permission not in permissions and "manage_all" not in permissions:
-            flash("Nemáte oprávnenie na tento krok.")
+            flash("Nemáte oprávnenie na tento krok.", "danger")
             return redirect(url_for("index"))
         return None
 
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("error.html", code=404, message="Stránka nebola nájdená."), 404
+
+    @app.errorhandler(500)
+    def server_error(_error):
+        return render_template("error.html", code=500, message="Vnútorná chyba servera."), 500
     def can_view_prices(document_show_prices: bool) -> bool:
         user = current_user()
         if not user:
@@ -491,9 +553,9 @@ def create_app():
             user = User.query.filter_by(username=username).first()
             if user and check_password_hash(user.password_hash, password):
                 session["user_id"] = user.id
-                flash("Prihlásenie úspešné.")
+                flash("Prihlásenie úspešné.", "success")
                 return redirect(url_for("index"))
-            flash("Nesprávne prihlasovacie údaje.")
+            flash("Nesprávne prihlasovacie údaje.", "danger")
         return render_template("login.html")
 
     @app.route("/logout")
@@ -550,7 +612,7 @@ def create_app():
                 )
             )
             db.session.commit()
-            flash("Partner uložený.")
+            flash("Partner uložený.", "success")
             return redirect(url_for("partners"))
         return render_template("partners.html", partners=Partner.query.all())
 
@@ -572,7 +634,7 @@ def create_app():
         )
         db.session.add(contact)
         db.session.commit()
-        flash("Kontakt uložený.")
+        flash("Kontakt uložený.", "success")
         return redirect(url_for("partners"))
 
     @app.route("/partners/<int:partner_id>/addresses", methods=["POST"])
@@ -582,11 +644,11 @@ def create_app():
             return login_redirect
         partner = Partner.query.get_or_404(partner_id)
         partner = db.get_or_404(Partner, partner_id)
-        related_partner_id = request.form.get("related_partner_id")
+        related_partner_id = safe_int(request.form.get("related_partner_id")) or None
         address = PartnerAddress(
             partner_id=partner.id,
             address_type=request.form.get("address_type", "").strip() or "other",
-            related_partner_id=int(related_partner_id) if related_partner_id else None,
+            related_partner_id=related_partner_id,
             street=request.form.get("street", ""),
             street_number=request.form.get("street_number", ""),
             postal_code=request.form.get("postal_code", ""),
@@ -594,7 +656,7 @@ def create_app():
         )
         db.session.add(address)
         db.session.commit()
-        flash("Adresa uložená.")
+        flash("Adresa uložená.", "success")
         return redirect(url_for("partners"))
 
     @app.route("/products", methods=["GET", "POST"])
@@ -617,7 +679,7 @@ def create_app():
             db.session.flush()
             product.price_history.append(ProductPriceHistory(price=price))
             db.session.commit()
-            flash("Produkt uložený.")
+            flash("Produkt uložený.", "success")
             return redirect(url_for("products"))
         return render_template("products.html", products=Product.query.all())
 
@@ -646,7 +708,7 @@ def create_app():
                     )
             bundle.price_history.append(BundlePriceHistory(price=bundle_price))
             db.session.commit()
-            flash("Kombinácia uložená.")
+            flash("Kombinácia uložená.", "success")
             return redirect(url_for("bundles"))
         return render_template(
             "bundles.html",
@@ -678,7 +740,7 @@ def create_app():
         if request.method == "POST":
             partner_id = safe_int(request.form.get("partner_id"))
             if not partner_id:
-                flash("Partner je povinný.")
+                flash("Partner je povinný.", "danger")
                 return redirect(url_for("orders"))
             show_prices = request.form.get("show_prices") == "on"
             pickup_address_id = request.form.get("pickup_address_id")
@@ -713,8 +775,8 @@ def create_app():
                         OrderItem(product_id=product.id, quantity=qty, unit_price=price)
                     )
             db.session.commit()
+            flash("Objednávka vytvorená.", "success")
             log_action("create", "order", order.id, f"partner={partner_id}")
-            flash("Objednávka vytvorená.")
             return redirect(url_for("orders"))
         return render_template(
             "orders.html",
@@ -740,7 +802,7 @@ def create_app():
         order = db.get_or_404(Order, order_id)
         order.confirmed = True
         db.session.commit()
-        flash("Objednávka potvrdená.")
+        flash("Objednávka potvrdená.", "success")
         return redirect(url_for("orders"))
 
     @app.route("/orders/<int:order_id>/unconfirm", methods=["POST"])
@@ -755,7 +817,7 @@ def create_app():
         order = db.get_or_404(Order, order_id)
         order.confirmed = False
         db.session.commit()
-        flash("Potvrdenie objednávky zrušené.")
+        flash("Potvrdenie objednávky zrušené.", "warning")
         return redirect(url_for("orders"))
 
     @app.route("/delivery-notes", methods=["GET", "POST"])
@@ -778,12 +840,12 @@ def create_app():
             order_ids = request.form.getlist("order_ids")
             selected_orders = Order.query.filter(Order.id.in_(order_ids)).all()
             if not selected_orders:
-                flash("Objednávka neexistuje.")
+                flash("Objednávka neexistuje.", "danger")
                 return redirect(url_for("delivery_notes"))
-            group_codes = {order.partner.group_code for order in selected_orders}
+            group_codes = {order.partner.group_code or None for order in selected_orders}
             group_codes.discard(None)
             if len(group_codes) > 1:
-                flash("Objednávky musia byť v rovnakej partnerskej skupine.")
+                flash("Objednávky musia byť v rovnakej partnerskej skupine.", "danger")
                 return redirect(url_for("delivery_notes"))
             delivery = DeliveryNote(
                 primary_order_id=selected_orders[0].id,
@@ -838,8 +900,8 @@ def create_app():
                         )
                     delivery.items.append(delivery_item)
             db.session.commit()
+            flash("Dodací list vytvorený.", "success")
             log_action("create", "delivery_note", delivery.id, "created")
-            flash("Dodací list vytvorený.")
             return redirect(url_for("delivery_notes"))
         return render_template(
             "delivery_notes.html",
@@ -867,7 +929,7 @@ def create_app():
             db.session.add(vehicle)
             db.session.commit()
             log_action("create", "vehicle", vehicle.id, "vehicle created")
-            flash("Vozidlo uložené.")
+            flash("Vozidlo uložené.", "success")
             return redirect(url_for("vehicles"))
         return render_template("vehicles.html", vehicles=Vehicle.query.all())
 
@@ -907,7 +969,7 @@ def create_app():
         )
         db.session.add(schedule)
         db.session.commit()
-        flash("Operačný čas uložený.")
+        flash("Operačný čas uložený.", "success")
         return redirect(url_for("vehicles"))
 
     @app.route("/logistics", methods=["GET", "POST"])
@@ -966,7 +1028,7 @@ def create_app():
             )
             db.session.add(plan)
             db.session.commit()
-            flash("Plán zvozu/dodania uložený.")
+            flash("Plán zvozu/dodania uložený.", "success")
             return redirect(url_for("logistics_dashboard", interval=interval))
         return render_template(
             "logistics.html",
@@ -997,7 +1059,7 @@ def create_app():
         delivery.confirmed = True
         delivery.actual_delivery_datetime = utc_now()
         db.session.commit()
-        flash("Dodací list potvrdený.")
+        flash("Dodací list potvrdený.", "success")
         return redirect(url_for("delivery_notes"))
 
     @app.route("/delivery-notes/<int:delivery_id>/unconfirm", methods=["POST"])
@@ -1012,7 +1074,7 @@ def create_app():
         delivery = db.get_or_404(DeliveryNote, delivery_id)
         delivery.confirmed = False
         db.session.commit()
-        flash("Potvrdenie dodacieho listu zrušené.")
+        flash("Potvrdenie dodacieho listu zrušené.", "warning")
         return redirect(url_for("delivery_notes"))
 
     @app.route("/delivery-notes/<int:delivery_id>/pdf")
@@ -1047,10 +1109,13 @@ def create_app():
         if request.method == "POST":
             partner_id = safe_int(request.form.get("partner_id"))
             if not partner_id:
-                flash("Partner je povinný.")
+                flash("Partner je povinný.", "danger")
                 return redirect(url_for("invoices"))
-            invoice = build_invoice_for_partner(partner_id)
-            flash(f"Faktúra {invoice.id} vytvorená.")
+            try:
+                invoice = build_invoice_for_partner(partner_id)
+                flash(f"Faktúra {invoice.id} vytvorená.", "success")
+            except ValueError as e:
+                flash(str(e), "danger")
             return redirect(url_for("invoices"))
         return render_template(
             "invoices.html",
@@ -1088,7 +1153,7 @@ def create_app():
         invoice.total += total
         db.session.commit()
         log_action("create", "invoice_item", invoice.id, "manual")
-        flash("Manuálna položka pridaná.")
+        flash("Manuálna položka pridaná.", "success")
         return redirect(url_for("invoices"))
 
     @app.route("/invoices/<int:invoice_id>/pdf")
@@ -1102,7 +1167,7 @@ def create_app():
         pdf_path = generate_invoice_pdf(invoice, app_cfg)
         return send_file(pdf_path, as_attachment=True)
 
-    @app.route("/invoices/<int:invoice_id>/send")
+    @app.route("/invoices/<int:invoice_id>/send", methods=["POST"])
     def send_invoice(invoice_id: int):
         login_redirect = require_role("manage_invoices")
         if login_redirect:
@@ -1134,15 +1199,15 @@ def create_app():
                     body=f"Dobrý deň, v prílohe posielame faktúru {invoice.id}.",
                     attachment_path=pdf_path,
                 )
-                flash("Faktúra odoslaná emailom.")
+                flash("Faktúra odoslaná emailom.", "success")
             except MailerError as e:
                 logger.error(f"Failed to send invoice {invoice_id} email: {e}")
-                flash(f"Chyba pri odosielaní emailu: {e}")
+                flash(f"Chyba pri odosielaní emailu: {e}", "danger")
         else:
-            flash("Odosielanie emailov nie je zapnuté alebo chýba email.")
+            flash("Odosielanie emailov nie je zapnuté alebo chýba email.", "warning")
         return redirect(url_for("invoices"))
 
-    @app.route("/invoices/<int:invoice_id>/export")
+    @app.route("/invoices/<int:invoice_id>/export", methods=["POST"])
     def export_invoice(invoice_id: int):
         login_redirect = require_role("manage_invoices")
         if login_redirect:
@@ -1151,7 +1216,7 @@ def create_app():
         invoice = db.get_or_404(Invoice, invoice_id)
         sf_cfg = app.config["SF_CONFIG"]
         if not sf_cfg.enabled:
-            flash("Superfaktúra API nie je zapnutá.")
+            flash("Superfaktúra API nie je zapnutá.", "warning")
             return redirect(url_for("invoices"))
         client = SuperFakturaClient(sf_cfg)
         result = client.send_invoice(invoice)
@@ -1163,12 +1228,12 @@ def create_app():
             result = client.send_invoice(invoice)
             invoice.status = "sent" if result else "error"
             db.session.commit()
-            flash("Faktúra exportovaná do Superfaktúry.")
+            flash("Faktúra exportovaná do Superfaktúry.", "success")
         except SuperFakturaError as e:
             logger.error(f"Failed to export invoice {invoice_id} to Superfaktura: {e}")
             invoice.status = "error"
             db.session.commit()
-            flash(f"Chyba pri exporte do Superfaktúry: {e}")
+            flash(f"Chyba pri exporte do Superfaktúry: {e}", "danger")
         return redirect(url_for("invoices"))
 
     return app
@@ -1177,19 +1242,31 @@ def create_app():
 def parse_date(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%Y-%m-%d").date()
+    try:
+        return datetime.datetime.strptime(raw, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse date: '{raw}'")
+        return None
 
 
 def parse_datetime(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+    try:
+        return datetime.datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse datetime: '{raw}'")
+        return None
 
 
 def parse_time(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%H:%M").time()
+    try:
+        return datetime.datetime.strptime(raw, "%H:%M").time()
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse time: '{raw}'")
+        return None
 
 
 def ensure_admin_user():
@@ -1206,7 +1283,11 @@ def ensure_admin_user():
 def build_invoice_for_partner(partner_id: int) -> Invoice:
     partner = Partner.query.get_or_404(partner_id)
     partner = db.get_or_404(Partner, partner_id)
-    query = DeliveryNote.query.join(Order, DeliveryNote.primary_order_id == Order.id).join(
+    query = DeliveryNote.query.join(
+        DeliveryNoteOrder, DeliveryNote.id == DeliveryNoteOrder.delivery_note_id
+    ).join(
+        Order, DeliveryNoteOrder.order_id == Order.id
+    ).join(
         Partner, Order.partner_id == Partner.id
     )
     if partner.group_code:
@@ -1214,6 +1295,8 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
     else:
         query = query.filter(Order.partner_id == partner_id)
     unbilled_notes = query.filter(DeliveryNote.invoiced.is_(False)).all()
+    if not unbilled_notes:
+        raise ValueError("Žiadne nevyfakturované dodacie listy pre tohto partnera.")
     invoice = Invoice(partner_id=partner_id, status="draft")
     db.session.add(invoice)
     total = 0.0
@@ -1246,12 +1329,13 @@ def generate_delivery_pdf(
     delivery: DeliveryNote, app_cfg: AppConfig, show_prices: bool
 ) -> str:
 def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
-    os.makedirs("output", exist_ok=True)
-    filename = f"output/delivery_{delivery.id}.pdf"
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"delivery_{delivery.id}.pdf")
     pdf = canvas.Canvas(filename, pagesize=A4)
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(PDF_FONT_BOLD, 14)
     pdf.drawString(20 * mm, 285 * mm, f"Dodací list {delivery.id}")
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(PDF_FONT, 10)
     partner_name = delivery.primary_order.partner.name if delivery.primary_order else ""
     pdf.drawString(20 * mm, 278 * mm, f"Partner: {partner_name}")
     pdf.drawString(20 * mm, 272 * mm, f"Dátum: {delivery.created_at.date()}")
@@ -1263,12 +1347,12 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
         f"Plán: {delivery.planned_delivery_datetime or ''} | Skutočnosť: {delivery.actual_delivery_datetime or ''}",
     )
     y = 250
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(PDF_FONT_BOLD, 10)
     pdf.drawString(20 * mm, y * mm, "Položky")
     y -= 6
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(PDF_FONT, 9)
     for item in delivery.items:
-        name = item.product.name if item.product else item.bundle.name
+        name = item.product.name if item.product else item.bundle.name if item.bundle else "Položka"
         line = f"{name} - {item.quantity}x"
         if show_prices:
         if delivery.show_prices:
@@ -1289,19 +1373,20 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
 
 def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig, show_prices: bool) -> str:
 def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
-    os.makedirs("output", exist_ok=True)
-    filename = f"output/invoice_{invoice.id}.pdf"
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"invoice_{invoice.id}.pdf")
     pdf = canvas.Canvas(filename, pagesize=A4)
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(PDF_FONT_BOLD, 14)
     pdf.drawString(20 * mm, 285 * mm, f"Zúčtovacia faktúra {invoice.id}")
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(PDF_FONT, 10)
     pdf.drawString(20 * mm, 278 * mm, f"Partner: {invoice.partner.name}")
     pdf.drawString(20 * mm, 272 * mm, f"Dátum: {invoice.created_at.date()}")
     y = 255
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(PDF_FONT_BOLD, 10)
     pdf.drawString(20 * mm, y * mm, "Položky")
     y -= 6
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(PDF_FONT, 9)
     for item in invoice.items:
         source = f" (DL {item.source_delivery_id})" if item.source_delivery_id else ""
         line = f"{item.description}{source} | {item.quantity}x"
@@ -1316,9 +1401,9 @@ def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
         if y < 20:
             pdf.showPage()
             y = 280
-    pdf.setFont("Helvetica-Bold", 11)
+    pdf.setFont(PDF_FONT_BOLD, 11)
     pdf.drawString(
-        20 * mm, 20 * mm, f"Spolu: {invoice.total:.2f} {app_cfg.base_currency}"
+        20 * mm, max(y - 5, 15) * mm, f"Spolu: {invoice.total:.2f} {app_cfg.base_currency}"
     )
     pdf.save()
     return filename
