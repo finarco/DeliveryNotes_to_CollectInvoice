@@ -972,21 +972,21 @@ def create_app():
         orders = Order.query.order_by(Order.created_at.desc()).all()
         delivery_notes = DeliveryNote.query.order_by(DeliveryNote.created_at.desc()).all()
         vehicles = Vehicle.query.filter_by(active=True).all()
-if request.method == "POST":
-    plan = LogisticsPlan(
-        order_id=safe_int(request.form.get("order_id")) or None,
-        delivery_note_id=safe_int(request.form.get("delivery_note_id")) or None,
-        plan_type=request.form.get("plan_type", "pickup"),
-        planned_datetime=parse_datetime(request.form.get("planned_datetime")) or datetime.datetime.now(datetime.timezone.utc),
-        vehicle_id=safe_int(request.form.get("vehicle_id")) or None,
-    )
-    db.session.add(plan)
-    db.session.commit()
-    log_action("create", "logistics_plan", plan.id, plan.plan_type)
+    if request.method == "POST":
+        plan = LogisticsPlan(
+            order_id=safe_int(request.form.get("order_id")) or None,
+            delivery_note_id=safe_int(request.form.get("delivery_note_id")) or None,
+            plan_type=request.form.get("plan_type", "pickup"),
+            planned_datetime=parse_datetime(request.form.get("planned_datetime")) or datetime.datetime.now(datetime.timezone.utc),
+            vehicle_id=safe_int(request.form.get("vehicle_id")) or None,
+        )
+        db.session.add(plan)
+        db.session.commit()
+        log_action("create", "logistics_plan", plan.id, plan.plan_type)
 
-    flash("Plán zvozu/dodania uložený.", "success")
-    return redirect(url_for("logistics_dashboard", interval=interval))
-    return render_template(
+        flash("Plán zvozu/dodania uložený.", "success")
+        return redirect(url_for("logistics_dashboard", interval=interval))
+        return render_template(
             "logistics.html",
             plans=plans,
             interval=interval,
@@ -996,7 +996,7 @@ if request.method == "POST":
             orders=orders,
             delivery_notes=delivery_notes,
             vehicles=vehicles,
-    )
+        )
     @app.route("/delivery-notes/<int:delivery_id>/confirm", methods=["POST"])
     def confirm_delivery(delivery_id: int):
         login_redirect = require_role("manage_delivery")
