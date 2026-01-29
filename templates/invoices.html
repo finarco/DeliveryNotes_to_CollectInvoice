@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Faktúry</h4>
+<form method="get" class="row g-3 mb-3">
+  <div class="col-md-3">
+    <select class="form-select" name="status">
+      <option value="">-- stav --</option>
+      <option value="draft" {% if request.args.get('status') == 'draft' %}selected{% endif %}>Draft</option>
+      <option value="sent" {% if request.args.get('status') == 'sent' %}selected{% endif %}>Sent</option>
+      <option value="error" {% if request.args.get('status') == 'error' %}selected{% endif %}>Error</option>
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-outline-primary" type="submit">Filtrovať</button>
+  </div>
+</form>
+<form method="post" class="row g-3 mb-4">
+  <div class="col-md-6">
+    <select class="form-select" name="partner_id" required>
+      {% for partner in partners %}
+      <option value="{{ partner.id }}">{{ partner.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-6">
+    <button class="btn btn-primary" type="submit">Vytvoriť zúčtovaciu faktúru</button>
+  </div>
+</form>
+<div class="card card-body shadow-sm mb-4">
+  <h6>Manuálna položka</h6>
+  <form id="manual-item-form" method="post" action="{{ url_for('add_invoice_item', invoice_id=0) }}" onsubmit="this.action = '/invoices/' + this.invoice_id.value + '/items';">
+    <div class="row g-2">
+      <div class="col-md-2">
+        <input class="form-control" name="invoice_id" placeholder="ID faktúry" required>
+      </div>
+      <div class="col-md-4">
+        <input class="form-control" name="description" placeholder="Popis" required>
+      </div>
+      <div class="col-md-2">
+        <input class="form-control" name="quantity" type="number" min="1" value="1" required>
+      </div>
+      <div class="col-md-2">
+        <input class="form-control" name="unit_price" type="number" step="0.01" value="0" required>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-primary w-100" type="submit">Pridať</button>
+      </div>
+    </div>
+  </form>
+</div>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Partner</th>
+      <th>Stav</th>
+      <th>Spolu</th>
+      <th>Položky</th>
+      <th>Akcie</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for invoice in invoices %}
+    <tr>
+      <td>{{ invoice.id }}</td>
+      <td>{{ invoice.partner.name }}</td>
+      <td>{{ invoice.status }}</td>
+      <td>{{ "%.2f"|format(invoice.total) }}</td>
+      <td>
+        <ul class="list-unstyled mb-0">
+          {% for item in invoice.items %}
+          <li>{{ item.description }} | {{ item.quantity }}x | {{ "%.2f"|format(item.total) }}</li>
+          {% endfor %}
+        </ul>
+      </td>
+      <td>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('invoice_pdf', invoice_id=invoice.id) }}">PDF</a>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('send_invoice', invoice_id=invoice.id) }}">Email</a>
+        <a class="btn btn-sm btn-outline-success" href="{{ url_for('export_invoice', invoice_id=invoice.id) }}">Superfaktúra</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
+{% if total_pages > 1 %}
+<nav>
+  <ul class="pagination">
+    {% for p in range(1, total_pages + 1) %}
+    <li class="page-item {% if p == page %}active{% endif %}">
+      <a class="page-link" href="{{ url_for('invoices', page=p, status=request.args.get('status')) }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}
