@@ -83,7 +83,7 @@
     </div>
     <div class="col-md-2 d-flex align-items-end">
       <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="show_prices" checked>
+        <input class="form-check-input" type="checkbox" name="show_prices" {{ "checked" if app_config.show_prices_default }}>
         <label class="form-check-label">Zobraziť ceny</label>
       </div>
     </div>
@@ -136,6 +136,7 @@
           Nie
         {% endif %}
       </td>
+      <td>{{ "Áno" if order.show_prices else "Nie" }}</td>
       <td>
         {% if order.confirmed %}
           <span class="badge bg-success">Potvrdená</span>

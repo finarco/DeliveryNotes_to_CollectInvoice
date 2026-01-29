@@ -38,6 +38,7 @@ Práva sú mapované v `ROLE_PERMISSIONS` v aplikácii, aby sa dali rozširovať
 2. Stiahnite repo:
    - `git clone <VAS_REPO_URL> /opt/delivery-notes`
    - Ak je repo súkromné, použite SSH URL (napr. `git@github.com:<org>/<repo>.git`).
+   - `git clone https://github.com/DeliveryNotes_to_CollectInvoice/DeliveryNotes_to_CollectInvoice.git /opt/delivery-notes`
 3. Vytvorte virtualenv a nainštalujte závislosti:
    - `python3 -m venv /opt/delivery-notes/.venv`
    - `source /opt/delivery-notes/.venv/bin/activate && pip install -r /opt/delivery-notes/requirements.txt`
