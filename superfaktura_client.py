@@ -60,15 +60,8 @@ class SuperFakturaClient:
                 timeout=30,
             )
             response.raise_for_status()
-
-            if response.status_code in {200, 201}:
-                logger.info(f"Invoice {invoice.id} sent successfully")
-                return True
-
-            logger.warning(
-                f"Unexpected response status {response.status_code} for invoice {invoice.id}"
-            )
-            return False
+            logger.info(f"Invoice {invoice.id} sent successfully")
+            return True
 
         except requests.exceptions.Timeout:
             logger.error(f"Timeout while sending invoice {invoice.id} to Superfaktura")

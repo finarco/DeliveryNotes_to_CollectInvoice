@@ -20,6 +20,8 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -36,6 +38,18 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Register DejaVu Sans font for proper Slovak diacritics in PDFs
+_FONT_DIR = "/usr/share/fonts/truetype/dejavu"
+_FONT_REGULAR = os.path.join(_FONT_DIR, "DejaVuSans.ttf")
+_FONT_BOLD = os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")
+if os.path.exists(_FONT_REGULAR):
+    pdfmetrics.registerFont(TTFont("DejaVuSans", _FONT_REGULAR))
+if os.path.exists(_FONT_BOLD):
+    pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", _FONT_BOLD))
+
+PDF_FONT = "DejaVuSans" if os.path.exists(_FONT_REGULAR) else "Helvetica"
+PDF_FONT_BOLD = "DejaVuSans-Bold" if os.path.exists(_FONT_BOLD) else "Helvetica-Bold"
 
 
 def utc_now():
@@ -507,11 +521,11 @@ def create_app():
         if login_redirect:
             return login_redirect
         partner = db.get_or_404(Partner, partner_id)
-        related_partner_id = request.form.get("related_partner_id")
+        related_partner_id = safe_int(request.form.get("related_partner_id")) or None
         address = PartnerAddress(
             partner_id=partner.id,
             address_type=request.form.get("address_type", "").strip() or "other",
-            related_partner_id=int(related_partner_id) if related_partner_id else None,
+            related_partner_id=related_partner_id,
             street=request.form.get("street", ""),
             street_number=request.form.get("street_number", ""),
             postal_code=request.form.get("postal_code", ""),
@@ -661,7 +675,7 @@ def create_app():
             if not selected_orders:
                 flash("Objednávka neexistuje.")
                 return redirect(url_for("delivery_notes"))
-            group_codes = {order.partner.group_code for order in selected_orders}
+            group_codes = {order.partner.group_code or None for order in selected_orders}
             group_codes.discard(None)
             if len(group_codes) > 1:
                 flash("Objednávky musia byť v rovnakej partnerskej skupine.")
@@ -836,8 +850,11 @@ def create_app():
             if not partner_id:
                 flash("Partner je povinný.")
                 return redirect(url_for("invoices"))
-            invoice = build_invoice_for_partner(partner_id)
-            flash(f"Faktúra {invoice.id} vytvorená.")
+            try:
+                invoice = build_invoice_for_partner(partner_id)
+                flash(f"Faktúra {invoice.id} vytvorená.")
+            except ValueError as e:
+                flash(str(e))
             return redirect(url_for("invoices"))
         return render_template(
             "invoices.html",
@@ -878,7 +895,7 @@ def create_app():
         pdf_path = generate_invoice_pdf(invoice, app_cfg)
         return send_file(pdf_path, as_attachment=True)
 
-    @app.route("/invoices/<int:invoice_id>/send")
+    @app.route("/invoices/<int:invoice_id>/send", methods=["POST"])
     def send_invoice(invoice_id: int):
         login_redirect = require_role("manage_invoices")
         if login_redirect:
@@ -904,7 +921,7 @@ def create_app():
             flash("Odosielanie emailov nie je zapnuté alebo chýba email.")
         return redirect(url_for("invoices"))
 
-    @app.route("/invoices/<int:invoice_id>/export")
+    @app.route("/invoices/<int:invoice_id>/export", methods=["POST"])
     def export_invoice(invoice_id: int):
         login_redirect = require_role("manage_invoices")
         if login_redirect:
@@ -933,19 +950,31 @@ def create_app():
 def parse_date(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%Y-%m-%d").date()
+    try:
+        return datetime.datetime.strptime(raw, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse date: '{raw}'")
+        return None
 
 
 def parse_datetime(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+    try:
+        return datetime.datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse datetime: '{raw}'")
+        return None
 
 
 def parse_time(raw: Optional[str]):
     if not raw:
         return None
-    return datetime.datetime.strptime(raw, "%H:%M").time()
+    try:
+        return datetime.datetime.strptime(raw, "%H:%M").time()
+    except (ValueError, TypeError):
+        logger.warning(f"Could not parse time: '{raw}'")
+        return None
 
 
 def ensure_admin_user():
@@ -961,7 +990,11 @@ def ensure_admin_user():
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:
     partner = db.get_or_404(Partner, partner_id)
-    query = DeliveryNote.query.join(Order, DeliveryNote.primary_order_id == Order.id).join(
+    query = DeliveryNote.query.join(
+        DeliveryNoteOrder, DeliveryNote.id == DeliveryNoteOrder.delivery_note_id
+    ).join(
+        Order, DeliveryNoteOrder.order_id == Order.id
+    ).join(
         Partner, Order.partner_id == Partner.id
     )
     if partner.group_code:
@@ -969,6 +1002,8 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
     else:
         query = query.filter(Order.partner_id == partner_id)
     unbilled_notes = query.filter(DeliveryNote.invoiced.is_(False)).all()
+    if not unbilled_notes:
+        raise ValueError("Žiadne nevyfakturované dodacie listy pre tohto partnera.")
     invoice = Invoice(partner_id=partner_id, status="draft")
     db.session.add(invoice)
     total = 0.0
@@ -998,12 +1033,13 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
 
 
 def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
-    os.makedirs("output", exist_ok=True)
-    filename = f"output/delivery_{delivery.id}.pdf"
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"delivery_{delivery.id}.pdf")
     pdf = canvas.Canvas(filename, pagesize=A4)
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(PDF_FONT_BOLD, 14)
     pdf.drawString(20 * mm, 285 * mm, f"Dodací list {delivery.id}")
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(PDF_FONT, 10)
     partner_name = delivery.primary_order.partner.name if delivery.primary_order else ""
     pdf.drawString(20 * mm, 278 * mm, f"Partner: {partner_name}")
     pdf.drawString(20 * mm, 272 * mm, f"Dátum: {delivery.created_at.date()}")
@@ -1014,12 +1050,12 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
         f"Plán: {delivery.planned_delivery_datetime or ''} | Skutočnosť: {delivery.actual_delivery_datetime or ''}",
     )
     y = 250
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(PDF_FONT_BOLD, 10)
     pdf.drawString(20 * mm, y * mm, "Položky")
     y -= 6
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(PDF_FONT, 9)
     for item in delivery.items:
-        name = item.product.name if item.product else item.bundle.name
+        name = item.product.name if item.product else item.bundle.name if item.bundle else "Položka"
         line = f"{name} - {item.quantity}x"
         if delivery.show_prices:
             line += f" | {item.unit_price:.2f} {app_cfg.base_currency}"
@@ -1038,19 +1074,20 @@ def generate_delivery_pdf(delivery: DeliveryNote, app_cfg: AppConfig) -> str:
 
 
 def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
-    os.makedirs("output", exist_ok=True)
-    filename = f"output/invoice_{invoice.id}.pdf"
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, f"invoice_{invoice.id}.pdf")
     pdf = canvas.Canvas(filename, pagesize=A4)
-    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFont(PDF_FONT_BOLD, 14)
     pdf.drawString(20 * mm, 285 * mm, f"Zúčtovacia faktúra {invoice.id}")
-    pdf.setFont("Helvetica", 10)
+    pdf.setFont(PDF_FONT, 10)
     pdf.drawString(20 * mm, 278 * mm, f"Partner: {invoice.partner.name}")
     pdf.drawString(20 * mm, 272 * mm, f"Dátum: {invoice.created_at.date()}")
     y = 255
-    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFont(PDF_FONT_BOLD, 10)
     pdf.drawString(20 * mm, y * mm, "Položky")
     y -= 6
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(PDF_FONT, 9)
     for item in invoice.items:
         line = (
             f"{item.description} | {item.quantity}x | "
@@ -1061,9 +1098,9 @@ def generate_invoice_pdf(invoice: Invoice, app_cfg: AppConfig) -> str:
         if y < 20:
             pdf.showPage()
             y = 280
-    pdf.setFont("Helvetica-Bold", 11)
+    pdf.setFont(PDF_FONT_BOLD, 11)
     pdf.drawString(
-        20 * mm, 20 * mm, f"Spolu: {invoice.total:.2f} {app_cfg.base_currency}"
+        20 * mm, max(y - 5, 15) * mm, f"Spolu: {invoice.total:.2f} {app_cfg.base_currency}"
     )
     pdf.save()
     return filename

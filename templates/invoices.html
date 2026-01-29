@@ -62,8 +62,12 @@
       </td>
       <td>
         <a class="btn btn-sm btn-outline-primary" href="{{ url_for('invoice_pdf', invoice_id=invoice.id) }}">PDF</a>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('send_invoice', invoice_id=invoice.id) }}">Email</a>
-        <a class="btn btn-sm btn-outline-success" href="{{ url_for('export_invoice', invoice_id=invoice.id) }}">Superfaktúra</a>
+        <form method="post" action="{{ url_for('send_invoice', invoice_id=invoice.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-secondary" type="submit">Email</button>
+        </form>
+        <form method="post" action="{{ url_for('export_invoice', invoice_id=invoice.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-success" type="submit">Superfaktúra</button>
+        </form>
       </td>
     </tr>
     {% endfor %}
