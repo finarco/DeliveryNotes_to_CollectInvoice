@@ -61,7 +61,6 @@ class SuperFakturaClient:
                 ],
             }
         }
-        }
         response = requests.post(
             url,
             auth=(self.config.api_email, self.config.api_key),
