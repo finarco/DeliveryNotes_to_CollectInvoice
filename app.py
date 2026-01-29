@@ -573,7 +573,6 @@ def create_app():
                 phone=request.form.get("phone", ""),
                 price_level=request.form.get("price_level", ""),
                 discount_percent=float(request.form.get("discount_percent", 0) or 0),
-                discount_percent=safe_float(request.form.get("discount_percent")),
             )
             db.session.add(partner)
             db.session.flush()
