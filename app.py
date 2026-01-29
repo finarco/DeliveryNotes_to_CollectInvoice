@@ -996,8 +996,7 @@ if request.method == "POST":
 
     flash("Plán zvozu/dodania uložený.", "success")
     return redirect(url_for("logistics_dashboard", interval=interval))
-
-        return render_template(
+    return render_template(
             "logistics.html",
             plans=plans,
             interval=interval,
@@ -1007,8 +1006,7 @@ if request.method == "POST":
             orders=orders,
             delivery_notes=delivery_notes,
             vehicles=vehicles,
-        )
-
+    )
     @app.route("/delivery-notes/<int:delivery_id>/confirm", methods=["POST"])
     def confirm_delivery(delivery_id: int):
         login_redirect = require_role("manage_delivery")
