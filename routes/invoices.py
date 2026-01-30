@@ -31,7 +31,7 @@ invoices_bp = Blueprint("invoices", __name__)
 @invoices_bp.route("/invoices", methods=["GET", "POST"])
 @role_required("manage_invoices")
 def list_invoices():
-    partners = Partner.query.all()
+    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
     if request.method == "POST":
         partner_id = safe_int(request.form.get("partner_id"))
         if not partner_id:
@@ -52,9 +52,6 @@ def list_invoices():
         return redirect(url_for("invoices.list_invoices"))
 
     query = Invoice.query.order_by(Invoice.created_at.desc())
-    status_filter = request.args.get("status")
-    if status_filter and status_filter in VALID_INVOICE_STATUSES:
-        query = query.filter(Invoice.status == status_filter)
 
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
@@ -69,7 +66,38 @@ def list_invoices():
         page=page,
         per_page=per_page,
         partners=partners,
+        valid_invoice_statuses=sorted(VALID_INVOICE_STATUSES),
     )
+
+
+@invoices_bp.route("/invoices/<int:invoice_id>/edit", methods=["POST"])
+@role_required("manage_all")
+def edit_invoice(invoice_id: int):
+    invoice = db.get_or_404(Invoice, invoice_id)
+    if invoice.is_locked:
+        flash("Faktúra je uzamknutá.", "danger")
+        return redirect(url_for("invoices.list_invoices"))
+    new_status = request.form.get("status", "").strip()
+    if new_status and new_status in VALID_INVOICE_STATUSES:
+        invoice.status = new_status
+    log_action("edit", "invoice", invoice.id, f"status={invoice.status}")
+    db.session.commit()
+    flash("Faktúra upravená.", "success")
+    return redirect(url_for("invoices.list_invoices"))
+
+
+@invoices_bp.route("/invoices/<int:invoice_id>/delete", methods=["POST"])
+@role_required("manage_all")
+def delete_invoice(invoice_id: int):
+    invoice = db.get_or_404(Invoice, invoice_id)
+    if invoice.is_locked:
+        flash("Faktúra je uzamknutá a nemôže byť vymazaná.", "danger")
+        return redirect(url_for("invoices.list_invoices"))
+    log_action("delete", "invoice", invoice.id, f"deleted invoice #{invoice.id}")
+    db.session.delete(invoice)
+    db.session.commit()
+    flash("Faktúra vymazaná.", "warning")
+    return redirect(url_for("invoices.list_invoices"))
 
 
 @invoices_bp.route(

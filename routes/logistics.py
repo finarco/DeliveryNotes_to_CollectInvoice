@@ -88,3 +88,31 @@ def dashboard():
         delivery_notes=all_delivery_notes,
         vehicles=vehicles,
     )
+
+
+@logistics_bp.route("/logistics/<int:plan_id>/edit", methods=["POST"])
+@role_required("manage_delivery")
+def edit_plan(plan_id: int):
+    plan = db.get_or_404(LogisticsPlan, plan_id)
+    plan.plan_type = request.form.get("plan_type", plan.plan_type)
+    plan.order_id = safe_int(request.form.get("order_id")) or None
+    plan.delivery_note_id = safe_int(request.form.get("delivery_note_id")) or None
+    plan.vehicle_id = safe_int(request.form.get("vehicle_id")) or None
+    plan.planned_datetime = parse_datetime(
+        request.form.get("planned_datetime")
+    ) or plan.planned_datetime
+    log_action("edit", "logistics_plan", plan.id, "updated")
+    db.session.commit()
+    flash("Plán upravený.", "success")
+    return redirect(url_for("logistics.dashboard"))
+
+
+@logistics_bp.route("/logistics/<int:plan_id>/delete", methods=["POST"])
+@role_required("manage_delivery")
+def delete_plan(plan_id: int):
+    plan = db.get_or_404(LogisticsPlan, plan_id)
+    log_action("delete", "logistics_plan", plan.id, f"deleted plan #{plan.id}")
+    db.session.delete(plan)
+    db.session.commit()
+    flash("Plán vymazaný.", "warning")
+    return redirect(url_for("logistics.dashboard"))

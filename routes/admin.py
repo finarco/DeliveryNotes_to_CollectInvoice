@@ -4,7 +4,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import VALID_ROLES, User
+from models import DeliveryNote, Invoice, Order, VALID_ROLES, User
 from services.audit import log_action
 from services.auth import role_required
 
@@ -80,3 +80,36 @@ def reset_password(user_id: int):
     db.session.commit()
     flash(f"Heslo pre '{user.username}' bolo resetované.", "success")
     return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/unlock/order/<int:order_id>", methods=["POST"])
+@role_required("manage_all")
+def unlock_order(order_id: int):
+    order = db.get_or_404(Order, order_id)
+    order.is_locked = False
+    log_action("unlock", "order", order.id, "unlocked by admin")
+    db.session.commit()
+    flash(f"Objednávka #{order.id} odomknutá.", "success")
+    return redirect(request.referrer or url_for("orders.list_orders"))
+
+
+@admin_bp.route("/unlock/delivery/<int:delivery_id>", methods=["POST"])
+@role_required("manage_all")
+def unlock_delivery(delivery_id: int):
+    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery.is_locked = False
+    log_action("unlock", "delivery_note", delivery.id, "unlocked by admin")
+    db.session.commit()
+    flash(f"Dodací list #{delivery.id} odomknutý.", "success")
+    return redirect(request.referrer or url_for("delivery.list_delivery_notes"))
+
+
+@admin_bp.route("/unlock/invoice/<int:invoice_id>", methods=["POST"])
+@role_required("manage_all")
+def unlock_invoice(invoice_id: int):
+    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice.is_locked = False
+    log_action("unlock", "invoice", invoice.id, "unlocked by admin")
+    db.session.commit()
+    flash(f"Faktúra #{invoice.id} odomknutá.", "success")
+    return redirect(request.referrer or url_for("invoices.list_invoices"))

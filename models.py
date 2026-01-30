@@ -58,6 +58,7 @@ class Partner(db.Model):
     price_level = db.Column(db.String(60))
     discount_percent = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     is_active = db.Column(db.Boolean, default=True)
+    is_deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -186,6 +187,7 @@ class Order(db.Model):
     payment_terms = db.Column(db.String(120))
     show_prices = db.Column(db.Boolean, default=True)
     confirmed = db.Column(db.Boolean, default=False)
+    is_locked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -194,6 +196,11 @@ class Order(db.Model):
     delivery_address = db.relationship("PartnerAddress", foreign_keys=[delivery_address_id])
     created_by = db.relationship("User")
     items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
+    delivery_note_links = db.relationship(
+        "DeliveryNoteOrder",
+        foreign_keys="DeliveryNoteOrder.order_id",
+        viewonly=True,
+    )
 
     __table_args__ = (
         db.Index("ix_order_partner_id", "partner_id"),
@@ -226,6 +233,7 @@ class DeliveryNote(db.Model):
     planned_delivery_datetime = db.Column(db.DateTime)
     actual_delivery_datetime = db.Column(db.DateTime)
     confirmed = db.Column(db.Boolean, default=False)
+    is_locked = db.Column(db.Boolean, default=False)
 
     primary_order = db.relationship("Order")
     created_by = db.relationship("User")
@@ -234,6 +242,16 @@ class DeliveryNote(db.Model):
     )
     orders = db.relationship(
         "DeliveryNoteOrder", backref="delivery_note", cascade="all, delete-orphan"
+    )
+    logistics_plans = db.relationship(
+        "LogisticsPlan",
+        foreign_keys="LogisticsPlan.delivery_note_id",
+        viewonly=True,
+    )
+    invoice_item_refs = db.relationship(
+        "InvoiceItem",
+        foreign_keys="InvoiceItem.source_delivery_id",
+        viewonly=True,
     )
 
     __table_args__ = (
@@ -354,6 +372,7 @@ class Invoice(db.Model):
     total = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     status = db.Column(db.String(30), default="draft")
+    is_locked = db.Column(db.Boolean, default=False)
 
     partner = db.relationship("Partner")
     items = db.relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")

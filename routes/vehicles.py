@@ -31,6 +31,44 @@ def list_vehicles():
     return render_template("vehicles.html", vehicles=Vehicle.query.all())
 
 
+@vehicles_bp.route("/vehicles/<int:vehicle_id>/toggle", methods=["POST"])
+@role_required("manage_delivery")
+def toggle_vehicle(vehicle_id: int):
+    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    vehicle.active = not vehicle.active
+    action = "activate" if vehicle.active else "deactivate"
+    log_action(action, "vehicle", vehicle.id, f"active={vehicle.active}")
+    db.session.commit()
+    status = "aktivované" if vehicle.active else "deaktivované"
+    flash(f"Vozidlo '{vehicle.name}' {status}.", "success")
+    return redirect(url_for("vehicles.list_vehicles"))
+
+
+@vehicles_bp.route("/vehicles/<int:vehicle_id>/edit", methods=["POST"])
+@role_required("manage_delivery")
+def edit_vehicle(vehicle_id: int):
+    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    vehicle.name = request.form.get("name", "").strip() or vehicle.name
+    vehicle.notes = request.form.get("notes", "")
+    vehicle.active = request.form.get("active") == "on"
+    log_action("edit", "vehicle", vehicle.id, "updated")
+    db.session.commit()
+    flash(f"Vozidlo '{vehicle.name}' upravené.", "success")
+    return redirect(url_for("vehicles.list_vehicles"))
+
+
+@vehicles_bp.route("/vehicles/<int:vehicle_id>/delete", methods=["POST"])
+@role_required("manage_delivery")
+def delete_vehicle(vehicle_id: int):
+    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    name = vehicle.name
+    log_action("delete", "vehicle", vehicle.id, f"deleted: {name}")
+    db.session.delete(vehicle)
+    db.session.commit()
+    flash(f"Vozidlo '{name}' vymazané.", "warning")
+    return redirect(url_for("vehicles.list_vehicles"))
+
+
 @vehicles_bp.route(
     "/vehicles/<int:vehicle_id>/schedules", methods=["POST"]
 )

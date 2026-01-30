@@ -98,18 +98,70 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editOrderModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editOrderForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť objednávku</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Termín zvozu</label>
+              <input type="datetime-local" class="form-control" name="pickup_datetime">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Termín doručenia</label>
+              <input type="datetime-local" class="form-control" name="delivery_datetime">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Spôsob zvozu</label>
+              <input class="form-control" name="pickup_method">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Spôsob dodania</label>
+              <input class="form-control" name="delivery_method">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Spôsob platby</label>
+              <input class="form-control" name="payment_method">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Platobné podmienky</label>
+              <input class="form-control" name="payment_terms">
+            </div>
+            <div class="col-md-6 d-flex align-items-center pt-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="show_prices" id="edit_order_show_prices">
+                <label class="form-check-label" for="edit_order_show_prices">Zobraziť ceny</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Partner..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Zvoz..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Doručenie..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Platba..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Ceny..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Stav..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Partner..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Zvoz..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Doručenie..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Platba..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Ceny..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Stav..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>ID</th>
       <th>Partner</th>
       <th>Zvoz</th>
@@ -122,6 +174,33 @@
   <tbody>
     {% for order in orders %}
     <tr>
+      <td class="text-nowrap">
+        {% if order.is_locked %}
+          <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
+          {% if "manage_all" in user_permissions %}
+          <form method="post" action="{{ url_for('admin.unlock_order', order_id=order.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
+          </form>
+          {% endif %}
+        {% elif order.delivery_note_links %}
+          <span class="badge bg-info mb-1">Má dodací list</span>
+        {% else %}
+          <button type="button" class="btn btn-sm btn-outline-primary"
+            data-bs-toggle="modal" data-bs-target="#editOrderModal"
+            data-id="{{ order.id }}"
+            data-pickup-datetime="{{ order.pickup_datetime.strftime('%Y-%m-%dT%H:%M') if order.pickup_datetime else '' }}"
+            data-delivery-datetime="{{ order.delivery_datetime.strftime('%Y-%m-%dT%H:%M') if order.delivery_datetime else '' }}"
+            data-pickup-method="{{ order.pickup_method or '' }}"
+            data-delivery-method="{{ order.delivery_method or '' }}"
+            data-payment-method="{{ order.payment_method or '' }}"
+            data-payment-terms="{{ order.payment_terms or '' }}"
+            data-show-prices="{{ 1 if order.show_prices else 0 }}">Upraviť</button>
+          <form method="post" action="{{ url_for('orders.delete_order', order_id=order.id) }}" class="d-inline"
+                onsubmit="return confirm('Naozaj chcete vymazať túto objednávku?')">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+          </form>
+        {% endif %}
+      </td>
       <td>{{ order.id }}</td>
       <td>{{ order.partner.name }}</td>
       <td>
@@ -171,4 +250,18 @@
   </ul>
 </nav>
 {% endif %}
+<script>
+document.getElementById('editOrderModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/orders/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="pickup_datetime"]').value = btn.dataset.pickupDatetime || '';
+  form.querySelector('[name="delivery_datetime"]').value = btn.dataset.deliveryDatetime || '';
+  form.querySelector('[name="pickup_method"]').value = btn.dataset.pickupMethod || '';
+  form.querySelector('[name="delivery_method"]').value = btn.dataset.deliveryMethod || '';
+  form.querySelector('[name="payment_method"]').value = btn.dataset.paymentMethod || '';
+  form.querySelector('[name="payment_terms"]').value = btn.dataset.paymentTerms || '';
+  form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
+});
+</script>
 {% endblock %}

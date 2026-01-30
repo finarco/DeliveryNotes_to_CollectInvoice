@@ -48,15 +48,51 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editBundleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editBundleForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť kombináciu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Názov kombinácie</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Cena</label>
+              <input class="form-control" name="bundle_price" type="number" step="0.01" required>
+            </div>
+            <div class="col-md-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="discount_excluded" id="edit_bundle_discount">
+                <label class="form-check-label" for="edit_bundle_discount">Bez zliav</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Cena..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Zľavy..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Obsah..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Cena..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Zľavy..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Obsah..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Názov</th>
       <th>Cena</th>
       <th>Zľavy</th>
@@ -66,6 +102,28 @@
   <tbody>
     {% for bundle in bundles %}
     <tr>
+      <td class="text-nowrap">
+        {% if not bundle.is_active %}
+        <span class="badge bg-secondary mb-1">Neaktívna</span><br>
+        {% endif %}
+        <form method="post" action="{{ url_for('products.toggle_bundle', bundle_id=bundle.id) }}" class="d-inline">
+          {% if bundle.is_active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editBundleModal"
+          data-id="{{ bundle.id }}"
+          data-name="{{ bundle.name or '' }}"
+          data-bundle-price="{{ bundle.bundle_price }}"
+          data-discount-excluded="{{ 1 if bundle.discount_excluded else 0 }}">Upraviť</button>
+        <form method="post" action="{{ url_for('products.delete_bundle', bundle_id=bundle.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať túto kombináciu?')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ bundle.name }}</td>
       <td>{{ "%.2f"|format(bundle.bundle_price) }}</td>
       <td>{{ "Zakázané" if bundle.discount_excluded else "Povolené" }}</td>
@@ -80,4 +138,14 @@
     {% endfor %}
   </tbody>
 </table>
+<script>
+document.getElementById('editBundleModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/bundles/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="bundle_price"]').value = btn.dataset.bundlePrice || '';
+  form.querySelector('[name="discount_excluded"]').checked = btn.dataset.discountExcluded === '1';
+});
+</script>
 {% endblock %}

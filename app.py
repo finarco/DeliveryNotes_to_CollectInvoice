@@ -52,6 +52,7 @@ def _migrate_schema():
         ],
         "partner": [
             ("is_active", "BOOLEAN DEFAULT 1"),
+            ("is_deleted", "BOOLEAN DEFAULT 0"),
             ("created_at", "DATETIME"),
             ("updated_at", "DATETIME"),
         ],
@@ -70,16 +71,19 @@ def _migrate_schema():
         "order": [
             ("pickup_address_id", "INTEGER REFERENCES partner_address(id)"),
             ("delivery_address_id", "INTEGER REFERENCES partner_address(id)"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
             ("updated_at", "DATETIME"),
         ],
         "delivery_note": [
             ("updated_at", "DATETIME"),
             ("actual_delivery_datetime", "DATETIME"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
         ],
         "invoice": [
             ("invoice_number", "VARCHAR(30)"),
             ("updated_at", "DATETIME"),
             ("total_with_vat", "REAL DEFAULT 0.0"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
         ],
         "invoice_item": [
             ("source_delivery_id", "INTEGER REFERENCES delivery_note(id)"),

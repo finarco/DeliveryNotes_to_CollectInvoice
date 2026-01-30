@@ -80,20 +80,98 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editPartnerForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť partnera</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov partnera</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Číslo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČ DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skupina</label>
+              <input class="form-control" name="group_code">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cenová hladina</label>
+              <input class="form-control" name="price_level">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Zľava %</label>
+              <input class="form-control" name="discount_percent" type="number" step="0.1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Adresa..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="IČO..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="DIČ..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="IČ DPH..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Skupina..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Cena/Zľava..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Kontakty..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="8" placeholder="Adresy..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Adresa..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="IČO..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="DIČ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="IČ DPH..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Skupina..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Cena/Zľava..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="8" placeholder="Kontakty..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="9" placeholder="Adresy..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Názov</th>
       <th>Adresa</th>
       <th>IČO</th>
@@ -108,6 +186,39 @@
   <tbody>
     {% for partner in partners %}
     <tr>
+      <td class="text-nowrap">
+        {% if not partner.is_active %}
+        <span class="badge bg-secondary mb-1">Neaktívny</span><br>
+        {% endif %}
+        <form method="post" action="{{ url_for('partners.toggle_partner', partner_id=partner.id) }}" class="d-inline">
+          {% if partner.is_active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editPartnerModal"
+          data-id="{{ partner.id }}"
+          data-name="{{ partner.name or '' }}"
+          data-email="{{ partner.email or '' }}"
+          data-phone="{{ partner.phone or '' }}"
+          data-street="{{ partner.street or '' }}"
+          data-street-number="{{ partner.street_number or '' }}"
+          data-postal-code="{{ partner.postal_code or '' }}"
+          data-city="{{ partner.city or '' }}"
+          data-ico="{{ partner.ico or '' }}"
+          data-dic="{{ partner.dic or '' }}"
+          data-ic-dph="{{ partner.ic_dph or '' }}"
+          data-group-code="{{ partner.group_code or '' }}"
+          data-price-level="{{ partner.price_level or '' }}"
+          data-discount-percent="{{ partner.discount_percent }}"
+          data-note="{{ partner.note or '' }}">Upraviť</button>
+        <form method="post" action="{{ url_for('partners.delete_partner', partner_id=partner.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať tohto partnera? Existujúce doklady budú uzamknuté.')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ partner.name }}</td>
       <td>
         {{ partner.street }} {{ partner.street_number }}<br>
@@ -183,4 +294,25 @@
     {% endfor %}
   </tbody>
 </table>
+<script>
+document.getElementById('editPartnerModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="email"]').value = btn.dataset.email || '';
+  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
+  form.querySelector('[name="street"]').value = btn.dataset.street || '';
+  form.querySelector('[name="street_number"]').value = btn.dataset.streetNumber || '';
+  form.querySelector('[name="postal_code"]').value = btn.dataset.postalCode || '';
+  form.querySelector('[name="city"]').value = btn.dataset.city || '';
+  form.querySelector('[name="ico"]').value = btn.dataset.ico || '';
+  form.querySelector('[name="dic"]').value = btn.dataset.dic || '';
+  form.querySelector('[name="ic_dph"]').value = btn.dataset.icDph || '';
+  form.querySelector('[name="group_code"]').value = btn.dataset.groupCode || '';
+  form.querySelector('[name="price_level"]').value = btn.dataset.priceLevel || '';
+  form.querySelector('[name="discount_percent"]').value = btn.dataset.discountPercent || '';
+  form.querySelector('[name="note"]').value = btn.dataset.note || '';
+});
+</script>
 {% endblock %}

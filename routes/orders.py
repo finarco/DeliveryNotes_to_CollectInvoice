@@ -14,9 +14,9 @@ orders_bp = Blueprint("orders", __name__)
 @orders_bp.route("/orders", methods=["GET", "POST"])
 @role_required("manage_orders")
 def list_orders():
-    partners = Partner.query.all()
+    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
     addresses = PartnerAddress.query.all()
-    products = Product.query.all()
+    products = Product.query.filter_by(is_active=True).all()
 
     if request.method == "POST":
         partner_id = safe_int(request.form.get("partner_id"))
@@ -47,7 +47,8 @@ def list_orders():
         )
         db.session.add(order)
         db.session.flush()
-        for product in products:
+        all_products = Product.query.all()
+        for product in all_products:
             qty = safe_int(request.form.get(f"product_{product.id}"))
             if qty > 0:
                 order.items.append(
@@ -63,16 +64,6 @@ def list_orders():
         return redirect(url_for("orders.list_orders"))
 
     query = Order.query.order_by(Order.created_at.desc())
-    partner_filter = request.args.get("partner_id")
-    confirmed_filter = request.args.get("confirmed")
-    if partner_filter:
-        query = query.filter(
-            Order.partner_id == safe_int(partner_filter)
-        )
-    if confirmed_filter in {"true", "false"}:
-        query = query.filter(
-            Order.confirmed.is_(confirmed_filter == "true")
-        )
 
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
@@ -90,6 +81,46 @@ def list_orders():
         addresses=addresses,
         products=products,
     )
+
+
+@orders_bp.route("/orders/<int:order_id>/edit", methods=["POST"])
+@role_required("manage_orders")
+def edit_order(order_id: int):
+    order = db.get_or_404(Order, order_id)
+    if order.is_locked:
+        flash("Objednávka je uzamknutá.", "danger")
+        return redirect(url_for("orders.list_orders"))
+    if order.delivery_note_links:
+        flash("Objednávka má priradený dodací list a nemôže byť upravená.", "danger")
+        return redirect(url_for("orders.list_orders"))
+    order.pickup_datetime = parse_datetime(request.form.get("pickup_datetime"))
+    order.delivery_datetime = parse_datetime(request.form.get("delivery_datetime"))
+    order.pickup_method = request.form.get("pickup_method", "")
+    order.delivery_method = request.form.get("delivery_method", "")
+    order.payment_method = request.form.get("payment_method", "")
+    order.payment_terms = request.form.get("payment_terms", "")
+    order.show_prices = request.form.get("show_prices") == "on"
+    log_action("edit", "order", order.id, "updated")
+    db.session.commit()
+    flash("Objednávka upravená.", "success")
+    return redirect(url_for("orders.list_orders"))
+
+
+@orders_bp.route("/orders/<int:order_id>/delete", methods=["POST"])
+@role_required("manage_orders")
+def delete_order(order_id: int):
+    order = db.get_or_404(Order, order_id)
+    if order.is_locked:
+        flash("Objednávka je uzamknutá a nemôže byť vymazaná.", "danger")
+        return redirect(url_for("orders.list_orders"))
+    if order.delivery_note_links:
+        flash("Objednávka má priradený dodací list a nemôže byť vymazaná.", "danger")
+        return redirect(url_for("orders.list_orders"))
+    log_action("delete", "order", order.id, f"deleted order #{order.id}")
+    db.session.delete(order)
+    db.session.commit()
+    flash("Objednávka vymazaná.", "warning")
+    return redirect(url_for("orders.list_orders"))
 
 
 @orders_bp.route(

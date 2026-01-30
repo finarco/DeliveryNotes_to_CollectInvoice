@@ -65,18 +65,50 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editDeliveryModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editDeliveryForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť dodací list</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Plánovaný termín dodania</label>
+              <input type="datetime-local" class="form-control" name="planned_delivery_datetime">
+            </div>
+            <div class="col-md-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="show_prices" id="edit_dn_show_prices">
+                <label class="form-check-label" for="edit_dn_show_prices">Zobraziť ceny</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Partner..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Objednávky..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Plán/Skutočnosť..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Ceny..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Stav..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Partner..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Objednávky..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Plán/Skutočnosť..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Ceny..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Stav..."></th>
       <th></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>ID</th>
       <th>Partner</th>
       <th>Objednávky</th>
@@ -89,6 +121,28 @@
   <tbody>
     {% for delivery in delivery_notes %}
     <tr>
+      <td class="text-nowrap">
+        {% if delivery.is_locked %}
+          <span class="badge bg-secondary mb-1">Uzamknutý</span><br>
+          {% if "manage_all" in user_permissions %}
+          <form method="post" action="{{ url_for('admin.unlock_delivery', delivery_id=delivery.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
+          </form>
+          {% endif %}
+        {% elif delivery.logistics_plans or delivery.invoice_item_refs or delivery.invoiced %}
+          <span class="badge bg-info mb-1">Priradený</span>
+        {% else %}
+          <button type="button" class="btn btn-sm btn-outline-primary"
+            data-bs-toggle="modal" data-bs-target="#editDeliveryModal"
+            data-id="{{ delivery.id }}"
+            data-planned-delivery-datetime="{{ delivery.planned_delivery_datetime.strftime('%Y-%m-%dT%H:%M') if delivery.planned_delivery_datetime else '' }}"
+            data-show-prices="{{ 1 if delivery.show_prices else 0 }}">Upraviť</button>
+          <form method="post" action="{{ url_for('delivery.delete_delivery', delivery_id=delivery.id) }}" class="d-inline"
+                onsubmit="return confirm('Naozaj chcete vymazať tento dodací list?')">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+          </form>
+        {% endif %}
+      </td>
       <td>{{ delivery.id }}</td>
       <td>{{ delivery.primary_order.partner.name if delivery.primary_order }}</td>
       <td>
@@ -139,4 +193,13 @@
   </ul>
 </nav>
 {% endif %}
+<script>
+document.getElementById('editDeliveryModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/delivery-notes/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="planned_delivery_datetime"]').value = btn.dataset.plannedDeliveryDatetime || '';
+  form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
+});
+</script>
 {% endblock %}

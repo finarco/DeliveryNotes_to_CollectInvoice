@@ -33,8 +33,8 @@ delivery_bp = Blueprint("delivery", __name__)
 @role_required("manage_delivery")
 def list_delivery_notes():
     all_orders = Order.query.order_by(Order.created_at.desc()).all()
-    products = Product.query.all()
-    bundles = Bundle.query.all()
+    products = Product.query.filter_by(is_active=True).all()
+    bundles = Bundle.query.filter_by(is_active=True).all()
 
     if request.method == "POST":
         order_ids = request.form.getlist("order_ids")
@@ -117,11 +117,6 @@ def list_delivery_notes():
         return redirect(url_for("delivery.list_delivery_notes"))
 
     query = DeliveryNote.query.order_by(DeliveryNote.created_at.desc())
-    confirmed_filter = request.args.get("confirmed")
-    if confirmed_filter in {"true", "false"}:
-        query = query.filter(
-            DeliveryNote.confirmed.is_(confirmed_filter == "true")
-        )
 
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
@@ -139,6 +134,43 @@ def list_delivery_notes():
         products=products,
         bundles=bundles,
     )
+
+
+@delivery_bp.route("/delivery-notes/<int:delivery_id>/edit", methods=["POST"])
+@role_required("manage_delivery")
+def edit_delivery(delivery_id: int):
+    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    if delivery.is_locked:
+        flash("Dodací list je uzamknutý.", "danger")
+        return redirect(url_for("delivery.list_delivery_notes"))
+    if delivery.logistics_plans or delivery.invoice_item_refs or delivery.invoiced:
+        flash("Dodací list má priradený zvoz alebo faktúru a nemôže byť upravený.", "danger")
+        return redirect(url_for("delivery.list_delivery_notes"))
+    delivery.planned_delivery_datetime = parse_datetime(
+        request.form.get("planned_delivery_datetime")
+    )
+    delivery.show_prices = request.form.get("show_prices") == "on"
+    log_action("edit", "delivery_note", delivery.id, "updated")
+    db.session.commit()
+    flash("Dodací list upravený.", "success")
+    return redirect(url_for("delivery.list_delivery_notes"))
+
+
+@delivery_bp.route("/delivery-notes/<int:delivery_id>/delete", methods=["POST"])
+@role_required("manage_delivery")
+def delete_delivery(delivery_id: int):
+    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    if delivery.is_locked:
+        flash("Dodací list je uzamknutý a nemôže byť vymazaný.", "danger")
+        return redirect(url_for("delivery.list_delivery_notes"))
+    if delivery.logistics_plans or delivery.invoice_item_refs or delivery.invoiced:
+        flash("Dodací list má priradený zvoz alebo faktúru a nemôže byť vymazaný.", "danger")
+        return redirect(url_for("delivery.list_delivery_notes"))
+    log_action("delete", "delivery_note", delivery.id, f"deleted DN #{delivery.id}")
+    db.session.delete(delivery)
+    db.session.commit()
+    flash("Dodací list vymazaný.", "warning")
+    return redirect(url_for("delivery.list_delivery_notes"))
 
 
 @delivery_bp.route(

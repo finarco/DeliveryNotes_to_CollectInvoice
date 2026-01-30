@@ -10,6 +10,7 @@ from models import (
     Product,
     ProductPriceHistory,
 )
+from services.audit import log_action
 from services.auth import role_required
 from utils import safe_float, safe_int
 
@@ -37,6 +38,51 @@ def list_products():
         flash("Produkt uložený.", "success")
         return redirect(url_for("products.list_products"))
     return render_template("products.html", products=Product.query.all())
+
+
+@products_bp.route("/products/<int:product_id>/toggle", methods=["POST"])
+@role_required("manage_orders")
+def toggle_product(product_id: int):
+    product = db.get_or_404(Product, product_id)
+    product.is_active = not product.is_active
+    action = "activate" if product.is_active else "deactivate"
+    log_action(action, "product", product.id, f"is_active={product.is_active}")
+    db.session.commit()
+    status = "aktivovaný" if product.is_active else "deaktivovaný"
+    flash(f"Produkt '{product.name}' {status}.", "success")
+    return redirect(url_for("products.list_products"))
+
+
+@products_bp.route("/products/<int:product_id>/edit", methods=["POST"])
+@role_required("manage_orders")
+def edit_product(product_id: int):
+    product = db.get_or_404(Product, product_id)
+    product.name = request.form.get("name", "").strip() or product.name
+    product.description = request.form.get("description", "")
+    product.long_text = request.form.get("long_text", "")
+    new_price = safe_float(request.form.get("price"))
+    if new_price != product.price:
+        product.price_history.append(ProductPriceHistory(price=new_price))
+    product.price = new_price
+    product.vat_rate = safe_float(request.form.get("vat_rate"), default=20.0)
+    product.is_service = request.form.get("is_service") == "on"
+    product.discount_excluded = request.form.get("discount_excluded") == "on"
+    log_action("edit", "product", product.id, "updated")
+    db.session.commit()
+    flash(f"Produkt '{product.name}' upravený.", "success")
+    return redirect(url_for("products.list_products"))
+
+
+@products_bp.route("/products/<int:product_id>/delete", methods=["POST"])
+@role_required("manage_orders")
+def delete_product(product_id: int):
+    product = db.get_or_404(Product, product_id)
+    name = product.name
+    log_action("delete", "product", product.id, f"deleted: {name}")
+    db.session.delete(product)
+    db.session.commit()
+    flash(f"Produkt '{name}' vymazaný.", "warning")
+    return redirect(url_for("products.list_products"))
 
 
 @products_bp.route("/bundles", methods=["GET", "POST"])
@@ -67,3 +113,44 @@ def list_bundles():
         bundles=Bundle.query.order_by(Bundle.id.desc()).all(),
         products=all_products,
     )
+
+
+@products_bp.route("/bundles/<int:bundle_id>/toggle", methods=["POST"])
+@role_required("manage_orders")
+def toggle_bundle(bundle_id: int):
+    bundle = db.get_or_404(Bundle, bundle_id)
+    bundle.is_active = not bundle.is_active
+    action = "activate" if bundle.is_active else "deactivate"
+    log_action(action, "bundle", bundle.id, f"is_active={bundle.is_active}")
+    db.session.commit()
+    status = "aktivovaná" if bundle.is_active else "deaktivovaná"
+    flash(f"Kombinácia '{bundle.name}' {status}.", "success")
+    return redirect(url_for("products.list_bundles"))
+
+
+@products_bp.route("/bundles/<int:bundle_id>/edit", methods=["POST"])
+@role_required("manage_orders")
+def edit_bundle(bundle_id: int):
+    bundle = db.get_or_404(Bundle, bundle_id)
+    bundle.name = request.form.get("name", "").strip() or bundle.name
+    new_price = safe_float(request.form.get("bundle_price"))
+    if new_price != bundle.bundle_price:
+        bundle.price_history.append(BundlePriceHistory(price=new_price))
+    bundle.bundle_price = new_price
+    bundle.discount_excluded = request.form.get("discount_excluded") == "on"
+    log_action("edit", "bundle", bundle.id, "updated")
+    db.session.commit()
+    flash(f"Kombinácia '{bundle.name}' upravená.", "success")
+    return redirect(url_for("products.list_bundles"))
+
+
+@products_bp.route("/bundles/<int:bundle_id>/delete", methods=["POST"])
+@role_required("manage_orders")
+def delete_bundle(bundle_id: int):
+    bundle = db.get_or_404(Bundle, bundle_id)
+    name = bundle.name
+    log_action("delete", "bundle", bundle.id, f"deleted: {name}")
+    db.session.delete(bundle)
+    db.session.commit()
+    flash(f"Kombinácia '{name}' vymazaná.", "warning")
+    return redirect(url_for("products.list_bundles"))

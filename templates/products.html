@@ -52,17 +52,67 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editProductModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editProductForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť produkt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Popis</label>
+              <input class="form-control" name="description">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Dlhý text</label>
+              <input class="form-control" name="long_text">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cena</label>
+              <input class="form-control" name="price" type="number" step="0.01" required>
+            </div>
+            <div class="col-md-4 d-flex align-items-center pt-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="is_service" id="edit_is_service">
+                <label class="form-check-label" for="edit_is_service">Služba</label>
+              </div>
+            </div>
+            <div class="col-md-4 d-flex align-items-center pt-4">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="discount_excluded" id="edit_discount_excluded">
+                <label class="form-check-label" for="edit_discount_excluded">Bez zliav</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Popis..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Dlhý text..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Cena..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Typ..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Zľavy..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Popis..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Dlhý text..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Cena..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Typ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Zľavy..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Názov</th>
       <th>Popis</th>
       <th>Dlhý text</th>
@@ -74,6 +124,31 @@
   <tbody>
     {% for product in products %}
     <tr>
+      <td class="text-nowrap">
+        {% if not product.is_active %}
+        <span class="badge bg-secondary mb-1">Neaktívny</span><br>
+        {% endif %}
+        <form method="post" action="{{ url_for('products.toggle_product', product_id=product.id) }}" class="d-inline">
+          {% if product.is_active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editProductModal"
+          data-id="{{ product.id }}"
+          data-name="{{ product.name or '' }}"
+          data-description="{{ product.description or '' }}"
+          data-long-text="{{ product.long_text or '' }}"
+          data-price="{{ product.price }}"
+          data-is-service="{{ 1 if product.is_service else 0 }}"
+          data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}">Upraviť</button>
+        <form method="post" action="{{ url_for('products.delete_product', product_id=product.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať tento produkt?')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ product.name }}</td>
       <td>{{ product.description }}</td>
       <td>{{ product.long_text }}</td>
@@ -84,4 +159,17 @@
     {% endfor %}
   </tbody>
 </table>
+<script>
+document.getElementById('editProductModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/products/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="description"]').value = btn.dataset.description || '';
+  form.querySelector('[name="long_text"]').value = btn.dataset.longText || '';
+  form.querySelector('[name="price"]').value = btn.dataset.price || '';
+  form.querySelector('[name="is_service"]').checked = btn.dataset.isService === '1';
+  form.querySelector('[name="discount_excluded"]').checked = btn.dataset.discountExcluded === '1';
+});
+</script>
 {% endblock %}

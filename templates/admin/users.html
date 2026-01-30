@@ -43,25 +43,41 @@
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Meno..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Rola..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Aktívny..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Vytvorený..."></th>
       <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Meno..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Rola..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Aktívny..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Vytvorený..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>ID</th>
       <th>Meno</th>
       <th>Rola</th>
       <th>Aktívny</th>
       <th>Vytvorený</th>
-      <th>Akcie</th>
     </tr>
   </thead>
   <tbody>
     {% for user in users %}
     <tr>
+      <td class="text-nowrap">
+        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
+          {% if user.is_active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="d-inline">
+          <input type="hidden" name="new_password" value="">
+          <button class="btn btn-sm btn-outline-info" type="button"
+                  onclick="var pw=prompt('Nové heslo (min. 8 znakov):');if(pw&&pw.length>=8){this.form.querySelector('[name=new_password]').value=pw;this.form.submit();}else if(pw){alert('Heslo musí mať aspoň 8 znakov.');}">
+            Reset hesla
+          </button>
+        </form>
+      </td>
       <td>{{ user.id }}</td>
       <td>{{ user.username }}</td>
       <td>{{ user.role }}</td>
@@ -73,22 +89,6 @@
         {% endif %}
       </td>
       <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}</td>
-      <td>
-        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
-          {% if user.is_active %}
-            <button class="btn btn-sm btn-outline-danger" type="submit">Deaktivovať</button>
-          {% else %}
-            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
-          {% endif %}
-        </form>
-        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="d-inline">
-          <input type="hidden" name="new_password" value="">
-          <button class="btn btn-sm btn-outline-warning" type="button"
-                  onclick="var pw=prompt('Nové heslo (min. 8 znakov):');if(pw&&pw.length>=8){this.form.querySelector('[name=new_password]').value=pw;this.form.submit();}else if(pw){alert('Heslo musí mať aspoň 8 znakov.');}">
-            Reset hesla
-          </button>
-        </form>
-      </td>
     </tr>
     {% endfor %}
   </tbody>
