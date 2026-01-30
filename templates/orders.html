@@ -136,16 +136,15 @@
           Nie
         {% endif %}
       </td>
-      <td>{{ "Áno" if order.show_prices else "Nie" }}</td>
       <td>
         {% if order.confirmed %}
           <span class="badge bg-success">Potvrdená</span>
-          <form method="post" action="{{ url_for('unconfirm_order', order_id=order.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('orders.unconfirm_order', order_id=order.id) }}" class="d-inline">
             <button class="btn btn-sm btn-outline-danger" type="submit">Zrušiť potvrdenie</button>
           </form>
         {% else %}
           <span class="badge bg-warning text-dark">Nepotvrdená</span>
-          <form method="post" action="{{ url_for('confirm_order', order_id=order.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('orders.confirm_order', order_id=order.id) }}" class="d-inline">
             <button class="btn btn-sm btn-outline-primary" type="submit">Potvrdiť</button>
           </form>
         {% endif %}
@@ -160,7 +159,7 @@
   <ul class="pagination">
     {% for p in range(1, total_pages + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('orders', page=p, partner_id=request.args.get('partner_id'), confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('orders.list_orders', page=p, partner_id=request.args.get('partner_id'), confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>

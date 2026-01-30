@@ -96,21 +96,20 @@
           Nie
         {% endif %}
       </td>
-      <td>{{ "Áno" if delivery.show_prices else "Nie" }}</td>
       <td>
         {% if delivery.confirmed %}
           <span class="badge bg-success">Potvrdený</span>
-          <form method="post" action="{{ url_for('unconfirm_delivery', delivery_id=delivery.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('delivery.unconfirm_delivery', delivery_id=delivery.id) }}" class="d-inline">
             <button class="btn btn-sm btn-outline-danger" type="submit">Zrušiť potvrdenie</button>
           </form>
         {% else %}
           <span class="badge bg-warning text-dark">Nepotvrdený</span>
-          <form method="post" action="{{ url_for('confirm_delivery', delivery_id=delivery.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('delivery.confirm_delivery', delivery_id=delivery.id) }}" class="d-inline">
             <button class="btn btn-sm btn-outline-primary" type="submit">Potvrdiť</button>
           </form>
         {% endif %}
       </td>
-      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('delivery_pdf', delivery_id=delivery.id) }}">PDF</a></td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('delivery.delivery_pdf', delivery_id=delivery.id) }}">PDF</a></td>
     </tr>
     {% endfor %}
   </tbody>
@@ -121,7 +120,7 @@
   <ul class="pagination">
     {% for p in range(1, total_pages + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('delivery_notes', page=p, confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('delivery.list_delivery_notes', page=p, confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>

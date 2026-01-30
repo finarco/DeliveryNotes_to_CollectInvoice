@@ -19,7 +19,9 @@ import sys
 
 from werkzeug.security import generate_password_hash
 
-from app import (
+from app import create_app
+from extensions import db
+from models import (
     AuditLog,
     Bundle,
     BundleItem,
@@ -39,8 +41,6 @@ from app import (
     User,
     Vehicle,
     VehicleSchedule,
-    create_app,
-    db,
 )
 
 

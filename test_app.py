@@ -13,7 +13,10 @@ import pytest
 os.environ["DATABASE_URI"] = "sqlite://"  # In-memory database for tests
 os.environ["APP_SECRET_KEY"] = "test-secret-key"
 
-from app import (
+from app import create_app
+from config_models import AppConfig, EmailConfig, SuperfakturaConfig
+from extensions import db
+from models import (
     Bundle,
     BundleItem,
     BundlePriceHistory,
@@ -35,18 +38,10 @@ from app import (
     User,
     Vehicle,
     VehicleSchedule,
-    build_invoice_for_partner,
-    create_app,
-    db,
-    generate_delivery_pdf,
-    generate_invoice_pdf,
-    parse_date,
-    parse_datetime,
-    parse_time,
-    safe_float,
-    safe_int,
 )
-from config_models import AppConfig, EmailConfig, SuperfakturaConfig
+from services.invoice import build_invoice_for_partner
+from services.pdf import generate_delivery_pdf, generate_invoice_pdf
+from utils import parse_date, parse_datetime, parse_time, safe_float, safe_int
 from werkzeug.security import generate_password_hash
 
 TEST_PASSWORD = "testpassword"
