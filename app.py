@@ -77,7 +77,7 @@ def _migrate_schema():
             ("actual_delivery_datetime", "DATETIME"),
         ],
         "invoice": [
-            ("invoice_number", "VARCHAR(30) UNIQUE"),
+            ("invoice_number", "VARCHAR(30)"),
             ("updated_at", "DATETIME"),
             ("total_with_vat", "REAL DEFAULT 0.0"),
         ],
@@ -101,6 +101,16 @@ def _migrate_schema():
                 stmt = f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} {col_sql}'
                 db.session.execute(text(stmt))
                 logger.info("Migrated: %s.%s", table_name, col_name)
+
+    # Unique index that SQLite cannot add inline with ALTER TABLE
+    try:
+        db.session.execute(
+            text('CREATE UNIQUE INDEX IF NOT EXISTS "uq_invoice_number" '
+                 'ON "invoice" (invoice_number)')
+        )
+    except Exception:
+        pass  # index already exists or table not yet created
+
     db.session.commit()
 
 
