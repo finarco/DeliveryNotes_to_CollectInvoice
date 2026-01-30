@@ -1,55 +1,98 @@
 {% extends "base.html" %}
 {% block content %}
-<h4>Partneri</h4>
-<form method="post" class="row g-3 mb-4">
-  <div class="col-md-4">
-    <input class="form-control" name="name" placeholder="Názov partnera" required>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Partneri</h4>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPartnerModal">+ Pridať partnera</button>
+</div>
+<div class="modal fade" id="addPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nový partner</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov partnera</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Číslo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČ DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skupina</label>
+              <input class="form-control" name="group_code">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cenová hladina</label>
+              <input class="form-control" name="price_level">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Zľava %</label>
+              <input class="form-control" name="discount_percent" type="number" step="0.1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť partnera</button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div class="col-md-4">
-    <input class="form-control" name="email" placeholder="Email">
-  </div>
-  <div class="col-md-4">
-    <input class="form-control" name="phone" placeholder="Telefón">
-  </div>
-  <div class="col-md-3">
-    <input class="form-control" name="street" placeholder="Ulica">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="street_number" placeholder="Číslo">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="postal_code" placeholder="PSČ">
-  </div>
-  <div class="col-md-3">
-    <input class="form-control" name="city" placeholder="Mesto">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="ico" placeholder="IČO">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="dic" placeholder="DIČ">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="ic_dph" placeholder="IČ DPH">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="group_code" placeholder="Skupina partnera">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="price_level" placeholder="Cenová hladina">
-  </div>
-  <div class="col-md-2">
-    <input class="form-control" name="discount_percent" type="number" step="0.1" placeholder="Zľava %">
-  </div>
-  <div class="col-md-8">
-    <input class="form-control" name="note" placeholder="Poznámka">
-  </div>
-  <div class="col-md-4">
-    <button class="btn btn-primary" type="submit">Uložiť partnera</button>
-  </div>
-</form>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
+    <tr class="table-filter">
+      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Adresa..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="IČO..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="DIČ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="IČ DPH..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Skupina..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Cena/Zľava..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Kontakty..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="8" placeholder="Adresy..."></th>
+    </tr>
     <tr>
       <th>Názov</th>
       <th>Adresa</th>

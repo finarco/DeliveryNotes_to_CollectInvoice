@@ -1,25 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h4>Vozidlá</h4>
-<form method="post" class="row g-3 mb-4">
-  <div class="col-md-4">
-    <input class="form-control" name="name" placeholder="Názov vozidla" required>
-  </div>
-  <div class="col-md-6">
-    <input class="form-control" name="notes" placeholder="Poznámka">
-  </div>
-  <div class="col-md-2 d-flex align-items-center">
-    <div class="form-check">
-      <input class="form-check-input" type="checkbox" name="active" id="vehicle_active" checked>
-      <label class="form-check-label" for="vehicle_active">Aktívne</label>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Vozidlá</h4>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVehicleModal">+ Pridať vozidlo</button>
+</div>
+<div class="modal fade" id="addVehicleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nové vozidlo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Názov vozidla</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="notes">
+            </div>
+            <div class="col-md-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="active" id="vehicle_active" checked>
+                <label class="form-check-label" for="vehicle_active">Aktívne</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť vozidlo</button>
+        </div>
+      </form>
     </div>
   </div>
-  <div class="col-md-4">
-    <button class="btn btn-primary" type="submit">Uložiť vozidlo</button>
-  </div>
-</form>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
+    <tr class="table-filter">
+      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Poznámka..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Aktívne..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Dni/Hodiny..."></th>
+    </tr>
     <tr>
       <th>Názov</th>
       <th>Poznámka</th>
