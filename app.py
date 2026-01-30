@@ -29,6 +29,9 @@ from reportlab.pdfgen import canvas
 from sqlalchemy import event
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 from config_models import AppConfig, EmailConfig, SuperfakturaConfig
 from mailer import MailerError, send_document_email
 from superfaktura_client import SuperFakturaClient, SuperFakturaError
@@ -37,6 +40,7 @@ load_dotenv()
 
 db = SQLAlchemy()
 csrf = CSRFProtect()
+limiter = Limiter(get_remote_address, storage_uri="memory://")
 
 # Configure logging
 logging.basicConfig(
@@ -90,6 +94,7 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(30), nullable=False, default="admin")
+    must_change_password = db.Column(db.Boolean, default=False)
 
 
 class Partner(db.Model):
@@ -107,7 +112,7 @@ class Partner(db.Model):
     email = db.Column(db.String(120))
     phone = db.Column(db.String(60))
     price_level = db.Column(db.String(60))
-    discount_percent = db.Column(db.Float, default=0.0)
+    discount_percent = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     contacts = db.relationship("Contact", backref="partner", cascade="all, delete-orphan")
     addresses = db.relationship(
         "PartnerAddress", backref="partner", cascade="all, delete-orphan",
@@ -143,7 +148,7 @@ class Product(db.Model):
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(255))
     long_text = db.Column(db.Text)
-    price = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     is_service = db.Column(db.Boolean, default=True)
     discount_excluded = db.Column(db.Boolean, default=False)
     price_history = db.relationship(
@@ -154,14 +159,14 @@ class Product(db.Model):
 class ProductPriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
 
 
 class Bundle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
-    bundle_price = db.Column(db.Float, nullable=False)
+    bundle_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     discount_excluded = db.Column(db.Boolean, default=False)
     items = db.relationship("BundleItem", backref="bundle", cascade="all, delete-orphan")
     price_history = db.relationship(
@@ -172,7 +177,7 @@ class Bundle(db.Model):
 class BundlePriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"), nullable=False)
-    price = db.Column(db.Float, nullable=False)
+    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
 
 
@@ -219,7 +224,7 @@ class OrderItem(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Float, nullable=False)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     product = db.relationship("Product")
 
 
@@ -256,8 +261,8 @@ class DeliveryItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"))
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Float, nullable=False)
-    line_total = db.Column(db.Float, nullable=False, default=0.0)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    line_total = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False, default=0.0)
     product = db.relationship("Product")
     bundle = db.relationship("Bundle")
     components = db.relationship(
@@ -320,7 +325,7 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now)
-    total = db.Column(db.Float, default=0.0)
+    total = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     status = db.Column(db.String(30), default="draft")
     partner = db.relationship("Partner")
     items = db.relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")
@@ -332,8 +337,8 @@ class InvoiceItem(db.Model):
     source_delivery_id = db.Column(db.Integer, db.ForeignKey("delivery_note.id"))
     description = db.Column(db.String(255), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Float, nullable=False)
-    total = db.Column(db.Float, nullable=False)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    total = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     is_manual = db.Column(db.Boolean, default=False)
 
 
@@ -429,9 +434,13 @@ def create_app():
     # Session security
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = os.environ.get(
+        "FLASK_ENV", ""
+    ) == "production"
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
     csrf.init_app(app)
+    limiter.init_app(app)
     db.init_app(app)
 
     # Enable SQLite FK enforcement
@@ -489,6 +498,32 @@ def create_app():
         )
         db.session.commit()
 
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "geolocation=(), camera=(), microphone=()"
+        )
+        if os.environ.get("FLASK_ENV") == "production":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+    @app.before_request
+    def check_password_change():
+        if not request.endpoint or request.endpoint in (
+            "login", "logout", "change_password", "static",
+        ):
+            return None
+        user = current_user()
+        if user and user.must_change_password:
+            return redirect(url_for("change_password"))
+        return None
+
     @app.errorhandler(404)
     def not_found(_error):
         return render_template("error.html", code=404, message="Stránka nebola nájdená."), 404
@@ -498,22 +533,58 @@ def create_app():
         return render_template("error.html", code=500, message="Vnútorná chyba servera."), 500
 
     @app.route("/login", methods=["GET", "POST"])
+    @limiter.limit("5 per minute")
     def login():
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
             user = User.query.filter_by(username=username).first()
             if user and check_password_hash(user.password_hash, password):
+                session.clear()
                 session["user_id"] = user.id
+                session.permanent = True
                 flash("Prihlásenie úspešné.", "success")
+                if user.must_change_password:
+                    return redirect(url_for("change_password"))
                 return redirect(url_for("index"))
             flash("Nesprávne prihlasovacie údaje.", "danger")
         return render_template("login.html")
 
-    @app.route("/logout")
+    @app.errorhandler(429)
+    def ratelimit_handler(_error):
+        flash("Príliš veľa pokusov. Skúste to neskôr.", "danger")
+        return render_template("login.html"), 429
+
+    @app.route("/logout", methods=["POST"])
     def logout():
         session.clear()
         return redirect(url_for("login"))
+
+    @app.route("/change-password", methods=["GET", "POST"])
+    def change_password():
+        login_redirect = require_login()
+        if login_redirect:
+            return login_redirect
+        user = current_user()
+        if request.method == "POST":
+            current_pw = request.form.get("current_password", "")
+            new_pw = request.form.get("new_password", "")
+            confirm_pw = request.form.get("confirm_password", "")
+            if not check_password_hash(user.password_hash, current_pw):
+                flash("Aktuálne heslo je nesprávne.", "danger")
+            elif len(new_pw) < 8:
+                flash("Nové heslo musí mať aspoň 8 znakov.", "danger")
+            elif new_pw != confirm_pw:
+                flash("Heslá sa nezhodujú.", "danger")
+            else:
+                user.password_hash = generate_password_hash(new_pw)
+                user.must_change_password = False
+                db.session.commit()
+                flash("Heslo úspešne zmenené.", "success")
+                return redirect(url_for("index"))
+        return render_template(
+            "change_password.html", must_change=user.must_change_password
+        )
 
     @app.route("/")
     def index():
@@ -974,7 +1045,7 @@ def create_app():
 
     @app.route("/delivery-notes/<int:delivery_id>/pdf")
     def delivery_pdf(delivery_id: int):
-        login_redirect = require_login()
+        login_redirect = require_role("manage_delivery")
         if login_redirect:
             return login_redirect
         delivery = db.get_or_404(DeliveryNote, delivery_id)
@@ -1043,7 +1114,7 @@ def create_app():
 
     @app.route("/invoices/<int:invoice_id>/pdf")
     def invoice_pdf(invoice_id: int):
-        login_redirect = require_login()
+        login_redirect = require_role("manage_invoices")
         if login_redirect:
             return login_redirect
         invoice = db.get_or_404(Invoice, invoice_id)
@@ -1136,13 +1207,20 @@ def parse_time(raw: Optional[str]):
 
 def ensure_admin_user():
     if User.query.count() == 0:
+        password = secrets.token_urlsafe(12)
         admin = User(
             username="admin",
-            password_hash=generate_password_hash("admin"),
+            password_hash=generate_password_hash(password),
             role="admin",
+            must_change_password=True,
         )
         db.session.add(admin)
         db.session.commit()
+        logger.warning(
+            "Created default admin user. Initial password: %s "
+            "(change immediately after first login)",
+            password,
+        )
 
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:

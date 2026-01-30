@@ -1,6 +1,3 @@
-from typing import TYPE_CHECKING
-
-import requests
 import logging
 from typing import TYPE_CHECKING
 
@@ -61,13 +58,6 @@ class SuperFakturaClient:
                 ],
             }
         }
-        response = requests.post(
-            url,
-            auth=(self.config.api_email, self.config.api_key),
-            json=payload,
-            timeout=30,
-        )
-        return response.status_code in {200, 201}
 
         try:
             logger.info(f"Sending invoice {invoice.id} to Superfaktura")

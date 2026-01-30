@@ -33,7 +33,10 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('invoices') }}">Faktúry</a></li>
         {% endif %}
       </ul>
-      <a class="btn btn-outline-light" href="{{ url_for('logout') }}">Odhlásiť</a>
+      <form action="{{ url_for('logout') }}" method="post" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-light">Odhlásiť</button>
+      </form>
     </div>
   </div>
 </nav>

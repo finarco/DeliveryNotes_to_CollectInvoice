@@ -47,6 +47,9 @@ from app import (
     safe_int,
 )
 from config_models import AppConfig, EmailConfig, SuperfakturaConfig
+from werkzeug.security import generate_password_hash
+
+TEST_PASSWORD = "testpassword"
 
 
 @pytest.fixture
@@ -55,6 +58,13 @@ def app():
     application = create_app()
     application.config["TESTING"] = True
     application.config["WTF_CSRF_ENABLED"] = False
+    application.config["RATELIMIT_ENABLED"] = False
+    with application.app_context():
+        admin = User.query.filter_by(username="admin").first()
+        if admin:
+            admin.password_hash = generate_password_hash(TEST_PASSWORD)
+            admin.must_change_password = False
+            db.session.commit()
     yield application
 
 
@@ -273,7 +283,7 @@ class TestAuthRoutes:
     def test_login_success(self, client):
         resp = client.post(
             "/login",
-            data={"username": "admin", "password": "admin"},
+            data={"username": "admin", "password": TEST_PASSWORD},
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -296,8 +306,12 @@ class TestAuthRoutes:
         assert resp.status_code == 200
 
     def test_logout(self, logged_in_client):
-        resp = logged_in_client.get("/logout", follow_redirects=True)
+        resp = logged_in_client.post("/logout", follow_redirects=True)
         assert resp.status_code == 200
+
+    def test_logout_rejects_get(self, logged_in_client):
+        resp = logged_in_client.get("/logout")
+        assert resp.status_code == 405
 
     def test_protected_route_redirects(self, client):
         resp = client.get("/")
@@ -1408,3 +1422,172 @@ class TestEdgeCases:
             follow_redirects=True,
         )
         assert resp.status_code == 200
+
+
+# ============================================================================
+# Security feature tests
+# ============================================================================
+
+
+class TestSecurityHeaders:
+    def test_x_content_type_options(self, logged_in_client):
+        resp = logged_in_client.get("/")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_x_frame_options(self, logged_in_client):
+        resp = logged_in_client.get("/")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    def test_x_xss_protection(self, logged_in_client):
+        resp = logged_in_client.get("/")
+        assert resp.headers.get("X-XSS-Protection") == "1; mode=block"
+
+    def test_referrer_policy(self, logged_in_client):
+        resp = logged_in_client.get("/")
+        assert resp.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+    def test_permissions_policy(self, logged_in_client):
+        resp = logged_in_client.get("/")
+        assert "geolocation=()" in resp.headers.get("Permissions-Policy", "")
+
+
+class TestSessionSecurity:
+    def test_session_cookie_secure_config(self, app):
+        assert "SESSION_COOKIE_SECURE" in app.config
+
+    def test_session_cookie_httponly(self, app):
+        assert app.config["SESSION_COOKIE_HTTPONLY"] is True
+
+    def test_session_cookie_samesite(self, app):
+        assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
+
+
+class TestPasswordChange:
+    def test_change_password_page_renders(self, logged_in_client):
+        resp = logged_in_client.get("/change-password")
+        assert resp.status_code == 200
+        assert "Zmena hesla" in resp.data.decode("utf-8")
+
+    def test_change_password_success(self, logged_in_client):
+        resp = logged_in_client.post(
+            "/change-password",
+            data={
+                "current_password": TEST_PASSWORD,
+                "new_password": "newsecurepassword",
+                "confirm_password": "newsecurepassword",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert "spešne" in resp.data.decode("utf-8")  # "úspešne"
+
+    def test_change_password_wrong_current(self, logged_in_client):
+        resp = logged_in_client.post(
+            "/change-password",
+            data={
+                "current_password": "wrongpassword",
+                "new_password": "newsecurepassword",
+                "confirm_password": "newsecurepassword",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert "nespr" in resp.data.decode("utf-8").lower()
+
+    def test_change_password_mismatch(self, logged_in_client):
+        resp = logged_in_client.post(
+            "/change-password",
+            data={
+                "current_password": TEST_PASSWORD,
+                "new_password": "newsecurepassword",
+                "confirm_password": "differentpassword",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert "nezhoduj" in resp.data.decode("utf-8").lower()
+
+    def test_change_password_too_short(self, logged_in_client):
+        resp = logged_in_client.post(
+            "/change-password",
+            data={
+                "current_password": TEST_PASSWORD,
+                "new_password": "short",
+                "confirm_password": "short",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert "8" in resp.data.decode("utf-8")
+
+    def test_must_change_password_redirects(self, client, app):
+        """User with must_change_password=True is redirected to change-password."""
+        with app.app_context():
+            admin = User.query.filter_by(username="admin").first()
+            admin.must_change_password = True
+            db.session.commit()
+            with client.session_transaction() as sess:
+                sess["user_id"] = admin.id
+
+        resp = client.get("/")
+        assert resp.status_code == 302
+        assert "change-password" in resp.headers.get("Location", "")
+
+    def test_change_password_requires_login(self, client):
+        resp = client.get("/change-password")
+        assert resp.status_code == 302
+
+
+class TestPDFAccessControl:
+    def test_collector_cannot_access_invoice_pdf(self, client, app, sample_data):
+        """Collector role should not access invoice PDFs (requires manage_invoices)."""
+        with app.app_context():
+            collector = User(
+                username="collector_pdf_test",
+                password_hash="pbkdf2:sha256:unused",
+                role="collector",
+            )
+            db.session.add(collector)
+            db.session.flush()
+
+            invoice = Invoice(
+                partner_id=sample_data["partner_id"], status="draft", total=50.0
+            )
+            db.session.add(invoice)
+            db.session.commit()
+            invoice_id = invoice.id
+
+            with client.session_transaction() as sess:
+                sess["user_id"] = collector.id
+
+        resp = client.get(f"/invoices/{invoice_id}/pdf", follow_redirects=True)
+        assert resp.status_code == 200
+        assert "Nem" in resp.data.decode("utf-8")  # "Nemáte oprávnenie"
+
+    def test_customer_cannot_access_delivery_pdf(self, client, app, sample_data):
+        """Customer role should not access delivery PDFs (requires manage_delivery)."""
+        with app.app_context():
+            customer = User(
+                username="customer_pdf_test",
+                password_hash="pbkdf2:sha256:unused",
+                role="customer",
+            )
+            db.session.add(customer)
+            db.session.flush()
+
+            delivery = DeliveryNote(
+                primary_order_id=sample_data["order_id"],
+                created_by_id=sample_data["user_id"],
+            )
+            db.session.add(delivery)
+            db.session.commit()
+            delivery_id = delivery.id
+
+            with client.session_transaction() as sess:
+                sess["user_id"] = customer.id
+
+        resp = client.get(
+            f"/delivery-notes/{delivery_id}/pdf", follow_redirects=True
+        )
+        assert resp.status_code == 200
+        assert "Nem" in resp.data.decode("utf-8")  # "Nemáte oprávnenie"
