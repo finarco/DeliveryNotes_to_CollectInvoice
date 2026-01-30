@@ -85,7 +85,7 @@
           </li>
           {% endfor %}
         </ul>
-        <form method="post" action="{{ url_for('add_contact', partner_id=partner.id) }}" class="row g-2">
+        <form method="post" action="{{ url_for('partners.add_contact', partner_id=partner.id) }}" class="row g-2">
           <div class="col-6"><input class="form-control form-control-sm" name="name" placeholder="Meno" required></div>
           <div class="col-6"><input class="form-control form-control-sm" name="role" placeholder="Rola"></div>
           <div class="col-6"><input class="form-control form-control-sm" name="email" placeholder="Email"></div>
@@ -116,7 +116,7 @@
           </li>
           {% endfor %}
         </ul>
-        <form method="post" action="{{ url_for('add_address', partner_id=partner.id) }}" class="row g-2">
+        <form method="post" action="{{ url_for('partners.add_address', partner_id=partner.id) }}" class="row g-2">
           <div class="col-6">
             <select class="form-select form-select-sm" name="address_type">
               <option value="headquarters">Sídlo</option>

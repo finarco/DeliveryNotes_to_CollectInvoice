@@ -10,30 +10,39 @@
 <body class="bg-light">
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
   <div class="container-fluid">
-    <a class="navbar-brand" href="{{ url_for('index') }}">{{ app_config.name }}</a>
+    <a class="navbar-brand" href="{{ url_for('dashboard.index') }}">{{ app_config.name }}</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navMenu">
       <ul class="navbar-nav me-auto">
         {% if "manage_all" in user_permissions or "manage_partners" in user_permissions %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('partners') }}">Partneri</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('partners.list_partners') }}">Partneri</a></li>
         {% endif %}
         {% if "manage_all" in user_permissions or "manage_orders" in user_permissions %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('products') }}">Produkty</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('bundles') }}">Kombinácie</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('orders') }}">Objednávky</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('products.list_products') }}">Produkty</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('products.list_bundles') }}">Kombinácie</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('orders.list_orders') }}">Objednávky</a></li>
         {% endif %}
         {% if "manage_all" in user_permissions or "manage_delivery" in user_permissions %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('delivery_notes') }}">Dodacie listy</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('vehicles') }}">Vozidlá</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('logistics_dashboard') }}">Zvoz/Rozvoz</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('delivery.list_delivery_notes') }}">Dodacie listy</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('vehicles.list_vehicles') }}">Vozidlá</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('logistics.dashboard') }}">Zvoz/Rozvoz</a></li>
         {% endif %}
         {% if "manage_all" in user_permissions or "manage_invoices" in user_permissions %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('invoices') }}">Faktúry</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('invoices.list_invoices') }}">Faktúry</a></li>
+        {% endif %}
+        {% if "manage_all" in user_permissions %}
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.users') }}">Používatelia</a></li>
         {% endif %}
       </ul>
-      <a class="btn btn-outline-light" href="{{ url_for('logout') }}">Odhlásiť</a>
+      {% if current_user %}
+      <span class="navbar-text me-3">{{ current_user.username }}</span>
+      {% endif %}
+      <form action="{{ url_for('auth.logout') }}" method="post" class="d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-outline-light">Odhlásiť</button>
+      </form>
     </div>
   </div>
 </nav>

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<h4>Správa používateľov</h4>
+<form method="post" class="card card-body shadow-sm mb-4">
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label class="form-label">Meno</label>
+      <input class="form-control" name="username" placeholder="Prihlasovacie meno" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Heslo</label>
+      <input class="form-control" type="password" name="password" placeholder="Min. 8 znakov" required minlength="8">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Rola</label>
+      <select class="form-select" name="role">
+        {% for role in valid_roles %}
+        <option value="{{ role }}">{{ role }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary" type="submit">Vytvoriť používateľa</button>
+    </div>
+  </div>
+</form>
+<table class="table table-striped bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Meno</th>
+      <th>Rola</th>
+      <th>Aktívny</th>
+      <th>Vytvorený</th>
+      <th>Akcie</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td>{{ user.id }}</td>
+      <td>{{ user.username }}</td>
+      <td>{{ user.role }}</td>
+      <td>
+        {% if user.is_active %}
+          <span class="badge bg-success">Áno</span>
+        {% else %}
+          <span class="badge bg-danger">Nie</span>
+        {% endif %}
+      </td>
+      <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
+          {% if user.is_active %}
+            <button class="btn btn-sm btn-outline-danger" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="d-inline">
+          <input type="hidden" name="new_password" value="">
+          <button class="btn btn-sm btn-outline-warning" type="button"
+                  onclick="var pw=prompt('Nové heslo (min. 8 znakov):');if(pw&&pw.length>=8){this.form.querySelector('[name=new_password]').value=pw;this.form.submit();}else if(pw){alert('Heslo musí mať aspoň 8 znakov.');}">
+            Reset hesla
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

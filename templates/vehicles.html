@@ -39,7 +39,7 @@
           <li>{{ schedule.day_of_week }} | {{ schedule.start_time }} - {{ schedule.end_time }}</li>
           {% endfor %}
         </ul>
-        <form method="post" action="{{ url_for('add_vehicle_schedule', vehicle_id=vehicle.id) }}" class="row g-2">
+        <form method="post" action="{{ url_for('vehicles.add_vehicle_schedule', vehicle_id=vehicle.id) }}" class="row g-2">
           <div class="col-4">
             <select class="form-select form-select-sm" name="day_of_week">
               <option value="0">Po</option>
