@@ -1,63 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-<h4>Faktúry</h4>
-<form method="get" class="row g-3 mb-3">
-  <div class="col-md-3">
-    <select class="form-select" name="status">
-      <option value="">-- stav --</option>
-      <option value="draft" {% if request.args.get('status') == 'draft' %}selected{% endif %}>Draft</option>
-      <option value="sent" {% if request.args.get('status') == 'sent' %}selected{% endif %}>Sent</option>
-      <option value="error" {% if request.args.get('status') == 'error' %}selected{% endif %}>Error</option>
-    </select>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Faktúry</h4>
+  <div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">+ Vytvoriť faktúru</button>
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addManualItemModal">+ Manuálna položka</button>
   </div>
-  <div class="col-md-2">
-    <button class="btn btn-outline-primary" type="submit">Filtrovať</button>
-  </div>
-</form>
-<form method="post" class="row g-3 mb-4">
-  <div class="col-md-6">
-    <select class="form-select" name="partner_id" required>
-      {% for partner in partners %}
-      <option value="{{ partner.id }}">{{ partner.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-6">
-    <button class="btn btn-primary" type="submit">Vytvoriť zúčtovaciu faktúru</button>
-  </div>
-</form>
-<div class="card card-body shadow-sm mb-4">
-  <h6>Manuálna položka</h6>
-  <form id="manual-item-form" method="post" data-url-template="{{ url_for('invoices.add_invoice_item', invoice_id=0) }}">
-    <div class="row g-2">
-      <div class="col-md-2">
-        <input class="form-control" id="manual-invoice-id" name="invoice_id" placeholder="ID faktúry" required>
-      </div>
-      <div class="col-md-4">
-        <input class="form-control" name="description" placeholder="Popis" required>
-      </div>
-      <div class="col-md-2">
-        <input class="form-control" name="quantity" type="number" min="1" value="1" required>
-      </div>
-      <div class="col-md-2">
-        <input class="form-control" name="unit_price" type="number" step="0.01" value="0" required>
-      </div>
-      <div class="col-md-2">
-        <button class="btn btn-outline-primary w-100" type="submit">Pridať</button>
-      </div>
-    </div>
-  </form>
-  <script>
-  document.getElementById('manual-item-form').addEventListener('submit', function(e) {
-    var invoiceId = document.getElementById('manual-invoice-id').value;
-    if (invoiceId) {
-      this.action = this.dataset.urlTemplate.replace('/0/', '/' + invoiceId + '/');
-    }
-  });
-  </script>
 </div>
+<div class="modal fade" id="addInvoiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nová zúčtovacia faktúra</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Partner</label>
+              <select class="form-select" name="partner_id" required>
+                {% for partner in partners %}
+                <option value="{{ partner.id }}">{{ partner.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Vytvoriť zúčtovaciu faktúru</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="addManualItemModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="manual-item-form" method="post" data-url-template="{{ url_for('invoices.add_invoice_item', invoice_id=0) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Manuálna položka</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">ID faktúry</label>
+              <input class="form-control" id="manual-invoice-id" name="invoice_id" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Popis</label>
+              <input class="form-control" name="description" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Množstvo</label>
+              <input class="form-control" name="quantity" type="number" min="1" value="1" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Jedn. cena</label>
+              <input class="form-control" name="unit_price" type="number" step="0.01" value="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Pridať položku</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('manual-item-form').addEventListener('submit', function(e) {
+  var invoiceId = document.getElementById('manual-invoice-id').value;
+  if (invoiceId) {
+    this.action = this.dataset.urlTemplate.replace('/0/', '/' + invoiceId + '/');
+  }
+});
+</script>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
+    <tr class="table-filter">
+      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Partner..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Stav..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Spolu..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Položky..."></th>
+      <th></th>
+    </tr>
     <tr>
       <th>ID</th>
       <th>Partner</th>
@@ -100,7 +131,7 @@
   <ul class="pagination">
     {% for p in range(1, total_pages + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('invoices.list_invoices', page=p, status=request.args.get('status')) }}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('invoices.list_invoices', page=p) }}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>

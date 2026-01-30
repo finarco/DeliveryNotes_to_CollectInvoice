@@ -1,108 +1,114 @@
 {% extends "base.html" %}
 {% block content %}
-<h4>Objednávky</h4>
-<form method="get" class="row g-3 mb-3">
-  <div class="col-md-4">
-    <select class="form-select" name="partner_id">
-      <option value="">-- všetci partneri --</option>
-      {% for partner in partners %}
-      <option value="{{ partner.id }}" {% if request.args.get('partner_id') == partner.id|string %}selected{% endif %}>{{ partner.name }}</option>
-      {% endfor %}
-    </select>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Objednávky</h4>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOrderModal">+ Vytvoriť objednávku</button>
+</div>
+<div class="modal fade" id="addOrderModal" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nová objednávka</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Partner</label>
+              <select class="form-select" name="partner_id" required>
+                {% for partner in partners %}
+                <option value="{{ partner.id }}">{{ partner.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Adresa zvozu</label>
+              <select class="form-select" name="pickup_address_id">
+                <option value="">-- vyberte --</option>
+                {% for address in addresses %}
+                <option value="{{ address.id }}">
+                  {{ address.partner.name }} / {{ address.address_type }}
+                  {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
+                  - {{ address.street }} {{ address.street_number }}, {{ address.city }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Adresa doručenia</label>
+              <select class="form-select" name="delivery_address_id">
+                <option value="">-- vyberte --</option>
+                {% for address in addresses %}
+                <option value="{{ address.id }}">
+                  {{ address.partner.name }} / {{ address.address_type }}
+                  {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
+                  - {{ address.street }} {{ address.street_number }}, {{ address.city }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Termín zvozu</label>
+              <input type="datetime-local" class="form-control" name="pickup_datetime">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Termín doručenia</label>
+              <input type="datetime-local" class="form-control" name="delivery_datetime">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Spôsob zvozu</label>
+              <input class="form-control" name="pickup_method" placeholder="Osobne/kuriér/vlastný zvoz">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Spôsob dodania</label>
+              <input class="form-control" name="delivery_method" placeholder="Osobný odber/kuriér/rozvoz">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Spôsob platby</label>
+              <input class="form-control" name="payment_method" placeholder="Bankový prevod/hotovosť">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Platobné podmienky</label>
+              <input class="form-control" name="payment_terms" placeholder="Splatnosť 14 dní">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="show_prices" {{ "checked" if app_config.show_prices_default }}>
+                <label class="form-check-label">Zobraziť ceny</label>
+              </div>
+            </div>
+          </div>
+          <hr>
+          <h6>Položky</h6>
+          <div class="row g-3">
+            {% for product in products %}
+            <div class="col-md-3">
+              <label class="form-label">{{ product.name }}</label>
+              <input class="form-control" type="number" name="product_{{ product.id }}" min="0" value="0">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Vytvoriť objednávku</button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div class="col-md-3">
-    <select class="form-select" name="confirmed">
-      <option value="">-- stav --</option>
-      <option value="true" {% if request.args.get('confirmed') == 'true' %}selected{% endif %}>Potvrdené</option>
-      <option value="false" {% if request.args.get('confirmed') == 'false' %}selected{% endif %}>Nepotvrdené</option>
-    </select>
-  </div>
-  <div class="col-md-2">
-    <button class="btn btn-outline-primary" type="submit">Filtrovať</button>
-  </div>
-</form>
-<form method="post" class="card card-body shadow-sm mb-4">
-  <div class="row g-3">
-    <div class="col-md-4">
-      <label class="form-label">Partner</label>
-      <select class="form-select" name="partner_id" required>
-        {% for partner in partners %}
-        <option value="{{ partner.id }}">{{ partner.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Adresa zvozu</label>
-      <select class="form-select" name="pickup_address_id">
-        <option value="">-- vyberte --</option>
-        {% for address in addresses %}
-        <option value="{{ address.id }}">
-          {{ address.partner.name }} / {{ address.address_type }}
-          {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
-          - {{ address.street }} {{ address.street_number }}, {{ address.city }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Adresa doručenia</label>
-      <select class="form-select" name="delivery_address_id">
-        <option value="">-- vyberte --</option>
-        {% for address in addresses %}
-        <option value="{{ address.id }}">
-          {{ address.partner.name }} / {{ address.address_type }}
-          {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
-          - {{ address.street }} {{ address.street_number }}, {{ address.city }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Termín zvozu</label>
-      <input type="datetime-local" class="form-control" name="pickup_datetime">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Termín doručenia</label>
-      <input type="datetime-local" class="form-control" name="delivery_datetime">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Spôsob zvozu</label>
-      <input class="form-control" name="pickup_method" placeholder="Osobne/kuriér/vlastný zvoz">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Spôsob dodania</label>
-      <input class="form-control" name="delivery_method" placeholder="Osobný odber/kuriér/rozvoz">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Spôsob platby</label>
-      <input class="form-control" name="payment_method" placeholder="Bankový prevod/hotovosť">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Platobné podmienky</label>
-      <input class="form-control" name="payment_terms" placeholder="Splatnosť 14 dní">
-    </div>
-    <div class="col-md-2 d-flex align-items-end">
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="show_prices" {{ "checked" if app_config.show_prices_default }}>
-        <label class="form-check-label">Zobraziť ceny</label>
-      </div>
-    </div>
-  </div>
-  <hr>
-  <div class="row g-3">
-    {% for product in products %}
-    <div class="col-md-3">
-      <label class="form-label">{{ product.name }}</label>
-      <input class="form-control" type="number" name="product_{{ product.id }}" min="0" value="0">
-    </div>
-    {% endfor %}
-  </div>
-  <div class="mt-3">
-    <button class="btn btn-primary" type="submit">Vytvoriť objednávku</button>
-  </div>
-</form>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
+    <tr class="table-filter">
+      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Partner..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Zvoz..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Doručenie..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Platba..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Ceny..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Stav..."></th>
+    </tr>
     <tr>
       <th>ID</th>
       <th>Partner</th>
@@ -159,7 +165,7 @@
   <ul class="pagination">
     {% for p in range(1, total_pages + 1) %}
     <li class="page-item {% if p == page %}active{% endif %}">
-      <a class="page-link" href="{{ url_for('orders.list_orders', page=p, partner_id=request.args.get('partner_id'), confirmed=request.args.get('confirmed')) }}">{{ p }}</a>
+      <a class="page-link" href="{{ url_for('orders.list_orders', page=p) }}">{{ p }}</a>
     </li>
     {% endfor %}
   </ul>
