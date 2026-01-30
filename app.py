@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 from flask import Flask, g, redirect, render_template, request, session, url_for
-from sqlalchemy import event
+from sqlalchemy import event, inspect, text
 
 from config import load_config, enable_sqlite_fks
 from extensions import csrf, db, limiter
@@ -31,6 +31,77 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
+
+
+def _migrate_schema():
+    """Add columns introduced by the refactor to existing tables.
+
+    ``db.create_all()`` creates *new* tables but never alters existing ones.
+    This function inspects every table and issues ``ALTER TABLE … ADD COLUMN``
+    for any column the model defines but the database lacks.  It is safe to
+    call repeatedly (idempotent).
+    """
+    # Map of table_name → [(column_name, SQL type + default)]
+    _MIGRATIONS: dict[str, list[tuple[str, str]]] = {
+        "user": [
+            ("must_change_password", "BOOLEAN DEFAULT 0"),
+            ("is_active", "BOOLEAN DEFAULT 1"),
+            ("partner_id", "INTEGER REFERENCES partner(id)"),
+            ("created_at", "DATETIME"),
+            ("updated_at", "DATETIME"),
+        ],
+        "partner": [
+            ("is_active", "BOOLEAN DEFAULT 1"),
+            ("created_at", "DATETIME"),
+            ("updated_at", "DATETIME"),
+        ],
+        "product": [
+            ("vat_rate", "REAL DEFAULT 20.0"),
+            ("is_active", "BOOLEAN DEFAULT 1"),
+            ("created_at", "DATETIME"),
+            ("updated_at", "DATETIME"),
+        ],
+        "bundle": [
+            ("discount_excluded", "BOOLEAN DEFAULT 0"),
+            ("is_active", "BOOLEAN DEFAULT 1"),
+            ("created_at", "DATETIME"),
+            ("updated_at", "DATETIME"),
+        ],
+        "order": [
+            ("pickup_address_id", "INTEGER REFERENCES partner_address(id)"),
+            ("delivery_address_id", "INTEGER REFERENCES partner_address(id)"),
+            ("updated_at", "DATETIME"),
+        ],
+        "delivery_note": [
+            ("updated_at", "DATETIME"),
+            ("actual_delivery_datetime", "DATETIME"),
+        ],
+        "invoice": [
+            ("invoice_number", "VARCHAR(30) UNIQUE"),
+            ("updated_at", "DATETIME"),
+            ("total_with_vat", "REAL DEFAULT 0.0"),
+        ],
+        "invoice_item": [
+            ("source_delivery_id", "INTEGER REFERENCES delivery_note(id)"),
+            ("vat_rate", "REAL DEFAULT 20.0"),
+            ("vat_amount", "REAL DEFAULT 0.0"),
+            ("total_with_vat", "REAL DEFAULT 0.0"),
+            ("is_manual", "BOOLEAN DEFAULT 0"),
+        ],
+    }
+
+    insp = inspect(db.engine)
+    for table_name, columns in _MIGRATIONS.items():
+        if not insp.has_table(table_name):
+            continue  # table will be created by db.create_all()
+        existing = {col["name"] for col in insp.get_columns(table_name)}
+        for col_name, col_sql in columns:
+            if col_name not in existing:
+                # Quote table name to handle SQL keywords like "order"
+                stmt = f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} {col_sql}'
+                db.session.execute(text(stmt))
+                logger.info("Migrated: %s.%s", table_name, col_name)
+    db.session.commit()
 
 
 def create_app():
@@ -63,8 +134,9 @@ def create_app():
         with app.app_context():
             event.listen(db.engine, "connect", enable_sqlite_fks)
 
-    # Create tables & seed admin
+    # Migrate schema, create new tables & seed admin
     with app.app_context():
+        _migrate_schema()
         db.create_all()
         ensure_admin_user()
 
