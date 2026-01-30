@@ -107,6 +107,30 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
   }
 });
 </script>
+<div class="modal fade" id="viewInvoiceModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail faktúry</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewInvoiceId"></dd>
+          <dt class="col-sm-4">Číslo faktúry</dt><dd class="col-sm-8" id="viewInvoiceNumber"></dd>
+          <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewInvoicePartner"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewInvoiceStatus"></dd>
+          <dt class="col-sm-4">Spolu bez DPH</dt><dd class="col-sm-8" id="viewInvoiceTotal"></dd>
+          <dt class="col-sm-4">Spolu s DPH</dt><dd class="col-sm-8" id="viewInvoiceTotalVat"></dd>
+          <dt class="col-sm-4">Položky</dt><dd class="col-sm-8" id="viewInvoiceItems"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -132,6 +156,15 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
     {% for invoice in invoices %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewInvoiceModal"
+          data-invoice-id="{{ invoice.id }}"
+          data-invoice-number="{{ invoice.invoice_number or '' }}"
+          data-partner="{{ invoice.partner.name }}"
+          data-status="{{ invoice.status or '' }}"
+          data-total="{{ '%.2f'|format(invoice.total) }}"
+          data-total-vat="{{ '%.2f'|format(invoice.total_with_vat) }}"
+          data-items="{% for item in invoice.items %}{{ item.description }} | {{ item.quantity }}x | {{ '%.2f'|format(item.total) }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
         {% if invoice.is_locked %}
           <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
           {% if "manage_all" in user_permissions %}
@@ -187,6 +220,16 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
 </nav>
 {% endif %}
 <script>
+document.getElementById('viewInvoiceModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewInvoiceId').textContent = btn.dataset.invoiceId || '-';
+  this.querySelector('#viewInvoiceNumber').textContent = btn.dataset.invoiceNumber || '-';
+  this.querySelector('#viewInvoicePartner').textContent = btn.dataset.partner || '-';
+  this.querySelector('#viewInvoiceStatus').textContent = btn.dataset.status || '-';
+  this.querySelector('#viewInvoiceTotal').textContent = btn.dataset.total || '0.00';
+  this.querySelector('#viewInvoiceTotalVat').textContent = btn.dataset.totalVat || '0.00';
+  this.querySelector('#viewInvoiceItems').textContent = btn.dataset.items || '-';
+});
 document.getElementById('editInvoiceModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

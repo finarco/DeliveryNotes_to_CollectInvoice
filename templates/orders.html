@@ -148,6 +148,33 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewOrderModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail objednávky</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewOrderId"></dd>
+          <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewOrderPartner"></dd>
+          <dt class="col-sm-4">Termín zvozu</dt><dd class="col-sm-8" id="viewOrderPickupDatetime"></dd>
+          <dt class="col-sm-4">Spôsob zvozu</dt><dd class="col-sm-8" id="viewOrderPickupMethod"></dd>
+          <dt class="col-sm-4">Termín doručenia</dt><dd class="col-sm-8" id="viewOrderDeliveryDatetime"></dd>
+          <dt class="col-sm-4">Spôsob dodania</dt><dd class="col-sm-8" id="viewOrderDeliveryMethod"></dd>
+          <dt class="col-sm-4">Spôsob platby</dt><dd class="col-sm-8" id="viewOrderPaymentMethod"></dd>
+          <dt class="col-sm-4">Platobné podmienky</dt><dd class="col-sm-8" id="viewOrderPaymentTerms"></dd>
+          <dt class="col-sm-4">Zobraziť ceny</dt><dd class="col-sm-8" id="viewOrderShowPrices"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewOrderStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -175,6 +202,18 @@
     {% for order in orders %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewOrderModal"
+          data-order-id="{{ order.id }}"
+          data-partner="{{ order.partner.name }}"
+          data-pickup-datetime="{{ order.pickup_datetime or '' }}"
+          data-pickup-method="{{ order.pickup_method or '' }}"
+          data-delivery-datetime="{{ order.delivery_datetime or '' }}"
+          data-delivery-method="{{ order.delivery_method or '' }}"
+          data-payment-method="{{ order.payment_method or '' }}"
+          data-payment-terms="{{ order.payment_terms or '' }}"
+          data-show-prices="{{ 1 if order.show_prices else 0 }}"
+          data-confirmed="{{ 1 if order.confirmed else 0 }}">Zobraziť</button>
         {% if order.is_locked %}
           <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
           {% if "manage_all" in user_permissions %}
@@ -251,6 +290,19 @@
 </nav>
 {% endif %}
 <script>
+document.getElementById('viewOrderModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewOrderId').textContent = btn.dataset.orderId || '-';
+  this.querySelector('#viewOrderPartner').textContent = btn.dataset.partner || '-';
+  this.querySelector('#viewOrderPickupDatetime').textContent = btn.dataset.pickupDatetime || '-';
+  this.querySelector('#viewOrderPickupMethod').textContent = btn.dataset.pickupMethod || '-';
+  this.querySelector('#viewOrderDeliveryDatetime').textContent = btn.dataset.deliveryDatetime || '-';
+  this.querySelector('#viewOrderDeliveryMethod').textContent = btn.dataset.deliveryMethod || '-';
+  this.querySelector('#viewOrderPaymentMethod').textContent = btn.dataset.paymentMethod || '-';
+  this.querySelector('#viewOrderPaymentTerms').textContent = btn.dataset.paymentTerms || '-';
+  this.querySelector('#viewOrderShowPrices').textContent = btn.dataset.showPrices === '1' ? 'Áno' : 'Nie';
+  this.querySelector('#viewOrderStatus').textContent = btn.dataset.confirmed === '1' ? 'Potvrdená' : 'Nepotvrdená';
+});
 document.getElementById('editOrderModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

@@ -156,6 +156,36 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail partnera</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewPartnerName"></dd>
+          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewPartnerNote"></dd>
+          <dt class="col-sm-4">Email</dt><dd class="col-sm-8" id="viewPartnerEmail"></dd>
+          <dt class="col-sm-4">Telefón</dt><dd class="col-sm-8" id="viewPartnerPhone"></dd>
+          <dt class="col-sm-4">Ulica</dt><dd class="col-sm-8" id="viewPartnerStreet"></dd>
+          <dt class="col-sm-4">PSČ / Mesto</dt><dd class="col-sm-8" id="viewPartnerCity"></dd>
+          <dt class="col-sm-4">IČO</dt><dd class="col-sm-8" id="viewPartnerIco"></dd>
+          <dt class="col-sm-4">DIČ</dt><dd class="col-sm-8" id="viewPartnerDic"></dd>
+          <dt class="col-sm-4">IČ DPH</dt><dd class="col-sm-8" id="viewPartnerIcDph"></dd>
+          <dt class="col-sm-4">Skupina</dt><dd class="col-sm-8" id="viewPartnerGroupCode"></dd>
+          <dt class="col-sm-4">Cenová hladina</dt><dd class="col-sm-8" id="viewPartnerPriceLevel"></dd>
+          <dt class="col-sm-4">Zľava %</dt><dd class="col-sm-8" id="viewPartnerDiscount"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewPartnerStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -187,6 +217,23 @@
     {% for partner in partners %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewPartnerModal"
+          data-name="{{ partner.name or '' }}"
+          data-note="{{ partner.note or '' }}"
+          data-email="{{ partner.email or '' }}"
+          data-phone="{{ partner.phone or '' }}"
+          data-street="{{ partner.street or '' }}"
+          data-street-number="{{ partner.street_number or '' }}"
+          data-postal-code="{{ partner.postal_code or '' }}"
+          data-city="{{ partner.city or '' }}"
+          data-ico="{{ partner.ico or '' }}"
+          data-dic="{{ partner.dic or '' }}"
+          data-ic-dph="{{ partner.ic_dph or '' }}"
+          data-group-code="{{ partner.group_code or '' }}"
+          data-price-level="{{ partner.price_level or '' }}"
+          data-discount-percent="{{ partner.discount_percent }}"
+          data-is-active="{{ 1 if partner.is_active else 0 }}">Zobraziť</button>
         {% if not partner.is_active %}
         <span class="badge bg-secondary mb-1">Neaktívny</span><br>
         {% endif %}
@@ -392,6 +439,22 @@
   </div>
 </div>
 <script>
+document.getElementById('viewPartnerModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewPartnerName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewPartnerNote').textContent = btn.dataset.note || '-';
+  this.querySelector('#viewPartnerEmail').textContent = btn.dataset.email || '-';
+  this.querySelector('#viewPartnerPhone').textContent = btn.dataset.phone || '-';
+  this.querySelector('#viewPartnerStreet').textContent = (btn.dataset.street || '') + ' ' + (btn.dataset.streetNumber || '');
+  this.querySelector('#viewPartnerCity').textContent = (btn.dataset.postalCode || '') + ' ' + (btn.dataset.city || '');
+  this.querySelector('#viewPartnerIco').textContent = btn.dataset.ico || '-';
+  this.querySelector('#viewPartnerDic').textContent = btn.dataset.dic || '-';
+  this.querySelector('#viewPartnerIcDph').textContent = btn.dataset.icDph || '-';
+  this.querySelector('#viewPartnerGroupCode').textContent = btn.dataset.groupCode || '-';
+  this.querySelector('#viewPartnerPriceLevel').textContent = btn.dataset.priceLevel || '-';
+  this.querySelector('#viewPartnerDiscount').textContent = btn.dataset.discountPercent || '0';
+  this.querySelector('#viewPartnerStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívny' : 'Neaktívny';
+});
 document.getElementById('addContactModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

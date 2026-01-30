@@ -72,6 +72,27 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewVehicleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail vozidla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewVehicleName"></dd>
+          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewVehicleNotes"></dd>
+          <dt class="col-sm-4">Aktívne</dt><dd class="col-sm-8" id="viewVehicleActive"></dd>
+          <dt class="col-sm-4">Rozvrh</dt><dd class="col-sm-8" id="viewVehicleSchedules"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -93,6 +114,12 @@
     {% for vehicle in vehicles %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewVehicleModal"
+          data-name="{{ vehicle.name or '' }}"
+          data-notes="{{ vehicle.notes or '' }}"
+          data-active="{{ 1 if vehicle.active else 0 }}"
+          data-schedules="{% for s in vehicle.schedules %}{{ s.day_of_week }} | {{ s.start_time }} - {{ s.end_time }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
         <form method="post" action="{{ url_for('vehicles.toggle_vehicle', vehicle_id=vehicle.id) }}" class="d-inline">
           {% if vehicle.active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
@@ -148,6 +175,13 @@
   </tbody>
 </table>
 <script>
+document.getElementById('viewVehicleModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewVehicleName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewVehicleNotes').textContent = btn.dataset.notes || '-';
+  this.querySelector('#viewVehicleActive').textContent = btn.dataset.active === '1' ? 'Áno' : 'Nie';
+  this.querySelector('#viewVehicleSchedules').textContent = btn.dataset.schedules || '-';
+});
 document.getElementById('editVehicleModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

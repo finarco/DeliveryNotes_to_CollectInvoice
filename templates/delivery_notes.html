@@ -95,6 +95,30 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewDeliveryModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail dodacieho listu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewDeliveryId"></dd>
+          <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewDeliveryPartner"></dd>
+          <dt class="col-sm-4">Objednávky</dt><dd class="col-sm-8" id="viewDeliveryOrders"></dd>
+          <dt class="col-sm-4">Plánovaný termín</dt><dd class="col-sm-8" id="viewDeliveryPlanned"></dd>
+          <dt class="col-sm-4">Skutočný termín</dt><dd class="col-sm-8" id="viewDeliveryActual"></dd>
+          <dt class="col-sm-4">Zobraziť ceny</dt><dd class="col-sm-8" id="viewDeliveryShowPrices"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewDeliveryStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -122,6 +146,15 @@
     {% for delivery in delivery_notes %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewDeliveryModal"
+          data-delivery-id="{{ delivery.id }}"
+          data-partner="{{ delivery.primary_order.partner.name if delivery.primary_order else '' }}"
+          data-orders="{% for link in delivery.orders %}#{{ link.order.id }} - {{ link.order.partner.name }}{% if not loop.last %}, {% endif %}{% endfor %}"
+          data-planned="{{ delivery.planned_delivery_datetime or '' }}"
+          data-actual="{{ delivery.actual_delivery_datetime or '' }}"
+          data-show-prices="{{ 1 if delivery.show_prices else 0 }}"
+          data-confirmed="{{ 1 if delivery.confirmed else 0 }}">Zobraziť</button>
         {% if delivery.is_locked %}
           <span class="badge bg-secondary mb-1">Uzamknutý</span><br>
           {% if "manage_all" in user_permissions %}
@@ -194,6 +227,16 @@
 </nav>
 {% endif %}
 <script>
+document.getElementById('viewDeliveryModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewDeliveryId').textContent = btn.dataset.deliveryId || '-';
+  this.querySelector('#viewDeliveryPartner').textContent = btn.dataset.partner || '-';
+  this.querySelector('#viewDeliveryOrders').textContent = btn.dataset.orders || '-';
+  this.querySelector('#viewDeliveryPlanned').textContent = btn.dataset.planned || '-';
+  this.querySelector('#viewDeliveryActual').textContent = btn.dataset.actual || '-';
+  this.querySelector('#viewDeliveryShowPrices').textContent = btn.dataset.showPrices === '1' ? 'Áno' : 'Nie';
+  this.querySelector('#viewDeliveryStatus').textContent = btn.dataset.confirmed === '1' ? 'Potvrdený' : 'Nepotvrdený';
+});
 document.getElementById('editDeliveryModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

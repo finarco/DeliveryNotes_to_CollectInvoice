@@ -40,6 +40,28 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail používateľa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewUserId"></dd>
+          <dt class="col-sm-4">Meno</dt><dd class="col-sm-8" id="viewUserName"></dd>
+          <dt class="col-sm-4">Rola</dt><dd class="col-sm-8" id="viewUserRole"></dd>
+          <dt class="col-sm-4">Aktívny</dt><dd class="col-sm-8" id="viewUserActive"></dd>
+          <dt class="col-sm-4">Vytvorený</dt><dd class="col-sm-8" id="viewUserCreated"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -63,6 +85,13 @@
     {% for user in users %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewUserModal"
+          data-user-id="{{ user.id }}"
+          data-username="{{ user.username }}"
+          data-role="{{ user.role }}"
+          data-is-active="{{ 1 if user.is_active else 0 }}"
+          data-created="{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}">Zobraziť</button>
         <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
           {% if user.is_active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
@@ -93,4 +122,14 @@
     {% endfor %}
   </tbody>
 </table>
+<script>
+document.getElementById('viewUserModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewUserId').textContent = btn.dataset.userId || '-';
+  this.querySelector('#viewUserName').textContent = btn.dataset.username || '-';
+  this.querySelector('#viewUserRole').textContent = btn.dataset.role || '-';
+  this.querySelector('#viewUserActive').textContent = btn.dataset.isActive === '1' ? 'Áno' : 'Nie';
+  this.querySelector('#viewUserCreated').textContent = btn.dataset.created || '-';
+});
+</script>
 {% endblock %}

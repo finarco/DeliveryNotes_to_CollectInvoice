@@ -100,6 +100,30 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewProductModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail produktu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewProductName"></dd>
+          <dt class="col-sm-4">Popis</dt><dd class="col-sm-8" id="viewProductDescription"></dd>
+          <dt class="col-sm-4">Dlhý text</dt><dd class="col-sm-8" id="viewProductLongText"></dd>
+          <dt class="col-sm-4">Cena</dt><dd class="col-sm-8" id="viewProductPrice"></dd>
+          <dt class="col-sm-4">Typ</dt><dd class="col-sm-8" id="viewProductType"></dd>
+          <dt class="col-sm-4">Zľavy</dt><dd class="col-sm-8" id="viewProductDiscount"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewProductStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -125,6 +149,15 @@
     {% for product in products %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewProductModal"
+          data-name="{{ product.name or '' }}"
+          data-description="{{ product.description or '' }}"
+          data-long-text="{{ product.long_text or '' }}"
+          data-price="{{ product.price }}"
+          data-is-service="{{ 1 if product.is_service else 0 }}"
+          data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}"
+          data-is-active="{{ 1 if product.is_active else 0 }}">Zobraziť</button>
         {% if not product.is_active %}
         <span class="badge bg-secondary mb-1">Neaktívny</span><br>
         {% endif %}
@@ -160,6 +193,16 @@
   </tbody>
 </table>
 <script>
+document.getElementById('viewProductModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewProductName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewProductDescription').textContent = btn.dataset.description || '-';
+  this.querySelector('#viewProductLongText').textContent = btn.dataset.longText || '-';
+  this.querySelector('#viewProductPrice').textContent = btn.dataset.price || '0';
+  this.querySelector('#viewProductType').textContent = btn.dataset.isService === '1' ? 'Služba' : 'Tovar';
+  this.querySelector('#viewProductDiscount').textContent = btn.dataset.discountExcluded === '1' ? 'Zakázané' : 'Povolené';
+  this.querySelector('#viewProductStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívny' : 'Neaktívny';
+});
 document.getElementById('editProductModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

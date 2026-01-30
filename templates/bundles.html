@@ -82,6 +82,28 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="viewBundleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail kombinácie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewBundleName"></dd>
+          <dt class="col-sm-4">Cena</dt><dd class="col-sm-8" id="viewBundlePrice"></dd>
+          <dt class="col-sm-4">Zľavy</dt><dd class="col-sm-8" id="viewBundleDiscount"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewBundleStatus"></dd>
+          <dt class="col-sm-4">Obsah</dt><dd class="col-sm-8" id="viewBundleItems"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -103,6 +125,13 @@
     {% for bundle in bundles %}
     <tr>
       <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewBundleModal"
+          data-name="{{ bundle.name or '' }}"
+          data-bundle-price="{{ bundle.bundle_price }}"
+          data-discount-excluded="{{ 1 if bundle.discount_excluded else 0 }}"
+          data-is-active="{{ 1 if bundle.is_active else 0 }}"
+          data-items="{% for item in bundle.items %}{{ item.product.name }} ({{ item.quantity }}x){% if not loop.last %}, {% endif %}{% endfor %}">Zobraziť</button>
         {% if not bundle.is_active %}
         <span class="badge bg-secondary mb-1">Neaktívna</span><br>
         {% endif %}
@@ -139,6 +168,14 @@
   </tbody>
 </table>
 <script>
+document.getElementById('viewBundleModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewBundleName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewBundlePrice').textContent = btn.dataset.bundlePrice || '0';
+  this.querySelector('#viewBundleDiscount').textContent = btn.dataset.discountExcluded === '1' ? 'Zakázané' : 'Povolené';
+  this.querySelector('#viewBundleStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívna' : 'Neaktívna';
+  this.querySelector('#viewBundleItems').textContent = btn.dataset.items || '-';
+});
 document.getElementById('editBundleModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');
