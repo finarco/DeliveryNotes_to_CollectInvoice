@@ -233,29 +233,34 @@
       <td>
         <ul class="list-unstyled mb-2">
           {% for contact in partner.contacts %}
-          <li>
-            <strong>{{ contact.name }}</strong> ({{ contact.role }})<br>
+          <li class="mb-1">
+            <strong>{{ contact.name }}</strong>{% if contact.role %} ({{ contact.role }}){% endif %}<br>
             {{ contact.email }} / {{ contact.phone }}
+            {% if contact.can_order %}<span class="badge bg-info">Objednáva</span>{% endif %}
+            {% if contact.can_receive %}<span class="badge bg-info">Preberá</span>{% endif %}
+            <br>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+              data-bs-toggle="modal" data-bs-target="#editContactModal"
+              data-partner-id="{{ partner.id }}"
+              data-contact-id="{{ contact.id }}"
+              data-name="{{ contact.name or '' }}"
+              data-role="{{ contact.role or '' }}"
+              data-email="{{ contact.email or '' }}"
+              data-phone="{{ contact.phone or '' }}"
+              data-can-order="{{ 1 if contact.can_order else 0 }}"
+              data-can-receive="{{ 1 if contact.can_receive else 0 }}">Upraviť</button>
+            {% if "manage_all" in user_permissions %}
+            <form method="post" action="{{ url_for('partners.delete_contact', partner_id=partner.id, contact_id=contact.id) }}" class="d-inline"
+                  onsubmit="return confirm('Naozaj chcete vymazať tento kontakt? Existujúce doklady nebudú ovplyvnené.')">
+              <button class="btn btn-sm btn-outline-danger mt-1" type="submit">Vymazať</button>
+            </form>
+            {% endif %}
           </li>
           {% endfor %}
         </ul>
-        <form method="post" action="{{ url_for('partners.add_contact', partner_id=partner.id) }}" class="row g-2">
-          <div class="col-6"><input class="form-control form-control-sm" name="name" placeholder="Meno" required></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="role" placeholder="Rola"></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="email" placeholder="Email"></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="phone" placeholder="Telefón"></div>
-          <div class="col-12">
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="checkbox" name="can_order" id="can_order_{{ partner.id }}">
-              <label class="form-check-label" for="can_order_{{ partner.id }}">Objednáva</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="checkbox" name="can_receive" id="can_receive_{{ partner.id }}">
-              <label class="form-check-label" for="can_receive_{{ partner.id }}">Preberá</label>
-            </div>
-          </div>
-          <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Pridať kontakt</button></div>
-        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#addContactModal"
+          data-partner-id="{{ partner.id }}">+ Pridať kontakt</button>
       </td>
       <td>
         <ul class="list-unstyled mb-2">
@@ -294,7 +299,121 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="modal fade" id="addContactModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="addContactForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nový kontakt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Meno</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Rola</label>
+              <input class="form-control" name="role">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_order" id="addContactCanOrder">
+                <label class="form-check-label" for="addContactCanOrder">Objednáva</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_receive" id="addContactCanReceive">
+                <label class="form-check-label" for="addContactCanReceive">Preberá</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Pridať kontakt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editContactModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editContactForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť kontakt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Meno</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Rola</label>
+              <input class="form-control" name="role">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_order" id="editContactCanOrder">
+                <label class="form-check-label" for="editContactCanOrder">Objednáva</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_receive" id="editContactCanReceive">
+                <label class="form-check-label" for="editContactCanReceive">Preberá</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <script>
+document.getElementById('addContactModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.partnerId + '/contacts';
+  form.querySelector('[name="name"]').value = '';
+  form.querySelector('[name="role"]').value = '';
+  form.querySelector('[name="email"]').value = '';
+  form.querySelector('[name="phone"]').value = '';
+  form.querySelector('#addContactCanOrder').checked = false;
+  form.querySelector('#addContactCanReceive').checked = false;
+});
+document.getElementById('editContactModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.partnerId + '/contacts/' + btn.dataset.contactId + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="role"]').value = btn.dataset.role || '';
+  form.querySelector('[name="email"]').value = btn.dataset.email || '';
+  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
+  form.querySelector('#editContactCanOrder').checked = btn.dataset.canOrder === '1';
+  form.querySelector('#editContactCanReceive').checked = btn.dataset.canReceive === '1';
+});
 document.getElementById('editPartnerModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var form = this.querySelector('form');

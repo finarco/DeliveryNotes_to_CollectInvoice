@@ -155,6 +155,47 @@ def add_contact(partner_id: int):
 
 
 @partners_bp.route(
+    "/partners/<int:partner_id>/contacts/<int:contact_id>/edit",
+    methods=["POST"],
+)
+@role_required("manage_partners")
+def edit_contact(partner_id: int, contact_id: int):
+    db.get_or_404(Partner, partner_id)
+    contact = db.get_or_404(Contact, contact_id)
+    if contact.partner_id != partner_id:
+        flash("Kontakt nepatrí k tomuto partnerovi.", "danger")
+        return redirect(url_for("partners.list_partners"))
+    contact.name = request.form.get("name", "").strip() or contact.name
+    contact.email = request.form.get("email", "")
+    contact.phone = request.form.get("phone", "")
+    contact.role = request.form.get("role", "")
+    contact.can_order = request.form.get("can_order") == "on"
+    contact.can_receive = request.form.get("can_receive") == "on"
+    log_action("edit", "contact", contact.id, f"partner_id={partner_id}")
+    db.session.commit()
+    flash("Kontakt upravený.", "success")
+    return redirect(url_for("partners.list_partners"))
+
+
+@partners_bp.route(
+    "/partners/<int:partner_id>/contacts/<int:contact_id>/delete",
+    methods=["POST"],
+)
+@role_required("manage_all")
+def delete_contact(partner_id: int, contact_id: int):
+    db.get_or_404(Partner, partner_id)
+    contact = db.get_or_404(Contact, contact_id)
+    if contact.partner_id != partner_id:
+        flash("Kontakt nepatrí k tomuto partnerovi.", "danger")
+        return redirect(url_for("partners.list_partners"))
+    log_action("delete", "contact", contact.id, f"partner_id={partner_id}, name={contact.name}")
+    db.session.delete(contact)
+    db.session.commit()
+    flash("Kontakt vymazaný.", "success")
+    return redirect(url_for("partners.list_partners"))
+
+
+@partners_bp.route(
     "/partners/<int:partner_id>/addresses", methods=["POST"]
 )
 @role_required("manage_partners")
