@@ -40,7 +40,7 @@ def load_config():
 
     return (
         AppConfig(
-            name=app_cfg.get("name", "Dodacie listy"),
+            name=app_cfg.get("name", "ObDoFa"),
             secret_key=secret_key,
             base_currency=app_cfg.get("base_currency", "EUR"),
             show_prices_default=app_cfg.get("show_prices_default", True),

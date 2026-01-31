@@ -19,6 +19,7 @@ def list_vehicles():
     if request.method == "POST":
         vehicle = Vehicle(
             name=request.form.get("name", "").strip(),
+            registration_number=request.form.get("registration_number", "").strip() or None,
             notes=request.form.get("notes", ""),
             active=request.form.get("active") == "on",
         )
@@ -49,6 +50,7 @@ def toggle_vehicle(vehicle_id: int):
 def edit_vehicle(vehicle_id: int):
     vehicle = db.get_or_404(Vehicle, vehicle_id)
     vehicle.name = request.form.get("name", "").strip() or vehicle.name
+    vehicle.registration_number = request.form.get("registration_number", "").strip() or None
     vehicle.notes = request.form.get("notes", "")
     vehicle.active = request.form.get("active") == "on"
     log_action("edit", "vehicle", vehicle.id, "updated")

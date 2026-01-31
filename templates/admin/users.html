@@ -106,6 +106,10 @@
             Reset hesla
           </button>
         </form>
+        <form method="post" action="{{ url_for('admin.force_password_change', user_id=user.id) }}" class="d-inline">
+          <button class="btn btn-sm btn-outline-secondary" type="submit"
+                  title="Vynútiť zmenu hesla pri najbližšom prihlásení">Vynútiť zmenu</button>
+        </form>
       </td>
       <td>{{ user.id }}</td>
       <td>{{ user.username }}</td>

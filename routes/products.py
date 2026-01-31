@@ -12,6 +12,7 @@ from models import (
 )
 from services.audit import log_action
 from services.auth import role_required
+from services.numbering import generate_number
 from utils import safe_float, safe_int
 
 products_bp = Blueprint("products", __name__)
@@ -33,6 +34,9 @@ def list_products():
         )
         db.session.add(product)
         db.session.flush()
+        product.product_number = generate_number(
+            "product", is_service=product.is_service
+        )
         product.price_history.append(ProductPriceHistory(price=price))
         db.session.commit()
         flash("Produkt uložený.", "success")
@@ -98,6 +102,7 @@ def list_bundles():
         )
         db.session.add(bundle)
         db.session.flush()
+        bundle.bundle_number = generate_number("bundle")
         for product in all_products:
             qty = safe_int(request.form.get(f"bundle_product_{product.id}"))
             if qty > 0:

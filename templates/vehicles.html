@@ -14,9 +14,13 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-md-12">
+            <div class="col-md-6">
               <label class="form-label">Názov vozidla</label>
               <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">EČV (registračné číslo)</label>
+              <input class="form-control" name="registration_number" placeholder="napr. BA-123-XY">
             </div>
             <div class="col-md-12">
               <label class="form-label">Poznámka</label>
@@ -48,9 +52,13 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-md-12">
+            <div class="col-md-6">
               <label class="form-label">Názov vozidla</label>
               <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">EČV (registračné číslo)</label>
+              <input class="form-control" name="registration_number">
             </div>
             <div class="col-md-12">
               <label class="form-label">Poznámka</label>
@@ -82,6 +90,7 @@
       <div class="modal-body">
         <dl class="row mb-0">
           <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewVehicleName"></dd>
+          <dt class="col-sm-4">EČV</dt><dd class="col-sm-8" id="viewVehicleRegNumber"></dd>
           <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewVehicleNotes"></dd>
           <dt class="col-sm-4">Aktívne</dt><dd class="col-sm-8" id="viewVehicleActive"></dd>
           <dt class="col-sm-4">Rozvrh</dt><dd class="col-sm-8" id="viewVehicleSchedules"></dd>
@@ -98,13 +107,15 @@
     <tr class="table-filter">
       <th></th>
       <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Poznámka..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Aktívne..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Dni/Hodiny..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="EČV..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Poznámka..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Aktívne..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Dni/Hodiny..."></th>
     </tr>
     <tr>
       <th>Akcie</th>
       <th>Názov</th>
+      <th>EČV</th>
       <th>Poznámka</th>
       <th>Aktívne</th>
       <th>Operačné dni/hodiny</th>
@@ -117,6 +128,7 @@
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewVehicleModal"
           data-name="{{ vehicle.name or '' }}"
+          data-reg-number="{{ vehicle.registration_number or '' }}"
           data-notes="{{ vehicle.notes or '' }}"
           data-active="{{ 1 if vehicle.active else 0 }}"
           data-schedules="{% for s in vehicle.schedules %}{{ s.day_of_week }} | {{ s.start_time }} - {{ s.end_time }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
@@ -131,6 +143,7 @@
           data-bs-toggle="modal" data-bs-target="#editVehicleModal"
           data-id="{{ vehicle.id }}"
           data-name="{{ vehicle.name or '' }}"
+          data-reg-number="{{ vehicle.registration_number or '' }}"
           data-notes="{{ vehicle.notes or '' }}"
           data-active="{{ 1 if vehicle.active else 0 }}">Upraviť</button>
         <form method="post" action="{{ url_for('vehicles.delete_vehicle', vehicle_id=vehicle.id) }}" class="d-inline"
@@ -139,6 +152,7 @@
         </form>
       </td>
       <td>{{ vehicle.name }}</td>
+      <td>{{ vehicle.registration_number or '' }}</td>
       <td>{{ vehicle.notes }}</td>
       <td>{{ "Áno" if vehicle.active else "Nie" }}</td>
       <td>
@@ -178,6 +192,7 @@
 document.getElementById('viewVehicleModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   this.querySelector('#viewVehicleName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewVehicleRegNumber').textContent = btn.dataset.regNumber || '-';
   this.querySelector('#viewVehicleNotes').textContent = btn.dataset.notes || '-';
   this.querySelector('#viewVehicleActive').textContent = btn.dataset.active === '1' ? 'Áno' : 'Nie';
   this.querySelector('#viewVehicleSchedules').textContent = btn.dataset.schedules || '-';
@@ -187,6 +202,7 @@ document.getElementById('editVehicleModal').addEventListener('show.bs.modal', fu
   var form = this.querySelector('form');
   form.action = '/vehicles/' + btn.dataset.id + '/edit';
   form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="registration_number"]').value = btn.dataset.regNumber || '';
   form.querySelector('[name="notes"]').value = btn.dataset.notes || '';
   form.querySelector('[name="active"]').checked = btn.dataset.active === '1';
 });

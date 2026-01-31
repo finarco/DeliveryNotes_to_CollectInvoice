@@ -14,11 +14,12 @@ from models import (
     Order,
     Partner,
 )
+from services.numbering import generate_number
 
 logger = logging.getLogger(__name__)
 
 
-def generate_invoice_number() -> str:
+def _fallback_invoice_number() -> str:
     """Generate the next invoice number in format ``FV-YYYY-NNNN``."""
     year = datetime.datetime.now().year
     prefix = f"FV-{year}-"
@@ -35,6 +36,14 @@ def generate_invoice_number() -> str:
     else:
         seq = 1
     return f"{prefix}{seq:04d}"
+
+
+def generate_invoice_number(partner_id: int | None = None) -> str:
+    """Generate the next invoice number using config or fallback."""
+    num = generate_number("invoice", partner_id=partner_id)
+    if num:
+        return num
+    return _fallback_invoice_number()
 
 
 def build_invoice_for_partner(partner_id: int) -> Invoice:
@@ -65,7 +74,7 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
             "Žiadne nevyfakturované dodacie listy pre tohto partnera."
         )
 
-    invoice_number = generate_invoice_number()
+    invoice_number = generate_invoice_number(partner_id=partner_id)
     invoice = Invoice(
         partner_id=partner_id,
         invoice_number=invoice_number,

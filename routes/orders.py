@@ -6,6 +6,7 @@ from extensions import db
 from models import Order, OrderItem, Partner, PartnerAddress, Product
 from services.audit import log_action
 from services.auth import get_current_user, role_required
+from services.numbering import generate_number
 from utils import parse_datetime, safe_int
 
 orders_bp = Blueprint("orders", __name__)
@@ -47,6 +48,9 @@ def list_orders():
         )
         db.session.add(order)
         db.session.flush()
+        order.order_number = generate_number(
+            "order", partner_id=partner_id
+        )
         all_products = Product.query.all()
         for product in all_products:
             qty = safe_int(request.form.get(f"product_{product.id}"))

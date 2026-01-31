@@ -3,10 +3,22 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
+from utils import utc_now
+
 from extensions import db
-from models import DeliveryNote, Invoice, Order, VALID_ROLES, User
+from models import (
+    AppSetting,
+    DeliveryNote,
+    Invoice,
+    NumberingConfig,
+    Order,
+    VALID_ROLES,
+    User,
+)
 from services.audit import log_action
 from services.auth import role_required
+
+_ENTITY_TYPES = ["product", "bundle", "order", "delivery_note", "invoice"]
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -76,6 +88,7 @@ def reset_password(user_id: int):
         return redirect(url_for("admin.users"))
     user.password_hash = generate_password_hash(new_password)
     user.must_change_password = True
+    user.password_changed_at = utc_now()
     log_action("reset_password", "user", user.id, "password reset by admin")
     db.session.commit()
     flash(f"Heslo pre '{user.username}' bolo resetované.", "success")
@@ -113,3 +126,106 @@ def unlock_invoice(invoice_id: int):
     db.session.commit()
     flash(f"Faktúra #{invoice.id} odomknutá.", "success")
     return redirect(request.referrer or url_for("invoices.list_invoices"))
+
+
+# ------------------------------------------------------------------
+# Settings
+# ------------------------------------------------------------------
+
+def _get_setting(key: str, default: str = "") -> str:
+    row = AppSetting.query.filter_by(key=key).first()
+    return row.value if row and row.value else default
+
+
+def _set_setting(key: str, value: str):
+    row = AppSetting.query.filter_by(key=key).first()
+    if not row:
+        row = AppSetting(key=key, value=value)
+        db.session.add(row)
+    else:
+        row.value = value
+
+
+@admin_bp.route("/settings", methods=["GET", "POST"])
+@role_required("manage_all")
+def settings():
+    if request.method == "POST":
+        # General
+        _set_setting("site_name", request.form.get("site_name", "").strip())
+
+        # Password policy
+        _set_setting(
+            "password_expiry_value",
+            request.form.get("password_expiry_value", "0").strip(),
+        )
+        _set_setting(
+            "password_expiry_unit",
+            request.form.get("password_expiry_unit", "days").strip(),
+        )
+
+        # Numbering configs
+        for etype in _ENTITY_TYPES:
+            config = NumberingConfig.query.filter_by(entity_type=etype).first()
+            if not config:
+                config = NumberingConfig(entity_type=etype)
+                db.session.add(config)
+
+            config.prefix = request.form.get(f"num_{etype}_prefix", "").strip()
+            config.separator = request.form.get(f"num_{etype}_separator", "-").strip() or "-"
+            config.sequence_digits = max(
+                int(request.form.get(f"num_{etype}_digits", "4") or "4"), 1
+            )
+            config.include_type_indicator = (
+                request.form.get(f"num_{etype}_type_indicator") == "on"
+            )
+            config.goods_indicator = (
+                request.form.get(f"num_{etype}_goods_ind", "T").strip() or "T"
+            )
+            config.service_indicator = (
+                request.form.get(f"num_{etype}_service_ind", "S").strip() or "S"
+            )
+            config.include_partner_id = (
+                request.form.get(f"num_{etype}_partner_id") == "on"
+            )
+            config.include_year = (
+                request.form.get(f"num_{etype}_year") == "on"
+            )
+            config.include_month = (
+                request.form.get(f"num_{etype}_month") == "on"
+            )
+
+        log_action("update", "settings", 0, "settings updated")
+        db.session.commit()
+        flash("Nastavenia uložené.", "success")
+        return redirect(url_for("admin.settings"))
+
+    # GET — load current values
+    numbering = {}
+    for etype in _ENTITY_TYPES:
+        config = NumberingConfig.query.filter_by(entity_type=etype).first()
+        numbering[etype] = config
+
+    return render_template(
+        "admin/settings.html",
+        site_name=_get_setting("site_name", "ObDoFa"),
+        password_expiry_value=_get_setting("password_expiry_value", "0"),
+        password_expiry_unit=_get_setting("password_expiry_unit", "days"),
+        numbering=numbering,
+        entity_types=_ENTITY_TYPES,
+    )
+
+
+@admin_bp.route(
+    "/users/<int:user_id>/force-password-change", methods=["POST"]
+)
+@role_required("manage_all")
+def force_password_change(user_id: int):
+    user = db.get_or_404(User, user_id)
+    user.must_change_password = True
+    log_action("force_password_change", "user", user.id, "forced by admin")
+    db.session.commit()
+    flash(
+        f"Používateľ '{user.username}' musí zmeniť heslo pri ďalšom prihlásení.",
+        "success",
+    )
+    return redirect(url_for("admin.users"))

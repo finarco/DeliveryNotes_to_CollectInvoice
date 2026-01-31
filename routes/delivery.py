@@ -23,6 +23,7 @@ from models import (
 )
 from services.audit import log_action
 from services.auth import get_current_user, role_required
+from services.numbering import generate_number
 from services.pdf import generate_delivery_pdf
 from utils import parse_datetime, safe_int, utc_now
 
@@ -65,6 +66,10 @@ def list_delivery_notes():
         )
         db.session.add(delivery)
         db.session.flush()
+        delivery.note_number = generate_number(
+            "delivery_note",
+            partner_id=selected_orders[0].partner_id,
+        )
 
         for order in selected_orders:
             delivery.orders.append(DeliveryNoteOrder(order_id=order.id))

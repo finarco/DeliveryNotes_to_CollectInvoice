@@ -31,6 +31,7 @@ class User(db.Model):
     must_change_password = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
+    password_changed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -106,6 +107,7 @@ class Contact(db.Model):
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    product_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(255))
     long_text = db.Column(db.Text)
@@ -131,6 +133,7 @@ class ProductPriceHistory(db.Model):
 
 class Bundle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    bundle_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     bundle_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     discount_excluded = db.Column(db.Boolean, default=False)
@@ -175,6 +178,7 @@ class ProductRestriction(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(60))
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     pickup_address_id = db.Column(db.Integer, db.ForeignKey("partner_address.id"))
     delivery_address_id = db.Column(db.Integer, db.ForeignKey("partner_address.id"))
@@ -224,6 +228,7 @@ class OrderItem(db.Model):
 
 class DeliveryNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    note_number = db.Column(db.String(60))
     primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     show_prices = db.Column(db.Boolean, default=True)
@@ -306,6 +311,7 @@ class DeliveryItemComponent(db.Model):
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    registration_number = db.Column(db.String(20), unique=True)
     notes = db.Column(db.String(255))
     active = db.Column(db.Boolean, default=True)
 
@@ -353,6 +359,48 @@ class AuditLog(db.Model):
     __table_args__ = (
         db.Index("ix_audit_log_created_at", "created_at"),
         db.Index("ix_audit_log_entity", "entity_type", "entity_id"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invoices
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Application settings
+# ---------------------------------------------------------------------------
+
+class AppSetting(db.Model):
+    """Key-value store for application-wide settings."""
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), unique=True, nullable=False)
+    value = db.Column(db.Text)
+
+
+class NumberingConfig(db.Model):
+    """Numbering pattern configuration per entity type."""
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(40), unique=True, nullable=False)
+    prefix = db.Column(db.String(20), default="")
+    include_type_indicator = db.Column(db.Boolean, default=False)
+    goods_indicator = db.Column(db.String(10), default="T")
+    service_indicator = db.Column(db.String(10), default="S")
+    include_partner_id = db.Column(db.Boolean, default=False)
+    include_year = db.Column(db.Boolean, default=False)
+    include_month = db.Column(db.Boolean, default=False)
+    sequence_digits = db.Column(db.Integer, default=4)
+    separator = db.Column(db.String(5), default="-")
+
+
+class NumberSequence(db.Model):
+    """Sequence counters per entity type and scope."""
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(40), nullable=False)
+    scope_key = db.Column(db.String(120), default="")
+    last_value = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint("entity_type", "scope_key", name="uq_number_sequence"),
     )
 
 
