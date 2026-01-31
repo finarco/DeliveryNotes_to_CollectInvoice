@@ -80,20 +80,128 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editPartnerForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť partnera</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov partnera</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Číslo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČ DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skupina</label>
+              <input class="form-control" name="group_code">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cenová hladina</label>
+              <input class="form-control" name="price_level">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Zľava %</label>
+              <input class="form-control" name="discount_percent" type="number" step="0.1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="viewPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail partnera</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewPartnerName"></dd>
+          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewPartnerNote"></dd>
+          <dt class="col-sm-4">Email</dt><dd class="col-sm-8" id="viewPartnerEmail"></dd>
+          <dt class="col-sm-4">Telefón</dt><dd class="col-sm-8" id="viewPartnerPhone"></dd>
+          <dt class="col-sm-4">Ulica</dt><dd class="col-sm-8" id="viewPartnerStreet"></dd>
+          <dt class="col-sm-4">PSČ / Mesto</dt><dd class="col-sm-8" id="viewPartnerCity"></dd>
+          <dt class="col-sm-4">IČO</dt><dd class="col-sm-8" id="viewPartnerIco"></dd>
+          <dt class="col-sm-4">DIČ</dt><dd class="col-sm-8" id="viewPartnerDic"></dd>
+          <dt class="col-sm-4">IČ DPH</dt><dd class="col-sm-8" id="viewPartnerIcDph"></dd>
+          <dt class="col-sm-4">Skupina</dt><dd class="col-sm-8" id="viewPartnerGroupCode"></dd>
+          <dt class="col-sm-4">Cenová hladina</dt><dd class="col-sm-8" id="viewPartnerPriceLevel"></dd>
+          <dt class="col-sm-4">Zľava %</dt><dd class="col-sm-8" id="viewPartnerDiscount"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewPartnerStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Adresa..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="IČO..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="DIČ..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="IČ DPH..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Skupina..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Cena/Zľava..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Kontakty..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="8" placeholder="Adresy..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Adresa..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="IČO..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="DIČ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="IČ DPH..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Skupina..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Cena/Zľava..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="8" placeholder="Kontakty..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="9" placeholder="Adresy..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Názov</th>
       <th>Adresa</th>
       <th>IČO</th>
@@ -108,6 +216,56 @@
   <tbody>
     {% for partner in partners %}
     <tr>
+      <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewPartnerModal"
+          data-name="{{ partner.name or '' }}"
+          data-note="{{ partner.note or '' }}"
+          data-email="{{ partner.email or '' }}"
+          data-phone="{{ partner.phone or '' }}"
+          data-street="{{ partner.street or '' }}"
+          data-street-number="{{ partner.street_number or '' }}"
+          data-postal-code="{{ partner.postal_code or '' }}"
+          data-city="{{ partner.city or '' }}"
+          data-ico="{{ partner.ico or '' }}"
+          data-dic="{{ partner.dic or '' }}"
+          data-ic-dph="{{ partner.ic_dph or '' }}"
+          data-group-code="{{ partner.group_code or '' }}"
+          data-price-level="{{ partner.price_level or '' }}"
+          data-discount-percent="{{ partner.discount_percent }}"
+          data-is-active="{{ 1 if partner.is_active else 0 }}">Zobraziť</button>
+        {% if not partner.is_active %}
+        <span class="badge bg-secondary mb-1">Neaktívny</span><br>
+        {% endif %}
+        <form method="post" action="{{ url_for('partners.toggle_partner', partner_id=partner.id) }}" class="d-inline">
+          {% if partner.is_active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editPartnerModal"
+          data-id="{{ partner.id }}"
+          data-name="{{ partner.name or '' }}"
+          data-email="{{ partner.email or '' }}"
+          data-phone="{{ partner.phone or '' }}"
+          data-street="{{ partner.street or '' }}"
+          data-street-number="{{ partner.street_number or '' }}"
+          data-postal-code="{{ partner.postal_code or '' }}"
+          data-city="{{ partner.city or '' }}"
+          data-ico="{{ partner.ico or '' }}"
+          data-dic="{{ partner.dic or '' }}"
+          data-ic-dph="{{ partner.ic_dph or '' }}"
+          data-group-code="{{ partner.group_code or '' }}"
+          data-price-level="{{ partner.price_level or '' }}"
+          data-discount-percent="{{ partner.discount_percent }}"
+          data-note="{{ partner.note or '' }}">Upraviť</button>
+        <form method="post" action="{{ url_for('partners.delete_partner', partner_id=partner.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať tohto partnera? Existujúce doklady budú uzamknuté.')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ partner.name }}</td>
       <td>
         {{ partner.street }} {{ partner.street_number }}<br>
@@ -122,29 +280,34 @@
       <td>
         <ul class="list-unstyled mb-2">
           {% for contact in partner.contacts %}
-          <li>
-            <strong>{{ contact.name }}</strong> ({{ contact.role }})<br>
+          <li class="mb-1">
+            <strong>{{ contact.name }}</strong>{% if contact.role %} ({{ contact.role }}){% endif %}<br>
             {{ contact.email }} / {{ contact.phone }}
+            {% if contact.can_order %}<span class="badge bg-info">Objednáva</span>{% endif %}
+            {% if contact.can_receive %}<span class="badge bg-info">Preberá</span>{% endif %}
+            <br>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+              data-bs-toggle="modal" data-bs-target="#editContactModal"
+              data-partner-id="{{ partner.id }}"
+              data-contact-id="{{ contact.id }}"
+              data-name="{{ contact.name or '' }}"
+              data-role="{{ contact.role or '' }}"
+              data-email="{{ contact.email or '' }}"
+              data-phone="{{ contact.phone or '' }}"
+              data-can-order="{{ 1 if contact.can_order else 0 }}"
+              data-can-receive="{{ 1 if contact.can_receive else 0 }}">Upraviť</button>
+            {% if "manage_all" in user_permissions %}
+            <form method="post" action="{{ url_for('partners.delete_contact', partner_id=partner.id, contact_id=contact.id) }}" class="d-inline"
+                  onsubmit="return confirm('Naozaj chcete vymazať tento kontakt? Existujúce doklady nebudú ovplyvnené.')">
+              <button class="btn btn-sm btn-outline-danger mt-1" type="submit">Vymazať</button>
+            </form>
+            {% endif %}
           </li>
           {% endfor %}
         </ul>
-        <form method="post" action="{{ url_for('partners.add_contact', partner_id=partner.id) }}" class="row g-2">
-          <div class="col-6"><input class="form-control form-control-sm" name="name" placeholder="Meno" required></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="role" placeholder="Rola"></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="email" placeholder="Email"></div>
-          <div class="col-6"><input class="form-control form-control-sm" name="phone" placeholder="Telefón"></div>
-          <div class="col-12">
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="checkbox" name="can_order" id="can_order_{{ partner.id }}">
-              <label class="form-check-label" for="can_order_{{ partner.id }}">Objednáva</label>
-            </div>
-            <div class="form-check form-check-inline">
-              <input class="form-check-input" type="checkbox" name="can_receive" id="can_receive_{{ partner.id }}">
-              <label class="form-check-label" for="can_receive_{{ partner.id }}">Preberá</label>
-            </div>
-          </div>
-          <div class="col-12"><button class="btn btn-sm btn-outline-primary" type="submit">Pridať kontakt</button></div>
-        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#addContactModal"
+          data-partner-id="{{ partner.id }}">+ Pridať kontakt</button>
       </td>
       <td>
         <ul class="list-unstyled mb-2">
@@ -183,4 +346,155 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="modal fade" id="addContactModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="addContactForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nový kontakt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Meno</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Rola</label>
+              <input class="form-control" name="role">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_order" id="addContactCanOrder">
+                <label class="form-check-label" for="addContactCanOrder">Objednáva</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_receive" id="addContactCanReceive">
+                <label class="form-check-label" for="addContactCanReceive">Preberá</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Pridať kontakt</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editContactModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editContactForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť kontakt</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Meno</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Rola</label>
+              <input class="form-control" name="role">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-12">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_order" id="editContactCanOrder">
+                <label class="form-check-label" for="editContactCanOrder">Objednáva</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="can_receive" id="editContactCanReceive">
+                <label class="form-check-label" for="editContactCanReceive">Preberá</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('viewPartnerModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewPartnerName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewPartnerNote').textContent = btn.dataset.note || '-';
+  this.querySelector('#viewPartnerEmail').textContent = btn.dataset.email || '-';
+  this.querySelector('#viewPartnerPhone').textContent = btn.dataset.phone || '-';
+  this.querySelector('#viewPartnerStreet').textContent = (btn.dataset.street || '') + ' ' + (btn.dataset.streetNumber || '');
+  this.querySelector('#viewPartnerCity').textContent = (btn.dataset.postalCode || '') + ' ' + (btn.dataset.city || '');
+  this.querySelector('#viewPartnerIco').textContent = btn.dataset.ico || '-';
+  this.querySelector('#viewPartnerDic').textContent = btn.dataset.dic || '-';
+  this.querySelector('#viewPartnerIcDph').textContent = btn.dataset.icDph || '-';
+  this.querySelector('#viewPartnerGroupCode').textContent = btn.dataset.groupCode || '-';
+  this.querySelector('#viewPartnerPriceLevel').textContent = btn.dataset.priceLevel || '-';
+  this.querySelector('#viewPartnerDiscount').textContent = btn.dataset.discountPercent || '0';
+  this.querySelector('#viewPartnerStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívny' : 'Neaktívny';
+});
+document.getElementById('addContactModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.partnerId + '/contacts';
+  form.querySelector('[name="name"]').value = '';
+  form.querySelector('[name="role"]').value = '';
+  form.querySelector('[name="email"]').value = '';
+  form.querySelector('[name="phone"]').value = '';
+  form.querySelector('#addContactCanOrder').checked = false;
+  form.querySelector('#addContactCanReceive').checked = false;
+});
+document.getElementById('editContactModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.partnerId + '/contacts/' + btn.dataset.contactId + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="role"]').value = btn.dataset.role || '';
+  form.querySelector('[name="email"]').value = btn.dataset.email || '';
+  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
+  form.querySelector('#editContactCanOrder').checked = btn.dataset.canOrder === '1';
+  form.querySelector('#editContactCanReceive').checked = btn.dataset.canReceive === '1';
+});
+document.getElementById('editPartnerModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/partners/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="email"]').value = btn.dataset.email || '';
+  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
+  form.querySelector('[name="street"]').value = btn.dataset.street || '';
+  form.querySelector('[name="street_number"]').value = btn.dataset.streetNumber || '';
+  form.querySelector('[name="postal_code"]').value = btn.dataset.postalCode || '';
+  form.querySelector('[name="city"]').value = btn.dataset.city || '';
+  form.querySelector('[name="ico"]').value = btn.dataset.ico || '';
+  form.querySelector('[name="dic"]').value = btn.dataset.dic || '';
+  form.querySelector('[name="ic_dph"]').value = btn.dataset.icDph || '';
+  form.querySelector('[name="group_code"]').value = btn.dataset.groupCode || '';
+  form.querySelector('[name="price_level"]').value = btn.dataset.priceLevel || '';
+  form.querySelector('[name="discount_percent"]').value = btn.dataset.discountPercent || '';
+  form.querySelector('[name="note"]').value = btn.dataset.note || '';
+});
+</script>
 {% endblock %}

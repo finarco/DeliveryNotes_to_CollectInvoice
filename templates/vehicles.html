@@ -14,9 +14,13 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-md-12">
+            <div class="col-md-6">
               <label class="form-label">Názov vozidla</label>
               <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">EČV (registračné číslo)</label>
+              <input class="form-control" name="registration_number" placeholder="napr. BA-123-XY">
             </div>
             <div class="col-md-12">
               <label class="form-label">Poznámka</label>
@@ -38,16 +42,80 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editVehicleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editVehicleForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť vozidlo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Názov vozidla</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">EČV (registračné číslo)</label>
+              <input class="form-control" name="registration_number">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="notes">
+            </div>
+            <div class="col-md-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="active" id="edit_vehicle_active">
+                <label class="form-check-label" for="edit_vehicle_active">Aktívne</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="viewVehicleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail vozidla</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewVehicleName"></dd>
+          <dt class="col-sm-4">EČV</dt><dd class="col-sm-8" id="viewVehicleRegNumber"></dd>
+          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewVehicleNotes"></dd>
+          <dt class="col-sm-4">Aktívne</dt><dd class="col-sm-8" id="viewVehicleActive"></dd>
+          <dt class="col-sm-4">Rozvrh</dt><dd class="col-sm-8" id="viewVehicleSchedules"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Názov..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Poznámka..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Aktívne..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Dni/Hodiny..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Názov..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="EČV..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Poznámka..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Aktívne..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Dni/Hodiny..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Názov</th>
+      <th>EČV</th>
       <th>Poznámka</th>
       <th>Aktívne</th>
       <th>Operačné dni/hodiny</th>
@@ -56,7 +124,35 @@
   <tbody>
     {% for vehicle in vehicles %}
     <tr>
+      <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewVehicleModal"
+          data-name="{{ vehicle.name or '' }}"
+          data-reg-number="{{ vehicle.registration_number or '' }}"
+          data-notes="{{ vehicle.notes or '' }}"
+          data-active="{{ 1 if vehicle.active else 0 }}"
+          data-schedules="{% for s in vehicle.schedules %}{{ s.day_of_week }} | {{ s.start_time }} - {{ s.end_time }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
+        <form method="post" action="{{ url_for('vehicles.toggle_vehicle', vehicle_id=vehicle.id) }}" class="d-inline">
+          {% if vehicle.active %}
+            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+          {% else %}
+            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+          {% endif %}
+        </form>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editVehicleModal"
+          data-id="{{ vehicle.id }}"
+          data-name="{{ vehicle.name or '' }}"
+          data-reg-number="{{ vehicle.registration_number or '' }}"
+          data-notes="{{ vehicle.notes or '' }}"
+          data-active="{{ 1 if vehicle.active else 0 }}">Upraviť</button>
+        <form method="post" action="{{ url_for('vehicles.delete_vehicle', vehicle_id=vehicle.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať toto vozidlo?')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ vehicle.name }}</td>
+      <td>{{ vehicle.registration_number or '' }}</td>
       <td>{{ vehicle.notes }}</td>
       <td>{{ "Áno" if vehicle.active else "Nie" }}</td>
       <td>
@@ -92,4 +188,23 @@
     {% endfor %}
   </tbody>
 </table>
+<script>
+document.getElementById('viewVehicleModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewVehicleName').textContent = btn.dataset.name || '-';
+  this.querySelector('#viewVehicleRegNumber').textContent = btn.dataset.regNumber || '-';
+  this.querySelector('#viewVehicleNotes').textContent = btn.dataset.notes || '-';
+  this.querySelector('#viewVehicleActive').textContent = btn.dataset.active === '1' ? 'Áno' : 'Nie';
+  this.querySelector('#viewVehicleSchedules').textContent = btn.dataset.schedules || '-';
+});
+document.getElementById('editVehicleModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/vehicles/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="registration_number"]').value = btn.dataset.regNumber || '';
+  form.querySelector('[name="notes"]').value = btn.dataset.notes || '';
+  form.querySelector('[name="active"]').checked = btn.dataset.active === '1';
+});
+</script>
 {% endblock %}

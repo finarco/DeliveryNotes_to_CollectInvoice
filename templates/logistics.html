@@ -67,16 +67,98 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editPlanModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editPlanForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť plán</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Typ</label>
+              <select class="form-select" name="plan_type">
+                <option value="pickup">Zvoz</option>
+                <option value="delivery">Dodanie</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Objednávka</label>
+              <select class="form-select" name="order_id">
+                <option value="">--</option>
+                {% for order in orders %}
+                <option value="{{ order.id }}">#{{ order.id }} - {{ order.partner.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Dodací list</label>
+              <select class="form-select" name="delivery_note_id">
+                <option value="">--</option>
+                {% for delivery in delivery_notes %}
+                <option value="{{ delivery.id }}">#{{ delivery.id }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Vozidlo</label>
+              <select class="form-select" name="vehicle_id">
+                <option value="">--</option>
+                {% for vehicle in vehicles %}
+                <option value="{{ vehicle.id }}">{{ vehicle.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Plánovaný dátum/čas</label>
+              <input type="datetime-local" class="form-control" name="planned_datetime" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="viewPlanModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail plánu</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Typ</dt><dd class="col-sm-8" id="viewPlanType"></dd>
+          <dt class="col-sm-4">Dátum/čas</dt><dd class="col-sm-8" id="viewPlanDatetime"></dd>
+          <dt class="col-sm-4">Objednávka</dt><dd class="col-sm-8" id="viewPlanOrder"></dd>
+          <dt class="col-sm-4">Dodací list</dt><dd class="col-sm-8" id="viewPlanDelivery"></dd>
+          <dt class="col-sm-4">Vozidlo</dt><dd class="col-sm-8" id="viewPlanVehicle"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="Typ..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Dátum/čas..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Objednávka..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Dodací list..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Vozidlo..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Typ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Dátum/čas..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Objednávka..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Dodací list..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Vozidlo..."></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>Typ</th>
       <th>Dátum/čas</th>
       <th>Objednávka</th>
@@ -87,6 +169,27 @@
   <tbody>
     {% for plan in plans %}
     <tr>
+      <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewPlanModal"
+          data-plan-type="{{ plan.plan_type or '' }}"
+          data-planned-datetime="{{ plan.planned_datetime or '' }}"
+          data-order="{% if plan.order %}#{{ plan.order.id }} - {{ plan.order.partner.name }}{% endif %}"
+          data-delivery="{% if plan.delivery_note %}#{{ plan.delivery_note.id }}{% endif %}"
+          data-vehicle="{% if plan.vehicle %}{{ plan.vehicle.name }}{% endif %}">Zobraziť</button>
+        <button type="button" class="btn btn-sm btn-outline-primary"
+          data-bs-toggle="modal" data-bs-target="#editPlanModal"
+          data-id="{{ plan.id }}"
+          data-plan-type="{{ plan.plan_type or '' }}"
+          data-order-id="{{ plan.order_id or '' }}"
+          data-delivery-note-id="{{ plan.delivery_note_id or '' }}"
+          data-vehicle-id="{{ plan.vehicle_id or '' }}"
+          data-planned-datetime="{{ plan.planned_datetime.strftime('%Y-%m-%dT%H:%M') if plan.planned_datetime else '' }}">Upraviť</button>
+        <form method="post" action="{{ url_for('logistics.delete_plan', plan_id=plan.id) }}" class="d-inline"
+              onsubmit="return confirm('Naozaj chcete vymazať tento plán?')">
+          <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+        </form>
+      </td>
       <td>{{ plan.plan_type }}</td>
       <td>{{ plan.planned_datetime }}</td>
       <td>{% if plan.order %}#{{ plan.order.id }} - {{ plan.order.partner.name }}{% endif %}</td>
@@ -108,4 +211,24 @@
   </ul>
 </nav>
 {% endif %}
+<script>
+document.getElementById('viewPlanModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewPlanType').textContent = btn.dataset.planType || '-';
+  this.querySelector('#viewPlanDatetime').textContent = btn.dataset.plannedDatetime || '-';
+  this.querySelector('#viewPlanOrder').textContent = btn.dataset.order || '-';
+  this.querySelector('#viewPlanDelivery').textContent = btn.dataset.delivery || '-';
+  this.querySelector('#viewPlanVehicle').textContent = btn.dataset.vehicle || '-';
+});
+document.getElementById('editPlanModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/logistics/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="plan_type"]').value = btn.dataset.planType || 'pickup';
+  form.querySelector('[name="order_id"]').value = btn.dataset.orderId || '';
+  form.querySelector('[name="delivery_note_id"]').value = btn.dataset.deliveryNoteId || '';
+  form.querySelector('[name="vehicle_id"]').value = btn.dataset.vehicleId || '';
+  form.querySelector('[name="planned_datetime"]').value = btn.dataset.plannedDatetime || '';
+});
+</script>
 {% endblock %}

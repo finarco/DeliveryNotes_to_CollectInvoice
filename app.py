@@ -12,7 +12,7 @@ from sqlalchemy import event, inspect, text
 
 from config import load_config, enable_sqlite_fks
 from extensions import csrf, db, limiter
-from models import ROLE_PERMISSIONS, User
+from models import ROLE_PERMISSIONS, AppSetting, User
 from routes import register_blueprints
 from services.auth import ensure_admin_user
 
@@ -47,39 +47,51 @@ def _migrate_schema():
             ("must_change_password", "BOOLEAN DEFAULT 0"),
             ("is_active", "BOOLEAN DEFAULT 1"),
             ("partner_id", "INTEGER REFERENCES partner(id)"),
+            ("password_changed_at", "DATETIME"),
             ("created_at", "DATETIME"),
             ("updated_at", "DATETIME"),
         ],
         "partner": [
             ("is_active", "BOOLEAN DEFAULT 1"),
+            ("is_deleted", "BOOLEAN DEFAULT 0"),
             ("created_at", "DATETIME"),
             ("updated_at", "DATETIME"),
         ],
         "product": [
+            ("product_number", "VARCHAR(60)"),
             ("vat_rate", "REAL DEFAULT 20.0"),
             ("is_active", "BOOLEAN DEFAULT 1"),
             ("created_at", "DATETIME"),
             ("updated_at", "DATETIME"),
         ],
         "bundle": [
+            ("bundle_number", "VARCHAR(60)"),
             ("discount_excluded", "BOOLEAN DEFAULT 0"),
             ("is_active", "BOOLEAN DEFAULT 1"),
             ("created_at", "DATETIME"),
             ("updated_at", "DATETIME"),
         ],
         "order": [
+            ("order_number", "VARCHAR(60)"),
             ("pickup_address_id", "INTEGER REFERENCES partner_address(id)"),
             ("delivery_address_id", "INTEGER REFERENCES partner_address(id)"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
             ("updated_at", "DATETIME"),
         ],
         "delivery_note": [
+            ("note_number", "VARCHAR(60)"),
             ("updated_at", "DATETIME"),
             ("actual_delivery_datetime", "DATETIME"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
+        ],
+        "vehicle": [
+            ("registration_number", "VARCHAR(20)"),
         ],
         "invoice": [
             ("invoice_number", "VARCHAR(30)"),
             ("updated_at", "DATETIME"),
             ("total_with_vat", "REAL DEFAULT 0.0"),
+            ("is_locked", "BOOLEAN DEFAULT 0"),
         ],
         "invoice_item": [
             ("source_delivery_id", "INTEGER REFERENCES delivery_note(id)"),
@@ -168,7 +180,7 @@ def create_app():
 
     @app.before_request
     def check_password_change():
-        """Force users with ``must_change_password`` to change it."""
+        """Force users with ``must_change_password`` or expired passwords."""
         if not request.endpoint or request.endpoint in (
             "auth.login",
             "auth.logout",
@@ -177,8 +189,38 @@ def create_app():
         ):
             return None
         user = getattr(g, "current_user", None)
-        if user and user.must_change_password:
+        if not user:
+            return None
+        if user.must_change_password:
             return redirect(url_for("auth.change_password"))
+        # Check password expiry
+        if user.password_changed_at:
+            try:
+                exp_val = AppSetting.query.filter_by(
+                    key="password_expiry_value"
+                ).first()
+                exp_unit = AppSetting.query.filter_by(
+                    key="password_expiry_unit"
+                ).first()
+                if exp_val and exp_val.value and int(exp_val.value) > 0:
+                    unit = exp_unit.value if exp_unit else "days"
+                    days = int(exp_val.value)
+                    if unit == "weeks":
+                        days *= 7
+                    elif unit == "months":
+                        days *= 30
+                    from datetime import datetime, timezone
+                    age = datetime.now(timezone.utc) - (
+                        user.password_changed_at.replace(tzinfo=timezone.utc)
+                        if user.password_changed_at.tzinfo is None
+                        else user.password_changed_at
+                    )
+                    if age.days >= days:
+                        user.must_change_password = True
+                        db.session.commit()
+                        return redirect(url_for("auth.change_password"))
+            except (ValueError, TypeError):
+                pass
         return None
 
     @app.context_processor
@@ -188,8 +230,17 @@ def create_app():
         user_permissions = set()
         if user:
             user_permissions = ROLE_PERMISSIONS.get(user.role, set())
+        # Dynamic site name from DB settings, fallback to config
+        site_name = app_cfg.name
+        try:
+            setting = AppSetting.query.filter_by(key="site_name").first()
+            if setting and setting.value:
+                site_name = setting.value
+        except Exception:
+            pass
         return {
             "app_config": app_cfg,
+            "site_name": site_name,
             "current_user": user,
             "user_permissions": user_permissions,
         }

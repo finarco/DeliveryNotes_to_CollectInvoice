@@ -71,6 +71,34 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="editInvoiceModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editInvoiceForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť faktúru</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Stav</label>
+              <select class="form-select" name="status">
+                {% for status in valid_invoice_statuses %}
+                <option value="{{ status }}">{{ status }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <script>
 document.getElementById('manual-item-form').addEventListener('submit', function(e) {
   var invoiceId = document.getElementById('manual-invoice-id').value;
@@ -79,28 +107,82 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
   }
 });
 </script>
+<div class="modal fade" id="viewInvoiceModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail faktúry</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewInvoiceId"></dd>
+          <dt class="col-sm-4">Číslo faktúry</dt><dd class="col-sm-8" id="viewInvoiceNumber"></dd>
+          <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewInvoicePartner"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewInvoiceStatus"></dd>
+          <dt class="col-sm-4">Spolu bez DPH</dt><dd class="col-sm-8" id="viewInvoiceTotal"></dd>
+          <dt class="col-sm-4">Spolu s DPH</dt><dd class="col-sm-8" id="viewInvoiceTotalVat"></dd>
+          <dt class="col-sm-4">Položky</dt><dd class="col-sm-8" id="viewInvoiceItems"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
-      <th><input type="text" class="form-control form-control-sm" data-col="0" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="Partner..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Stav..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Spolu..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Položky..."></th>
+      <th></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Partner..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Stav..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Spolu..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Položky..."></th>
       <th></th>
     </tr>
     <tr>
+      <th>Akcie</th>
       <th>ID</th>
       <th>Partner</th>
       <th>Stav</th>
       <th>Spolu</th>
       <th>Položky</th>
-      <th>Akcie</th>
+      <th>Export</th>
     </tr>
   </thead>
   <tbody>
     {% for invoice in invoices %}
     <tr>
+      <td class="text-nowrap">
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#viewInvoiceModal"
+          data-invoice-id="{{ invoice.id }}"
+          data-invoice-number="{{ invoice.invoice_number or '' }}"
+          data-partner="{{ invoice.partner.name }}"
+          data-status="{{ invoice.status or '' }}"
+          data-total="{{ '%.2f'|format(invoice.total) }}"
+          data-total-vat="{{ '%.2f'|format(invoice.total_with_vat) }}"
+          data-items="{% for item in invoice.items %}{{ item.description }} | {{ item.quantity }}x | {{ '%.2f'|format(item.total) }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
+        {% if invoice.is_locked %}
+          <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
+          {% if "manage_all" in user_permissions %}
+          <form method="post" action="{{ url_for('admin.unlock_invoice', invoice_id=invoice.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
+          </form>
+          {% endif %}
+        {% elif "manage_all" in user_permissions %}
+          <button type="button" class="btn btn-sm btn-outline-primary"
+            data-bs-toggle="modal" data-bs-target="#editInvoiceModal"
+            data-id="{{ invoice.id }}"
+            data-status="{{ invoice.status or '' }}">Upraviť</button>
+          <form method="post" action="{{ url_for('invoices.delete_invoice', invoice_id=invoice.id) }}" class="d-inline"
+                onsubmit="return confirm('Naozaj chcete vymazať túto faktúru?')">
+            <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
+          </form>
+        {% endif %}
+      </td>
       <td>{{ invoice.id }}</td>
       <td>{{ invoice.partner.name }}</td>
       <td>{{ invoice.status }}</td>
@@ -137,4 +219,22 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
   </ul>
 </nav>
 {% endif %}
+<script>
+document.getElementById('viewInvoiceModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  this.querySelector('#viewInvoiceId').textContent = btn.dataset.invoiceId || '-';
+  this.querySelector('#viewInvoiceNumber').textContent = btn.dataset.invoiceNumber || '-';
+  this.querySelector('#viewInvoicePartner').textContent = btn.dataset.partner || '-';
+  this.querySelector('#viewInvoiceStatus').textContent = btn.dataset.status || '-';
+  this.querySelector('#viewInvoiceTotal').textContent = btn.dataset.total || '0.00';
+  this.querySelector('#viewInvoiceTotalVat').textContent = btn.dataset.totalVat || '0.00';
+  this.querySelector('#viewInvoiceItems').textContent = btn.dataset.items || '-';
+});
+document.getElementById('editInvoiceModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var form = this.querySelector('form');
+  form.action = '/invoices/' + btn.dataset.id + '/edit';
+  form.querySelector('[name="status"]').value = btn.dataset.status || 'draft';
+});
+</script>
 {% endblock %}

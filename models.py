@@ -31,6 +31,7 @@ class User(db.Model):
     must_change_password = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
+    password_changed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -58,6 +59,7 @@ class Partner(db.Model):
     price_level = db.Column(db.String(60))
     discount_percent = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     is_active = db.Column(db.Boolean, default=True)
+    is_deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -105,6 +107,7 @@ class Contact(db.Model):
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    product_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(255))
     long_text = db.Column(db.Text)
@@ -130,6 +133,7 @@ class ProductPriceHistory(db.Model):
 
 class Bundle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    bundle_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     bundle_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
     discount_excluded = db.Column(db.Boolean, default=False)
@@ -174,6 +178,7 @@ class ProductRestriction(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(60))
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     pickup_address_id = db.Column(db.Integer, db.ForeignKey("partner_address.id"))
     delivery_address_id = db.Column(db.Integer, db.ForeignKey("partner_address.id"))
@@ -186,6 +191,7 @@ class Order(db.Model):
     payment_terms = db.Column(db.String(120))
     show_prices = db.Column(db.Boolean, default=True)
     confirmed = db.Column(db.Boolean, default=False)
+    is_locked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
@@ -194,6 +200,11 @@ class Order(db.Model):
     delivery_address = db.relationship("PartnerAddress", foreign_keys=[delivery_address_id])
     created_by = db.relationship("User")
     items = db.relationship("OrderItem", backref="order", cascade="all, delete-orphan")
+    delivery_note_links = db.relationship(
+        "DeliveryNoteOrder",
+        foreign_keys="DeliveryNoteOrder.order_id",
+        viewonly=True,
+    )
 
     __table_args__ = (
         db.Index("ix_order_partner_id", "partner_id"),
@@ -217,6 +228,7 @@ class OrderItem(db.Model):
 
 class DeliveryNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    note_number = db.Column(db.String(60))
     primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     show_prices = db.Column(db.Boolean, default=True)
@@ -226,6 +238,7 @@ class DeliveryNote(db.Model):
     planned_delivery_datetime = db.Column(db.DateTime)
     actual_delivery_datetime = db.Column(db.DateTime)
     confirmed = db.Column(db.Boolean, default=False)
+    is_locked = db.Column(db.Boolean, default=False)
 
     primary_order = db.relationship("Order")
     created_by = db.relationship("User")
@@ -234,6 +247,16 @@ class DeliveryNote(db.Model):
     )
     orders = db.relationship(
         "DeliveryNoteOrder", backref="delivery_note", cascade="all, delete-orphan"
+    )
+    logistics_plans = db.relationship(
+        "LogisticsPlan",
+        foreign_keys="LogisticsPlan.delivery_note_id",
+        viewonly=True,
+    )
+    invoice_item_refs = db.relationship(
+        "InvoiceItem",
+        foreign_keys="InvoiceItem.source_delivery_id",
+        viewonly=True,
     )
 
     __table_args__ = (
@@ -288,6 +311,7 @@ class DeliveryItemComponent(db.Model):
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    registration_number = db.Column(db.String(20), unique=True)
     notes = db.Column(db.String(255))
     active = db.Column(db.Boolean, default=True)
 
@@ -342,6 +366,48 @@ class AuditLog(db.Model):
 # Invoices
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Application settings
+# ---------------------------------------------------------------------------
+
+class AppSetting(db.Model):
+    """Key-value store for application-wide settings."""
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), unique=True, nullable=False)
+    value = db.Column(db.Text)
+
+
+class NumberingConfig(db.Model):
+    """Numbering pattern configuration per entity type."""
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(40), unique=True, nullable=False)
+    prefix = db.Column(db.String(20), default="")
+    include_type_indicator = db.Column(db.Boolean, default=False)
+    goods_indicator = db.Column(db.String(10), default="T")
+    service_indicator = db.Column(db.String(10), default="S")
+    include_partner_id = db.Column(db.Boolean, default=False)
+    include_year = db.Column(db.Boolean, default=False)
+    include_month = db.Column(db.Boolean, default=False)
+    sequence_digits = db.Column(db.Integer, default=4)
+    separator = db.Column(db.String(5), default="-")
+
+
+class NumberSequence(db.Model):
+    """Sequence counters per entity type and scope."""
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(40), nullable=False)
+    scope_key = db.Column(db.String(120), default="")
+    last_value = db.Column(db.Integer, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint("entity_type", "scope_key", name="uq_number_sequence"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Invoices
+# ---------------------------------------------------------------------------
+
 VALID_INVOICE_STATUSES = {"draft", "sent", "paid", "error"}
 
 
@@ -354,6 +420,7 @@ class Invoice(db.Model):
     total = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     status = db.Column(db.String(30), default="draft")
+    is_locked = db.Column(db.Boolean, default=False)
 
     partner = db.relationship("Partner")
     items = db.relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")

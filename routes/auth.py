@@ -14,6 +14,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from extensions import db, limiter
 from models import User
 from services.auth import get_current_user, login_required
+from utils import utc_now
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -64,6 +65,7 @@ def change_password():
         else:
             user.password_hash = generate_password_hash(new_pw)
             user.must_change_password = False
+            user.password_changed_at = utc_now()
             db.session.commit()
             flash("Heslo úspešne zmenené.", "success")
             return redirect(url_for("dashboard.index"))
