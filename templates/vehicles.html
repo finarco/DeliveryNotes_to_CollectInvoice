@@ -124,7 +124,7 @@
   <tbody>
     {% for vehicle in vehicles %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewVehicleModal"
           data-name="{{ vehicle.name or '' }}"
@@ -132,7 +132,7 @@
           data-notes="{{ vehicle.notes or '' }}"
           data-active="{{ 1 if vehicle.active else 0 }}"
           data-schedules="{% for s in vehicle.schedules %}{{ s.day_of_week }} | {{ s.start_time }} - {{ s.end_time }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
-        <form method="post" action="{{ url_for('vehicles.toggle_vehicle', vehicle_id=vehicle.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('vehicles.toggle_vehicle', vehicle_id=vehicle.id) }}">
           {% if vehicle.active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
           {% else %}
@@ -146,7 +146,7 @@
           data-reg-number="{{ vehicle.registration_number or '' }}"
           data-notes="{{ vehicle.notes or '' }}"
           data-active="{{ 1 if vehicle.active else 0 }}">Upraviť</button>
-        <form method="post" action="{{ url_for('vehicles.delete_vehicle', vehicle_id=vehicle.id) }}" class="d-inline"
+        <form method="post" action="{{ url_for('vehicles.delete_vehicle', vehicle_id=vehicle.id) }}"
               onsubmit="return confirm('Naozaj chcete vymazať toto vozidlo?')">
           <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
         </form>

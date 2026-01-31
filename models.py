@@ -378,18 +378,15 @@ class AppSetting(db.Model):
 
 
 class NumberingConfig(db.Model):
-    """Numbering pattern configuration per entity type."""
+    """Tag-based numbering pattern per entity type.
+
+    Pattern example: ``DL[YY][MM]-[CCCC]`` -> ``DL2601-0001``
+    Tags: [YYYY] [YY] [MM] [DD] [PARTNER] [TYPE] [C+]
+    Counter resets when preceding scope-tags change.
+    """
     id = db.Column(db.Integer, primary_key=True)
     entity_type = db.Column(db.String(40), unique=True, nullable=False)
-    prefix = db.Column(db.String(20), default="")
-    include_type_indicator = db.Column(db.Boolean, default=False)
-    goods_indicator = db.Column(db.String(10), default="T")
-    service_indicator = db.Column(db.String(10), default="S")
-    include_partner_id = db.Column(db.Boolean, default=False)
-    include_year = db.Column(db.Boolean, default=False)
-    include_month = db.Column(db.Boolean, default=False)
-    sequence_digits = db.Column(db.Integer, default=4)
-    separator = db.Column(db.String(5), default="-")
+    pattern = db.Column(db.String(120), default="")
 
 
 class NumberSequence(db.Model):
@@ -443,3 +440,15 @@ class InvoiceItem(db.Model):
     vat_amount = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
     is_manual = db.Column(db.Boolean, default=False)
+
+
+# ---------------------------------------------------------------------------
+# PDF Templates
+# ---------------------------------------------------------------------------
+
+class PdfTemplate(db.Model):
+    """Admin-editable HTML/CSS templates for PDF generation."""
+    id = db.Column(db.Integer, primary_key=True)
+    entity_type = db.Column(db.String(40), unique=True, nullable=False)
+    html_content = db.Column(db.Text, default="")
+    css_content = db.Column(db.Text, default="")

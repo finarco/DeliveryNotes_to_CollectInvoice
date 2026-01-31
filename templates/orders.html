@@ -201,7 +201,7 @@
   <tbody>
     {% for order in orders %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewOrderModal"
           data-order-id="{{ order.id }}"
@@ -215,9 +215,9 @@
           data-show-prices="{{ 1 if order.show_prices else 0 }}"
           data-confirmed="{{ 1 if order.confirmed else 0 }}">Zobraziť</button>
         {% if order.is_locked %}
-          <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
+          <span class="badge bg-secondary mb-1">Uzamknutá</span>
           {% if "manage_all" in user_permissions %}
-          <form method="post" action="{{ url_for('admin.unlock_order', order_id=order.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('admin.unlock_order', order_id=order.id) }}">
             <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
           </form>
           {% endif %}
@@ -234,7 +234,7 @@
             data-payment-method="{{ order.payment_method or '' }}"
             data-payment-terms="{{ order.payment_terms or '' }}"
             data-show-prices="{{ 1 if order.show_prices else 0 }}">Upraviť</button>
-          <form method="post" action="{{ url_for('orders.delete_order', order_id=order.id) }}" class="d-inline"
+          <form method="post" action="{{ url_for('orders.delete_order', order_id=order.id) }}"
                 onsubmit="return confirm('Naozaj chcete vymazať túto objednávku?')">
             <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
           </form>

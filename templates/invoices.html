@@ -155,7 +155,7 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
   <tbody>
     {% for invoice in invoices %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewInvoiceModal"
           data-invoice-id="{{ invoice.id }}"
@@ -166,9 +166,9 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
           data-total-vat="{{ '%.2f'|format(invoice.total_with_vat) }}"
           data-items="{% for item in invoice.items %}{{ item.description }} | {{ item.quantity }}x | {{ '%.2f'|format(item.total) }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
         {% if invoice.is_locked %}
-          <span class="badge bg-secondary mb-1">Uzamknutá</span><br>
+          <span class="badge bg-secondary mb-1">Uzamknutá</span>
           {% if "manage_all" in user_permissions %}
-          <form method="post" action="{{ url_for('admin.unlock_invoice', invoice_id=invoice.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('admin.unlock_invoice', invoice_id=invoice.id) }}">
             <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
           </form>
           {% endif %}
@@ -177,7 +177,7 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
             data-bs-toggle="modal" data-bs-target="#editInvoiceModal"
             data-id="{{ invoice.id }}"
             data-status="{{ invoice.status or '' }}">Upraviť</button>
-          <form method="post" action="{{ url_for('invoices.delete_invoice', invoice_id=invoice.id) }}" class="d-inline"
+          <form method="post" action="{{ url_for('invoices.delete_invoice', invoice_id=invoice.id) }}"
                 onsubmit="return confirm('Naozaj chcete vymazať túto faktúru?')">
             <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
           </form>

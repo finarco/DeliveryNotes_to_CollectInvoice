@@ -9,6 +9,11 @@
   <style>
     .table-filter th { padding: 0.25rem 0.4rem; background: #f8f9fa; border-bottom: none !important; }
     .table-filter .form-control { font-size: 0.8rem; padding: 0.2rem 0.4rem; }
+    .actions-col { white-space: normal; min-width: 110px; max-width: 140px; }
+    .actions-col > * { display: block; margin-bottom: 0.2rem; }
+    .actions-col form { display: block; margin-bottom: 0.2rem; }
+    .actions-col .btn { width: 100%; text-align: center; font-size: 0.75rem; padding: 0.15rem 0.4rem; }
+    .actions-col .badge { display: inline-block; margin-bottom: 0.2rem; }
   </style>
 </head>
 <body class="bg-light">
@@ -39,6 +44,7 @@
         {% if "manage_all" in user_permissions %}
         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.users') }}">Používatelia</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.settings') }}">Nastavenia</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.pdf_templates') }}">PDF šablóny</a></li>
         {% endif %}
       </ul>
       {% if current_user %}

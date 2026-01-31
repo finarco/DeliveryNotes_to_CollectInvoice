@@ -148,7 +148,7 @@
   <tbody>
     {% for product in products %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewProductModal"
           data-name="{{ product.name or '' }}"
@@ -159,9 +159,9 @@
           data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}"
           data-is-active="{{ 1 if product.is_active else 0 }}">Zobraziť</button>
         {% if not product.is_active %}
-        <span class="badge bg-secondary mb-1">Neaktívny</span><br>
+        <span class="badge bg-secondary mb-1">Neaktívny</span>
         {% endif %}
-        <form method="post" action="{{ url_for('products.toggle_product', product_id=product.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('products.toggle_product', product_id=product.id) }}">
           {% if product.is_active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
           {% else %}
@@ -177,7 +177,7 @@
           data-price="{{ product.price }}"
           data-is-service="{{ 1 if product.is_service else 0 }}"
           data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}">Upraviť</button>
-        <form method="post" action="{{ url_for('products.delete_product', product_id=product.id) }}" class="d-inline"
+        <form method="post" action="{{ url_for('products.delete_product', product_id=product.id) }}"
               onsubmit="return confirm('Naozaj chcete vymazať tento produkt?')">
           <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
         </form>

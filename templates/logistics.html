@@ -169,7 +169,7 @@
   <tbody>
     {% for plan in plans %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewPlanModal"
           data-plan-type="{{ plan.plan_type or '' }}"
@@ -185,7 +185,7 @@
           data-delivery-note-id="{{ plan.delivery_note_id or '' }}"
           data-vehicle-id="{{ plan.vehicle_id or '' }}"
           data-planned-datetime="{{ plan.planned_datetime.strftime('%Y-%m-%dT%H:%M') if plan.planned_datetime else '' }}">Upraviť</button>
-        <form method="post" action="{{ url_for('logistics.delete_plan', plan_id=plan.id) }}" class="d-inline"
+        <form method="post" action="{{ url_for('logistics.delete_plan', plan_id=plan.id) }}"
               onsubmit="return confirm('Naozaj chcete vymazať tento plán?')">
           <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
         </form>

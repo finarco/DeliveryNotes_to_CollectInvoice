@@ -216,7 +216,7 @@
   <tbody>
     {% for partner in partners %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewPartnerModal"
           data-name="{{ partner.name or '' }}"
@@ -235,9 +235,9 @@
           data-discount-percent="{{ partner.discount_percent }}"
           data-is-active="{{ 1 if partner.is_active else 0 }}">Zobraziť</button>
         {% if not partner.is_active %}
-        <span class="badge bg-secondary mb-1">Neaktívny</span><br>
+        <span class="badge bg-secondary">Neaktívny</span>
         {% endif %}
-        <form method="post" action="{{ url_for('partners.toggle_partner', partner_id=partner.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('partners.toggle_partner', partner_id=partner.id) }}">
           {% if partner.is_active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
           {% else %}
@@ -261,7 +261,7 @@
           data-price-level="{{ partner.price_level or '' }}"
           data-discount-percent="{{ partner.discount_percent }}"
           data-note="{{ partner.note or '' }}">Upraviť</button>
-        <form method="post" action="{{ url_for('partners.delete_partner', partner_id=partner.id) }}" class="d-inline"
+        <form method="post" action="{{ url_for('partners.delete_partner', partner_id=partner.id) }}"
               onsubmit="return confirm('Naozaj chcete vymazať tohto partnera? Existujúce doklady budú uzamknuté.')">
           <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
         </form>
@@ -278,36 +278,10 @@
       <td>{{ partner.group_code }}</td>
       <td>{{ partner.price_level }} / {{ partner.discount_percent }} %</td>
       <td>
-        <ul class="list-unstyled mb-2">
-          {% for contact in partner.contacts %}
-          <li class="mb-1">
-            <strong>{{ contact.name }}</strong>{% if contact.role %} ({{ contact.role }}){% endif %}<br>
-            {{ contact.email }} / {{ contact.phone }}
-            {% if contact.can_order %}<span class="badge bg-info">Objednáva</span>{% endif %}
-            {% if contact.can_receive %}<span class="badge bg-info">Preberá</span>{% endif %}
-            <br>
-            <button type="button" class="btn btn-sm btn-outline-primary mt-1"
-              data-bs-toggle="modal" data-bs-target="#editContactModal"
-              data-partner-id="{{ partner.id }}"
-              data-contact-id="{{ contact.id }}"
-              data-name="{{ contact.name or '' }}"
-              data-role="{{ contact.role or '' }}"
-              data-email="{{ contact.email or '' }}"
-              data-phone="{{ contact.phone or '' }}"
-              data-can-order="{{ 1 if contact.can_order else 0 }}"
-              data-can-receive="{{ 1 if contact.can_receive else 0 }}">Upraviť</button>
-            {% if "manage_all" in user_permissions %}
-            <form method="post" action="{{ url_for('partners.delete_contact', partner_id=partner.id, contact_id=contact.id) }}" class="d-inline"
-                  onsubmit="return confirm('Naozaj chcete vymazať tento kontakt? Existujúce doklady nebudú ovplyvnené.')">
-              <button class="btn btn-sm btn-outline-danger mt-1" type="submit">Vymazať</button>
-            </form>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        <button type="button" class="btn btn-sm btn-outline-primary"
-          data-bs-toggle="modal" data-bs-target="#addContactModal"
-          data-partner-id="{{ partner.id }}">+ Pridať kontakt</button>
+        <button type="button" class="btn btn-sm btn-outline-info"
+          data-bs-toggle="modal" data-bs-target="#contactsModal"
+          data-partner-id="{{ partner.id }}"
+          data-partner-name="{{ partner.name }}">Kontakty ({{ partner.contacts|length }})</button>
       </td>
       <td>
         <ul class="list-unstyled mb-2">
@@ -346,6 +320,24 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="modal fade" id="contactsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Kontakty — <span id="contactsPartnerName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="contactsList"></div>
+        <hr>
+        <button type="button" class="btn btn-sm btn-primary" id="addContactFromModal">+ Pridať kontakt</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="addContactModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -439,6 +431,70 @@
   </div>
 </div>
 <script>
+var partnerContacts = {
+  {% for partner in partners %}
+  {{ partner.id }}: [
+    {% for c in partner.contacts %}
+    {id:{{ c.id }},name:"{{ c.name|replace('"','\\"') }}",role:"{{ (c.role or '')|replace('"','\\"') }}",email:"{{ (c.email or '')|replace('"','\\"') }}",phone:"{{ (c.phone or '')|replace('"','\\"') }}",canOrder:{{ 'true' if c.can_order else 'false' }},canReceive:{{ 'true' if c.can_receive else 'false' }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]{% if not loop.last %},{% endif %}
+  {% endfor %}
+};
+document.getElementById('contactsModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var partnerId = btn.dataset.partnerId;
+  this.querySelector('#contactsPartnerName').textContent = btn.dataset.partnerName;
+  this.querySelector('#addContactFromModal').dataset.partnerId = partnerId;
+  var contacts = partnerContacts[partnerId] || [];
+  var html = '';
+  if (contacts.length === 0) {
+    html = '<p class="text-muted">Žiadne kontakty.</p>';
+  } else {
+    html = '<table class="table table-sm"><thead><tr><th>Meno</th><th>Rola</th><th>Email</th><th>Telefón</th><th>Oprávnenia</th><th>Akcie</th></tr></thead><tbody>';
+    contacts.forEach(function(c) {
+      var badges = '';
+      if (c.canOrder) badges += '<span class="badge bg-info me-1">Objednáva</span>';
+      if (c.canReceive) badges += '<span class="badge bg-info">Preberá</span>';
+      html += '<tr><td>' + c.name + '</td><td>' + c.role + '</td><td>' + c.email + '</td><td>' + c.phone + '</td><td>' + badges + '</td>';
+      html += '<td class="text-nowrap">';
+      html += '<button type="button" class="btn btn-sm btn-outline-primary me-1 edit-contact-btn" data-partner-id="' + partnerId + '" data-contact-id="' + c.id + '" data-name="' + c.name + '" data-role="' + c.role + '" data-email="' + c.email + '" data-phone="' + c.phone + '" data-can-order="' + (c.canOrder ? '1' : '0') + '" data-can-receive="' + (c.canReceive ? '1' : '0') + '">Upraviť</button>';
+      {% if "manage_all" in user_permissions %}
+      html += '<form method="post" action="/partners/' + partnerId + '/contacts/' + c.id + '/delete" class="d-inline" onsubmit="return confirm(\'Vymazať kontakt?\')"><button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button></form>';
+      {% endif %}
+      html += '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  this.querySelector('#contactsList').innerHTML = html;
+});
+document.getElementById('contactsList').addEventListener('click', function(e) {
+  var btn = e.target.closest('.edit-contact-btn');
+  if (!btn) return;
+  bootstrap.Modal.getInstance(document.getElementById('contactsModal')).hide();
+  var editModal = new bootstrap.Modal(document.getElementById('editContactModal'));
+  var form = document.getElementById('editContactForm');
+  form.action = '/partners/' + btn.dataset.partnerId + '/contacts/' + btn.dataset.contactId + '/edit';
+  form.querySelector('[name="name"]').value = btn.dataset.name || '';
+  form.querySelector('[name="role"]').value = btn.dataset.role || '';
+  form.querySelector('[name="email"]').value = btn.dataset.email || '';
+  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
+  form.querySelector('#editContactCanOrder').checked = btn.dataset.canOrder === '1';
+  form.querySelector('#editContactCanReceive').checked = btn.dataset.canReceive === '1';
+  editModal.show();
+});
+document.getElementById('addContactFromModal').addEventListener('click', function() {
+  bootstrap.Modal.getInstance(document.getElementById('contactsModal')).hide();
+  var addModal = new bootstrap.Modal(document.getElementById('addContactModal'));
+  var form = document.getElementById('addContactForm');
+  form.action = '/partners/' + this.dataset.partnerId + '/contacts';
+  form.querySelector('[name="name"]').value = '';
+  form.querySelector('[name="role"]').value = '';
+  form.querySelector('[name="email"]').value = '';
+  form.querySelector('[name="phone"]').value = '';
+  form.querySelector('#addContactCanOrder').checked = false;
+  form.querySelector('#addContactCanReceive').checked = false;
+  addModal.show();
+});
 document.getElementById('viewPartnerModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   this.querySelector('#viewPartnerName').textContent = btn.dataset.name || '-';
@@ -454,28 +510,6 @@ document.getElementById('viewPartnerModal').addEventListener('show.bs.modal', fu
   this.querySelector('#viewPartnerPriceLevel').textContent = btn.dataset.priceLevel || '-';
   this.querySelector('#viewPartnerDiscount').textContent = btn.dataset.discountPercent || '0';
   this.querySelector('#viewPartnerStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívny' : 'Neaktívny';
-});
-document.getElementById('addContactModal').addEventListener('show.bs.modal', function(event) {
-  var btn = event.relatedTarget;
-  var form = this.querySelector('form');
-  form.action = '/partners/' + btn.dataset.partnerId + '/contacts';
-  form.querySelector('[name="name"]').value = '';
-  form.querySelector('[name="role"]').value = '';
-  form.querySelector('[name="email"]').value = '';
-  form.querySelector('[name="phone"]').value = '';
-  form.querySelector('#addContactCanOrder').checked = false;
-  form.querySelector('#addContactCanReceive').checked = false;
-});
-document.getElementById('editContactModal').addEventListener('show.bs.modal', function(event) {
-  var btn = event.relatedTarget;
-  var form = this.querySelector('form');
-  form.action = '/partners/' + btn.dataset.partnerId + '/contacts/' + btn.dataset.contactId + '/edit';
-  form.querySelector('[name="name"]').value = btn.dataset.name || '';
-  form.querySelector('[name="role"]').value = btn.dataset.role || '';
-  form.querySelector('[name="email"]').value = btn.dataset.email || '';
-  form.querySelector('[name="phone"]').value = btn.dataset.phone || '';
-  form.querySelector('#editContactCanOrder').checked = btn.dataset.canOrder === '1';
-  form.querySelector('#editContactCanReceive').checked = btn.dataset.canReceive === '1';
 });
 document.getElementById('editPartnerModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
