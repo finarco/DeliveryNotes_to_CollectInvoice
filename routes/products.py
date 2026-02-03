@@ -7,8 +7,11 @@ from models import (
     Bundle,
     BundleItem,
     BundlePriceHistory,
+    DeliveryItem,
+    OrderItem,
     Product,
     ProductPriceHistory,
+    ProductRestriction,
 )
 from services.audit import log_action
 from services.auth import role_required
@@ -81,7 +84,30 @@ def edit_product(product_id: int):
 @role_required("manage_orders")
 def delete_product(product_id: int):
     product = db.get_or_404(Product, product_id)
+    # Block deletion if the product is referenced in orders, deliveries, or bundles
+    in_orders = OrderItem.query.filter_by(product_id=product.id).first()
+    in_deliveries = DeliveryItem.query.filter_by(product_id=product.id).first()
+    in_bundles = BundleItem.query.filter_by(product_id=product.id).first()
+    if in_orders or in_deliveries or in_bundles:
+        refs = []
+        if in_orders:
+            refs.append("objednávkach")
+        if in_deliveries:
+            refs.append("dodacích listoch")
+        if in_bundles:
+            refs.append("kombináciách")
+        flash(
+            f"Produkt '{product.name}' nie je možné vymazať — je použitý v {', '.join(refs)}. "
+            f"Použite deaktiváciu.",
+            "danger",
+        )
+        return redirect(url_for("products.list_products"))
     name = product.name
+    # Clean up restrictions referencing this product
+    ProductRestriction.query.filter(
+        (ProductRestriction.product_id == product.id)
+        | (ProductRestriction.restricted_with_id == product.id)
+    ).delete(synchronize_session="fetch")
     log_action("delete", "product", product.id, f"deleted: {name}")
     db.session.delete(product)
     db.session.commit()
@@ -153,6 +179,15 @@ def edit_bundle(bundle_id: int):
 @role_required("manage_orders")
 def delete_bundle(bundle_id: int):
     bundle = db.get_or_404(Bundle, bundle_id)
+    # Block deletion if the bundle is referenced in deliveries
+    in_deliveries = DeliveryItem.query.filter_by(bundle_id=bundle.id).first()
+    if in_deliveries:
+        flash(
+            f"Kombinácia '{bundle.name}' nie je možné vymazať — je použitá v dodacích listoch. "
+            f"Použite deaktiváciu.",
+            "danger",
+        )
+        return redirect(url_for("products.list_bundles"))
     name = bundle.name
     log_action("delete", "bundle", bundle.id, f"deleted: {name}")
     db.session.delete(bundle)

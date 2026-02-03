@@ -5,7 +5,7 @@ import datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from extensions import db
-from models import Vehicle, VehicleSchedule
+from models import LogisticsPlan, Vehicle, VehicleSchedule
 from services.audit import log_action
 from services.auth import role_required
 from utils import parse_time, safe_int
@@ -63,6 +63,13 @@ def edit_vehicle(vehicle_id: int):
 @role_required("manage_delivery")
 def delete_vehicle(vehicle_id: int):
     vehicle = db.get_or_404(Vehicle, vehicle_id)
+    if LogisticsPlan.query.filter_by(vehicle_id=vehicle.id).first():
+        flash(
+            f"Vozidlo '{vehicle.name}' nie je možné vymazať — je priradené k logistickému plánu. "
+            f"Použite deaktiváciu.",
+            "danger",
+        )
+        return redirect(url_for("vehicles.list_vehicles"))
     name = vehicle.name
     log_action("delete", "vehicle", vehicle.id, f"deleted: {name}")
     db.session.delete(vehicle)
