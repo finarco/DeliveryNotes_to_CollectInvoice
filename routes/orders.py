@@ -3,7 +3,7 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from extensions import db
-from models import Order, OrderItem, Partner, PartnerAddress, Product
+from models import LogisticsPlan, Order, OrderItem, Partner, PartnerAddress, Product
 from services.audit import log_action
 from services.auth import get_current_user, role_required
 from services.numbering import generate_number
@@ -119,6 +119,9 @@ def delete_order(order_id: int):
         return redirect(url_for("orders.list_orders"))
     if order.delivery_note_links:
         flash("Objednávka má priradený dodací list a nemôže byť vymazaná.", "danger")
+        return redirect(url_for("orders.list_orders"))
+    if LogisticsPlan.query.filter_by(order_id=order.id).first():
+        flash("Objednávka má priradený logistický plán a nemôže byť vymazaná.", "danger")
         return redirect(url_for("orders.list_orders"))
     log_action("delete", "order", order.id, f"deleted order #{order.id}")
     db.session.delete(order)
