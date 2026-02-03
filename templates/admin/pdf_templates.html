@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="mb-3">PDF šablóny</h4>
+<p class="text-muted small">
+  Upravte HTML/CSS šablóny pre generovanie PDF dokumentov.
+  Šablóny používajú Jinja2 syntax — k dispozícii sú premenné objektov
+  (<code>delivery</code>, <code>invoice</code>, <code>currency</code>, <code>partner_name</code>).
+</p>
+<form method="post">
+  {% for etype in entity_types %}
+  <div class="card mb-4">
+    <div class="card-header"><strong>{{ labels[etype] }}</strong></div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">HTML šablóna</label>
+        <textarea class="form-control font-monospace" name="html_{{ etype }}" rows="14"
+                  style="font-size:0.85rem">{{ templates[etype].html }}</textarea>
+      </div>
+      <div>
+        <label class="form-label">CSS štýly</label>
+        <textarea class="form-control font-monospace" name="css_{{ etype }}" rows="8"
+                  style="font-size:0.85rem">{{ templates[etype].css }}</textarea>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <button type="submit" class="btn btn-primary mb-4">Uložiť šablóny</button>
+</form>
+{% endblock %}

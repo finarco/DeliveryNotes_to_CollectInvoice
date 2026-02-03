@@ -100,6 +100,9 @@ def _migrate_schema():
             ("total_with_vat", "REAL DEFAULT 0.0"),
             ("is_manual", "BOOLEAN DEFAULT 0"),
         ],
+        "numbering_config": [
+            ("pattern", "VARCHAR(120) DEFAULT ''"),
+        ],
     }
 
     insp = inspect(db.engine)

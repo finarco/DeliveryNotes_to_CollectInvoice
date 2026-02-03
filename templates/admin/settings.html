@@ -34,84 +34,36 @@
     </div>
   </div>
 
-  {# ── Numbering ────────────────────────────────────────────── #}
+  {# ── Numbering (tag-based) ─────────────────────────────── #}
   <div class="card mb-4">
     <div class="card-header"><strong>Číslovanie dokladov</strong></div>
     <div class="card-body">
+      <p class="text-muted small mb-3">
+        Dostupné tagy:
+        <code>[YYYY]</code> rok (4-ciferný),
+        <code>[YY]</code> rok (2-ciferný),
+        <code>[MM]</code> mesiac,
+        <code>[DD]</code> deň,
+        <code>[PARTNER]</code> ID partnera,
+        <code>[TYPE]</code> typ (T=tovar, S=služba),
+        <code>[C...]</code> sekvenčné číslo (počet C = počet číslic, napr. <code>[CCCC]</code> = 4 číslice).<br>
+        Text mimo hranatých zátvoriek je fixný. Číslovanie sa resetuje pri zmene predchádzajúcich tagov.<br>
+        Príklad: <code>DL[YY][MM]-[CCCC]</code> &rarr; <code>DL2601-0001</code>
+      </p>
       {% set labels = {'product':'Produkty','bundle':'Kombinácie','order':'Objednávky','delivery_note':'Dodacie listy','invoice':'Faktúry'} %}
-      {% set product_types = ['product','bundle'] %}
-      {% set doc_types = ['order','delivery_note','invoice'] %}
-
+      {% set examples = {'product':'PRD[TYPE]-[CCCC]','bundle':'KMB-[CCCC]','order':'OBJ[YY][MM]-[CCCC]','delivery_note':'DL[YY][MM]-[CCCC]','invoice':'FV[YYYY]-[PARTNER]-[CCCC]'} %}
       {% for etype in entity_types %}
       {% set cfg = numbering.get(etype) %}
-      <fieldset class="border rounded p-3 mb-3">
-        <legend class="float-none w-auto px-2 fs-6 fw-bold">{{ labels[etype] }}</legend>
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label">Prefix</label>
-            <input class="form-control form-control-sm" name="num_{{ etype }}_prefix"
-                   value="{{ cfg.prefix if cfg else '' }}" placeholder="napr. PRD">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Oddeľovač</label>
-            <input class="form-control form-control-sm" name="num_{{ etype }}_separator"
-                   value="{{ cfg.separator if cfg else '-' }}" maxlength="5">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label">Počet číslic</label>
-            <input class="form-control form-control-sm" type="number" min="1" max="10"
-                   name="num_{{ etype }}_digits"
-                   value="{{ cfg.sequence_digits if cfg else 4 }}">
-          </div>
-
-          {% if etype in product_types %}
-          <div class="col-md-5">
-            <div class="form-check mt-4">
-              <input class="form-check-input" type="checkbox" name="num_{{ etype }}_type_indicator"
-                     id="num_{{ etype }}_type_indicator"
-                     {{ 'checked' if cfg and cfg.include_type_indicator else '' }}>
-              <label class="form-check-label" for="num_{{ etype }}_type_indicator">Indikátor typu (tovar/služba)</label>
-            </div>
-            <div class="row g-2 mt-1">
-              <div class="col">
-                <input class="form-control form-control-sm" name="num_{{ etype }}_goods_ind"
-                       value="{{ cfg.goods_indicator if cfg else 'T' }}" placeholder="Tovar (T)">
-                <small class="text-muted">Tovar</small>
-              </div>
-              <div class="col">
-                <input class="form-control form-control-sm" name="num_{{ etype }}_service_ind"
-                       value="{{ cfg.service_indicator if cfg else 'S' }}" placeholder="Služba (S)">
-                <small class="text-muted">Služba</small>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-
-          {% if etype in doc_types %}
-          <div class="col-md-5">
-            <label class="form-label">Komponenty čísla</label>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="num_{{ etype }}_partner_id"
-                     id="num_{{ etype }}_partner_id"
-                     {{ 'checked' if cfg and cfg.include_partner_id else '' }}>
-              <label class="form-check-label" for="num_{{ etype }}_partner_id">ID partnera</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="num_{{ etype }}_year"
-                     id="num_{{ etype }}_year"
-                     {{ 'checked' if cfg and cfg.include_year else '' }}>
-              <label class="form-check-label" for="num_{{ etype }}_year">Rok</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="num_{{ etype }}_month"
-                     id="num_{{ etype }}_month"
-                     {{ 'checked' if cfg and cfg.include_month else '' }}>
-              <label class="form-check-label" for="num_{{ etype }}_month">Mesiac</label>
-            </div>
-          </div>
-          {% endif %}
+      <div class="row g-3 mb-3 align-items-center">
+        <div class="col-md-3">
+          <label class="form-label fw-bold mb-0">{{ labels[etype] }}</label>
         </div>
-      </fieldset>
+        <div class="col-md-9">
+          <input class="form-control" name="num_{{ etype }}_pattern"
+                 value="{{ cfg.pattern if cfg and cfg.pattern else '' }}"
+                 placeholder="napr. {{ examples[etype] }}">
+        </div>
+      </div>
       {% endfor %}
     </div>
   </div>

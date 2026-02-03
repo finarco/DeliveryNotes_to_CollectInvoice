@@ -124,7 +124,7 @@
   <tbody>
     {% for bundle in bundles %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewBundleModal"
           data-name="{{ bundle.name or '' }}"
@@ -133,9 +133,9 @@
           data-is-active="{{ 1 if bundle.is_active else 0 }}"
           data-items="{% for item in bundle.items %}{{ item.product.name }} ({{ item.quantity }}x){% if not loop.last %}, {% endif %}{% endfor %}">Zobraziť</button>
         {% if not bundle.is_active %}
-        <span class="badge bg-secondary mb-1">Neaktívna</span><br>
+        <span class="badge bg-secondary mb-1">Neaktívna</span>
         {% endif %}
-        <form method="post" action="{{ url_for('products.toggle_bundle', bundle_id=bundle.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('products.toggle_bundle', bundle_id=bundle.id) }}">
           {% if bundle.is_active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
           {% else %}
@@ -148,7 +148,7 @@
           data-name="{{ bundle.name or '' }}"
           data-bundle-price="{{ bundle.bundle_price }}"
           data-discount-excluded="{{ 1 if bundle.discount_excluded else 0 }}">Upraviť</button>
-        <form method="post" action="{{ url_for('products.delete_bundle', bundle_id=bundle.id) }}" class="d-inline"
+        <form method="post" action="{{ url_for('products.delete_bundle', bundle_id=bundle.id) }}"
               onsubmit="return confirm('Naozaj chcete vymazať túto kombináciu?')">
           <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
         </form>

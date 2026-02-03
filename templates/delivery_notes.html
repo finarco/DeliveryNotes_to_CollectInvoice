@@ -145,7 +145,7 @@
   <tbody>
     {% for delivery in delivery_notes %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewDeliveryModal"
           data-delivery-id="{{ delivery.id }}"
@@ -156,9 +156,9 @@
           data-show-prices="{{ 1 if delivery.show_prices else 0 }}"
           data-confirmed="{{ 1 if delivery.confirmed else 0 }}">Zobraziť</button>
         {% if delivery.is_locked %}
-          <span class="badge bg-secondary mb-1">Uzamknutý</span><br>
+          <span class="badge bg-secondary mb-1">Uzamknutý</span>
           {% if "manage_all" in user_permissions %}
-          <form method="post" action="{{ url_for('admin.unlock_delivery', delivery_id=delivery.id) }}" class="d-inline">
+          <form method="post" action="{{ url_for('admin.unlock_delivery', delivery_id=delivery.id) }}">
             <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
           </form>
           {% endif %}
@@ -170,7 +170,7 @@
             data-id="{{ delivery.id }}"
             data-planned-delivery-datetime="{{ delivery.planned_delivery_datetime.strftime('%Y-%m-%dT%H:%M') if delivery.planned_delivery_datetime else '' }}"
             data-show-prices="{{ 1 if delivery.show_prices else 0 }}">Upraviť</button>
-          <form method="post" action="{{ url_for('delivery.delete_delivery', delivery_id=delivery.id) }}" class="d-inline"
+          <form method="post" action="{{ url_for('delivery.delete_delivery', delivery_id=delivery.id) }}"
                 onsubmit="return confirm('Naozaj chcete vymazať tento dodací list?')">
             <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
           </form>

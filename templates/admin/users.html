@@ -84,7 +84,7 @@
   <tbody>
     {% for user in users %}
     <tr>
-      <td class="text-nowrap">
+      <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewUserModal"
           data-user-id="{{ user.id }}"
@@ -92,21 +92,21 @@
           data-role="{{ user.role }}"
           data-is-active="{{ 1 if user.is_active else 0 }}"
           data-created="{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}">Zobraziť</button>
-        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}">
           {% if user.is_active %}
             <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
           {% else %}
             <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
           {% endif %}
         </form>
-        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}">
           <input type="hidden" name="new_password" value="">
           <button class="btn btn-sm btn-outline-info" type="button"
                   onclick="var pw=prompt('Nové heslo (min. 8 znakov):');if(pw&&pw.length>=8){this.form.querySelector('[name=new_password]').value=pw;this.form.submit();}else if(pw){alert('Heslo musí mať aspoň 8 znakov.');}">
             Reset hesla
           </button>
         </form>
-        <form method="post" action="{{ url_for('admin.force_password_change', user_id=user.id) }}" class="d-inline">
+        <form method="post" action="{{ url_for('admin.force_password_change', user_id=user.id) }}">
           <button class="btn btn-sm btn-outline-secondary" type="submit"
                   title="Vynútiť zmenu hesla pri najbližšom prihlásení">Vynútiť zmenu</button>
         </form>

@@ -12,9 +12,11 @@ from models import (
     Invoice,
     NumberingConfig,
     Order,
+    PdfTemplate,
     VALID_ROLES,
     User,
 )
+from services.pdf import get_default_css, get_default_html
 from services.audit import log_action
 from services.auth import role_required
 
@@ -163,36 +165,13 @@ def settings():
             request.form.get("password_expiry_unit", "days").strip(),
         )
 
-        # Numbering configs
+        # Numbering configs (tag-based patterns)
         for etype in _ENTITY_TYPES:
             config = NumberingConfig.query.filter_by(entity_type=etype).first()
             if not config:
                 config = NumberingConfig(entity_type=etype)
                 db.session.add(config)
-
-            config.prefix = request.form.get(f"num_{etype}_prefix", "").strip()
-            config.separator = request.form.get(f"num_{etype}_separator", "-").strip() or "-"
-            config.sequence_digits = max(
-                int(request.form.get(f"num_{etype}_digits", "4") or "4"), 1
-            )
-            config.include_type_indicator = (
-                request.form.get(f"num_{etype}_type_indicator") == "on"
-            )
-            config.goods_indicator = (
-                request.form.get(f"num_{etype}_goods_ind", "T").strip() or "T"
-            )
-            config.service_indicator = (
-                request.form.get(f"num_{etype}_service_ind", "S").strip() or "S"
-            )
-            config.include_partner_id = (
-                request.form.get(f"num_{etype}_partner_id") == "on"
-            )
-            config.include_year = (
-                request.form.get(f"num_{etype}_year") == "on"
-            )
-            config.include_month = (
-                request.form.get(f"num_{etype}_month") == "on"
-            )
+            config.pattern = request.form.get(f"num_{etype}_pattern", "").strip()
 
         log_action("update", "settings", 0, "settings updated")
         db.session.commit()
@@ -229,3 +208,42 @@ def force_password_change(user_id: int):
         "success",
     )
     return redirect(url_for("admin.users"))
+
+
+# ------------------------------------------------------------------
+# PDF Templates
+# ------------------------------------------------------------------
+
+_PDF_ENTITY_TYPES = ["delivery_note", "invoice"]
+_PDF_LABELS = {"delivery_note": "Dodací list", "invoice": "Faktúra"}
+
+
+@admin_bp.route("/pdf-templates", methods=["GET", "POST"])
+@role_required("manage_all")
+def pdf_templates():
+    if request.method == "POST":
+        for etype in _PDF_ENTITY_TYPES:
+            tmpl = PdfTemplate.query.filter_by(entity_type=etype).first()
+            if not tmpl:
+                tmpl = PdfTemplate(entity_type=etype)
+                db.session.add(tmpl)
+            tmpl.html_content = request.form.get(f"html_{etype}", "")
+            tmpl.css_content = request.form.get(f"css_{etype}", "")
+        log_action("update", "pdf_template", 0, "templates updated")
+        db.session.commit()
+        flash("PDF šablóny uložené.", "success")
+        return redirect(url_for("admin.pdf_templates"))
+
+    templates = {}
+    for etype in _PDF_ENTITY_TYPES:
+        tmpl = PdfTemplate.query.filter_by(entity_type=etype).first()
+        templates[etype] = {
+            "html": tmpl.html_content if tmpl and tmpl.html_content else get_default_html(etype),
+            "css": tmpl.css_content if tmpl and tmpl.css_content else get_default_css(),
+        }
+    return render_template(
+        "admin/pdf_templates.html",
+        templates=templates,
+        entity_types=_PDF_ENTITY_TYPES,
+        labels=_PDF_LABELS,
+    )
