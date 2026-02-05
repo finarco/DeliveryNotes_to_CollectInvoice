@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Import dát - výber typu</h4>
+  <a href="{{ url_for('db_tools.index') }}" class="btn btn-secondary">Späť</a>
+</div>
+
+<div class="row">
+  {% for type_id, type_label, type_desc in entity_types %}
+  <div class="col-md-4 mb-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">{{ type_label }}</h5>
+        <p class="card-text text-muted">{{ type_desc }}</p>
+        <a href="{{ url_for('db_tools.import_upload', entity_type=type_id) }}"
+           class="btn btn-primary">Importovať</a>
+        <a href="{{ url_for('db_tools.download_template', entity_type=type_id) }}"
+           class="btn btn-outline-secondary btn-sm">Šablóna CSV</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card mt-4">
+  <div class="card-header">
+    <strong>Návod na import</strong>
+  </div>
+  <div class="card-body">
+    <ol>
+      <li>Vyberte typ entity, ktorú chcete importovať</li>
+      <li>Stiahnite si šablónu CSV pre daný typ</li>
+      <li>Vyplňte dáta v šablóne (môžete použiť aj Excel a uložiť ako XLSX)</li>
+      <li>Nahrajte súbor</li>
+      <li>Skontrolujte a opravte prípadné chyby</li>
+      <li>Potvrďte import</li>
+    </ol>
+    <hr>
+    <p class="mb-0"><strong>Podporované formáty:</strong> CSV (UTF-8), XLSX, XLS</p>
+  </div>
+</div>
+{% endblock %}

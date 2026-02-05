@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">SQL dotaz (len čítanie)</h4>
+  <a href="{{ url_for('db_tools.maintenance') }}" class="btn btn-secondary">Späť</a>
+</div>
+
+<div class="alert alert-info mb-4">
+  <strong>Poznámka:</strong> Povolené sú len SELECT dotazy. INSERT, UPDATE, DELETE a iné modifikujúce príkazy sú zakázané.
+</div>
+
+<form method="post" class="mb-4">
+  <div class="mb-3">
+    <label class="form-label">SQL dotaz</label>
+    <textarea class="form-control font-monospace" name="query" rows="5"
+              placeholder="SELECT * FROM partner LIMIT 10">{{ query }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">Spustiť</button>
+</form>
+
+{% if result %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Výsledky</strong>
+    {% if result.success %}
+    <span class="badge bg-success">{{ result.row_count }} riadkov</span>
+    {% else %}
+    <span class="badge bg-danger">Chyba</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if result.success %}
+      {% if result.rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              {% for col in result.columns %}
+              <th>{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in result.rows[:100] %}
+            <tr>
+              {% for cell in row %}
+              <td>
+                {% if cell is none %}
+                <span class="text-muted">NULL</span>
+                {% else %}
+                {{ cell }}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if result.row_count > 100 %}
+      <p class="text-muted mt-2">Zobrazených prvých 100 z {{ result.row_count }} riadkov.</p>
+      {% endif %}
+      {% else %}
+      <p class="text-muted mb-0">Dotaz nevrátil žiadne výsledky.</p>
+      {% endif %}
+    {% else %}
+    <div class="alert alert-danger mb-0">
+      <strong>Chyba:</strong> {{ result.error }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card mt-4">
+  <div class="card-header">
+    <strong>Ukážkové dotazy</strong>
+  </div>
+  <div class="card-body">
+    <ul class="mb-0">
+      <li><code>SELECT * FROM partner WHERE is_active = 1 LIMIT 20</code></li>
+      <li><code>SELECT COUNT(*) FROM "order" WHERE confirmed = 1</code></li>
+      <li><code>SELECT p.name, COUNT(o.id) FROM partner p LEFT JOIN "order" o ON p.id = o.partner_id GROUP BY p.id</code></li>
+      <li><code>SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50</code></li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Údržba databázy</h4>
+  <a href="{{ url_for('db_tools.index') }}" class="btn btn-secondary">Späť</a>
+</div>
+
+{# Integrity Issues #}
+{% if integrity_issues %}
+<div class="alert alert-warning mb-4">
+  <h5 class="alert-heading">Problémy s integritou</h5>
+  <ul class="mb-2">
+    {% for issue in integrity_issues %}
+    <li>
+      <strong>{{ issue.entity }}:</strong> {{ issue.description }}
+      <span class="badge bg-{{ 'danger' if issue.type == 'error' else 'warning' }}">{{ issue.count }}</span>
+      {% if issue.details %}
+      <small class="text-muted">{{ issue.details|join(', ') }}</small>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <form method="post" action="{{ url_for('db_tools.repair_orphans') }}" class="d-inline">
+    <button type="submit" class="btn btn-warning btn-sm">Opraviť osirelé záznamy</button>
+  </form>
+</div>
+{% else %}
+<div class="alert alert-success mb-4">
+  Žiadne problémy s integritou neboli nájdené.
+</div>
+{% endif %}
+
+<div class="row">
+  {# Statistics Card #}
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <strong>Štatistiky</strong>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm">
+          <tbody>
+            <tr>
+              <td>Používatelia</td>
+              <td class="text-end">{{ stats.users.total }} ({{ stats.users.active }} aktívnych)</td>
+            </tr>
+            <tr>
+              <td>Partneri</td>
+              <td class="text-end">{{ stats.partners.total }} ({{ stats.partners.active }} aktívnych)</td>
+            </tr>
+            <tr>
+              <td>Produkty</td>
+              <td class="text-end">{{ stats.products.total }} ({{ stats.products.active }} aktívnych)</td>
+            </tr>
+            <tr>
+              <td>Kombinácie</td>
+              <td class="text-end">{{ stats.bundles.total }} ({{ stats.bundles.active }} aktívnych)</td>
+            </tr>
+            <tr>
+              <td>Objednávky</td>
+              <td class="text-end">{{ stats.orders.total }} ({{ stats.orders.confirmed }} potvrdených)</td>
+            </tr>
+            <tr>
+              <td>Dodacie listy</td>
+              <td class="text-end">{{ stats.delivery_notes.total }} ({{ stats.delivery_notes.invoiced }} fakturovaných)</td>
+            </tr>
+            <tr>
+              <td>Faktúry</td>
+              <td class="text-end">{{ stats.invoices.total }}</td>
+            </tr>
+            <tr>
+              <td>Vozidlá</td>
+              <td class="text-end">{{ stats.vehicles.total }} ({{ stats.vehicles.active }} aktívnych)</td>
+            </tr>
+            <tr>
+              <td>Audit log</td>
+              <td class="text-end">{{ stats.audit_log.total }} záznamov</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# Actions Card #}
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <strong>Akcie</strong>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          <form method="post" action="{{ url_for('db_tools.reset_sequences') }}">
+            <button type="submit" class="btn btn-outline-primary w-100"
+                    onclick="return confirm('Naozaj resetovať sekvencie?')">
+              Resetovať sekvencie číslovania
+            </button>
+          </form>
+
+          <form method="post" action="{{ url_for('db_tools.repair_orphans') }}">
+            <button type="submit" class="btn btn-outline-warning w-100"
+                    onclick="return confirm('Naozaj opraviť osirelé záznamy?')">
+              Opraviť osirelé záznamy
+            </button>
+          </form>
+
+          <a href="{{ url_for('db_tools.sql_query') }}" class="btn btn-outline-info w-100">
+            SQL dotaz (len čítanie)
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Table Counts #}
+<div class="card mb-4">
+  <div class="card-header">
+    <strong>Počty záznamov podľa tabuliek</strong>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      {% for table_name, count in table_counts.items() %}
+      {% if count >= 0 %}
+      <div class="col-md-3 col-sm-4 col-6 mb-2">
+        <div class="d-flex justify-content-between border-bottom pb-1">
+          <small>{{ table_name }}</small>
+          <span class="badge bg-secondary">{{ count }}</span>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# Export Section #}
+<div class="card">
+  <div class="card-header">
+    <strong>Export dát</strong>
+  </div>
+  <div class="card-body">
+    <p class="text-muted">Exportovať tabuľku do CSV:</p>
+    <div class="btn-group flex-wrap">
+      {% for entity_type in ['partner', 'product', 'bundle', 'order', 'delivery_note', 'invoice', 'vehicle'] %}
+      <a href="{{ url_for('db_tools.export_entity', entity_type=entity_type) }}"
+         class="btn btn-outline-secondary btn-sm">{{ entity_type }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
