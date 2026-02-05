@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Databázové nástroje</h4>
+</div>
+
+{# Quick Stats #}
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-primary">
+      <div class="card-body">
+        <h5 class="card-title">{{ stats.partners.total }}</h5>
+        <p class="card-text mb-0">Partneri ({{ stats.partners.active }} aktívnych)</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-success">
+      <div class="card-body">
+        <h5 class="card-title">{{ stats.orders.total }}</h5>
+        <p class="card-text mb-0">Objednávky ({{ stats.orders.confirmed }} potvrdených)</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-info">
+      <div class="card-body">
+        <h5 class="card-title">{{ stats.delivery_notes.total }}</h5>
+        <p class="card-text mb-0">Dodacie listy ({{ stats.delivery_notes.invoiced }} fakturovaných)</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-warning">
+      <div class="card-body">
+        <h5 class="card-title">{{ stats.invoices.total }}</h5>
+        <p class="card-text mb-0">Faktúry ({{ stats.invoices.paid }} zaplatených)</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Integrity Issues #}
+{% if integrity_issues %}
+<div class="alert alert-warning mb-4">
+  <h5 class="alert-heading">Problémy s integritou dát</h5>
+  <ul class="mb-0">
+    {% for issue in integrity_issues %}
+    <li>
+      <strong>{{ issue.entity }}:</strong> {{ issue.description }}
+      <span class="badge bg-{{ 'danger' if issue.type == 'error' else 'warning' }}">{{ issue.count }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <hr>
+  <a href="{{ url_for('db_tools.maintenance') }}" class="btn btn-sm btn-warning">Opraviť problémy</a>
+</div>
+{% endif %}
+
+{# Tools Grid #}
+<div class="row">
+  <div class="col-md-4 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-danger text-white">
+        <strong>Vymazanie databázy</strong>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Kompletné vymazanie dát pre prípravu PROD prostredia. Automatická záloha pred vymazaním.</p>
+        <a href="{{ url_for('db_tools.wipe') }}" class="btn btn-outline-danger">Otvoriť</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-success text-white">
+        <strong>Import dát</strong>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Import partnerov, produktov a ďalších entít z CSV/XLSX súborov s validáciou.</p>
+        <a href="{{ url_for('db_tools.import_index') }}" class="btn btn-outline-success">Otvoriť</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-info text-white">
+        <strong>Údržba databázy</strong>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Štatistiky, oprava osirelých záznamov, reset sekvencií, SQL dotazy.</p>
+        <a href="{{ url_for('db_tools.maintenance') }}" class="btn btn-outline-info">Otvoriť</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card h-100">
+      <div class="card-header bg-secondary text-white">
+        <strong>Správa záloh</strong>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Prehliadanie a vytváranie záloh databázy, automatické čistenie starých záloh.</p>
+        <a href="{{ url_for('db_tools.list_backups') }}" class="btn btn-outline-secondary">Otvoriť</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

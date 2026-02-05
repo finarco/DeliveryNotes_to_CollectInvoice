@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Import - kontrola a potvrdenie</h4>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card text-white bg-primary">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ import_data.total_rows }}</h3>
+        <small>Celkom riadkov</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-success">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ import_data.valid_rows }}</h3>
+        <small>Validných</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-danger">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ import_data.errors|length }}</h3>
+        <small>S chybami</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-white bg-info">
+      <div class="card-body text-center">
+        <h3 class="mb-0">{{ entity_label }}</h3>
+        <small>Typ entity</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if import_data.errors %}
+{# Errors Review Section #}
+<div class="card mb-4">
+  <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+    <strong>Chyby na vyriešenie ({{ import_data.errors|length }})</strong>
+    <span class="badge bg-light text-dark">
+      Nevyriešené: {{ import_data.errors|selectattr('action', 'equalto', 'pending')|list|length }}
+    </span>
+  </div>
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="action" value="update_errors">
+      <table class="table table-sm table-striped">
+        <thead>
+          <tr>
+            <th>Riadok</th>
+            <th>Stĺpec</th>
+            <th>Hodnota</th>
+            <th>Chyba</th>
+            <th>Návrhy</th>
+            <th>Akcia</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for error in import_data.errors %}
+          <tr class="{% if error.action == 'ignore' %}table-secondary{% elif error.action == 'pending' %}table-warning{% endif %}">
+            <td>{{ error.row_number }}</td>
+            <td><code>{{ error.column }}</code></td>
+            <td><code>{{ error.value }}</code></td>
+            <td>{{ error.message }}</td>
+            <td>
+              {% if error.suggestions %}
+              <small>
+                {% for sug in error.suggestions[:3] %}
+                <span class="badge bg-info">{{ sug }}</span>
+                {% endfor %}
+              </small>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <select name="error_action_{{ loop.index0 }}" class="form-select form-select-sm">
+                <option value="pending" {% if error.action == 'pending' %}selected{% endif %}>
+                  Nevyriešené
+                </option>
+                <option value="ignore" {% if error.action == 'ignore' %}selected{% endif %}>
+                  Ignorovať (preskočiť riadok)
+                </option>
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button type="submit" class="btn btn-secondary btn-sm">Aktualizovať akcie</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-success mb-4">
+  Všetky riadky sú validné. Môžete pokračovať s importom.
+</div>
+{% endif %}
+
+{# Commit Section #}
+<div class="card">
+  <div class="card-header">
+    <strong>Dokončiť import</strong>
+  </div>
+  <div class="card-body">
+    <form method="post" class="row g-3 align-items-end">
+      <input type="hidden" name="action" value="commit">
+
+      <div class="col-md-4">
+        <label class="form-label">Riešenie konfliktov (existujúce záznamy)</label>
+        <select name="conflict_mode" class="form-select">
+          <option value="skip">Preskočiť existujúce</option>
+          <option value="update">Aktualizovať existujúce</option>
+          <option value="error">Hlásiť ako chybu</option>
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-success"
+                {% if import_data.errors|selectattr('action', 'equalto', 'pending')|list|length > 0 %}disabled{% endif %}>
+          Importovať {{ import_data.valid_rows }} záznamov
+        </button>
+      </div>
+
+      <div class="col-md-4 text-end">
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="cancel">
+          <button type="submit" class="btn btn-outline-danger">Zrušiť import</button>
+        </form>
+      </div>
+    </form>
+
+    {% if import_data.errors|selectattr('action', 'equalto', 'pending')|list|length > 0 %}
+    <p class="text-danger mt-2 mb-0">
+      <small>Najskôr vyriešte všetky chyby označením ako "Ignorovať".</small>
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

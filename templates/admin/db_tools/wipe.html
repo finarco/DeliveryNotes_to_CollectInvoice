@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Vymazanie databázy</h4>
+  <a href="{{ url_for('db_tools.index') }}" class="btn btn-secondary">Späť</a>
+</div>
+
+{% if is_production %}
+<div class="alert alert-danger">
+  <strong>VAROVANIE:</strong> Zdá sa, že ste pripojení k produkčnej databáze!
+  Buďte mimoriadne opatrní pri vykonávaní tejto operácie.
+</div>
+{% endif %}
+
+<div class="card mb-4">
+  <div class="card-header bg-danger text-white">
+    <strong>Bezpečnostné informácie</strong>
+  </div>
+  <div class="card-body">
+    <ul>
+      <li>Pred vymazaním bude automaticky vytvorená záloha</li>
+      <li>Všetky tabuľky budú vymazané v správnom poradí (rešpektujúc FK závislosti)</li>
+      <li>Sekvencie číslovania budú resetované na 0</li>
+      <li>Táto operácia je nevratná (okrem obnovy zo zálohy)</li>
+    </ul>
+  </div>
+</div>
+
+{# Preview Form #}
+<form method="post" class="mb-4">
+  <input type="hidden" name="action" value="preview">
+  <div class="card">
+    <div class="card-header">
+      <strong>Konfigurácia</strong>
+    </div>
+    <div class="card-body">
+      <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="includeConfig" name="include_config"
+               {% if include_config %}checked{% endif %}>
+        <label class="form-check-label" for="includeConfig">
+          Zahrnúť konfiguračné tabuľky (AppSetting, NumberingConfig, PdfTemplate)
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary">Zobraziť náhľad</button>
+    </div>
+  </div>
+</form>
+
+{% if show_preview %}
+{# Preview Table #}
+<div class="card mb-4">
+  <div class="card-header">
+    <strong>Náhľad - tabuľky na vymazanie</strong>
+  </div>
+  <div class="card-body">
+    {% if preview %}
+    <table class="table table-sm">
+      <thead>
+        <tr>
+          <th>Tabuľka</th>
+          <th class="text-end">Počet záznamov</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for table_name, count in preview %}
+        <tr>
+          <td>{{ table_name }}</td>
+          <td class="text-end">{{ count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="table-warning">
+          <th>Celkom</th>
+          <th class="text-end">{{ preview|sum(attribute=1) }}</th>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <p class="text-muted mb-0">Databáza je prázdna.</p>
+    {% endif %}
+  </div>
+</div>
+
+{# Confirmation Form #}
+{% if preview %}
+<form method="post">
+  <input type="hidden" name="action" value="wipe">
+  <input type="hidden" name="include_config" value="{{ 'on' if include_config else '' }}">
+
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+      <strong>Potvrdenie vymazania</strong>
+    </div>
+    <div class="card-body">
+      <p>Pre potvrdenie vymazania databázy zadajte nasledujúci text:</p>
+      <p class="font-monospace bg-light p-2 d-inline-block"><strong>DELETE ALL DATA</strong></p>
+
+      <div class="mb-3">
+        <input type="text" class="form-control" name="confirmation"
+               placeholder="Zadajte potvrdenie" autocomplete="off">
+      </div>
+
+      <button type="submit" class="btn btn-danger"
+              onclick="return confirm('Naozaj chcete vymazať databázu? Táto operácia je nevratná!')">
+        Vymazať databázu
+      </button>
+    </div>
+  </div>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

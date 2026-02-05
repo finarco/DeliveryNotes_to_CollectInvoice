@@ -45,6 +45,7 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.users') }}">Používatelia</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.settings') }}">Nastavenia</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.pdf_templates') }}">PDF šablóny</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('db_tools.index') }}">DB nástroje</a></li>
         {% endif %}
       </ul>
       {% if current_user %}
