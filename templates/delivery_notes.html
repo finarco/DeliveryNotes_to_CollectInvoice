@@ -1,9 +1,35 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Dodacie listy</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeliveryModal">+ Vytvoriť dodací list</button>
+
+{% block page_title %}Dodacie listy{% endblock %}
+
+{% block page_actions %}
+<div style="display: flex; gap: 12px; align-items: center;">
+  <div class="view-toggle">
+    <button type="button" class="view-toggle-btn active" data-view="table">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+      Tabuľka
+    </button>
+    <button type="button" class="view-toggle-btn" data-view="timeline">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      Timeline
+    </button>
+  </div>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeliveryModal">Vytvoriť dodací list</button>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery-notes.css') }}">
+{% endblock %}
+
+{% block content %}
 <div class="modal fade" id="addDeliveryModal" tabindex="-1">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
@@ -119,6 +145,102 @@
     </div>
   </div>
 </div>
+
+{# Timeline View #}
+<div class="timeline-view" style="display: none;">
+  <div class="timeline-container">
+    <div class="timeline-line"></div>
+    {% set delivery_notes_by_date = delivery_notes|groupby('created_at.date')|list %}
+    {% for date, notes_on_date in delivery_notes_by_date %}
+    <div class="timeline-item">
+      <div class="timeline-date">
+        <div class="timeline-date-day">{{ date.day if date else '--' }}</div>
+        <div class="timeline-date-month">{{ date.strftime('%b').upper() if date else '--' }}</div>
+        <div class="timeline-date-year">{{ date.year if date else '--' }}</div>
+      </div>
+      <div class="timeline-dot"></div>
+      {% for note in notes_on_date %}
+      <div class="timeline-content" style="{% if not loop.first %}margin-top: 20px;{% endif %}">
+        <div class="timeline-card-header">
+          <h3 class="timeline-card-title">Dodací list #{{ note.delivery_number }}</h3>
+          <div class="timeline-card-time">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <span>{{ note.created_at.strftime('%H:%M') if note.created_at else '--:--' }}</span>
+          </div>
+        </div>
+
+        <div class="timeline-card-info">
+          {% if note.partner %}
+          <div class="timeline-card-info-row">
+            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+            </svg>
+            <span>{{ note.partner.name }}</span>
+          </div>
+          {% endif %}
+
+          {% if note.planned_delivery_datetime %}
+          <div class="timeline-card-info-row">
+            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            </svg>
+            <span>Plánované dodanie: {{ note.planned_delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+          </div>
+          {% endif %}
+
+          {% if note.orders %}
+          <div class="timeline-card-info-row">
+            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            <span>Objednávky: {% for order in note.orders %}#{{ order.id }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="timeline-card-divider"></div>
+
+        <div class="timeline-card-items">
+          {% if note.items %}
+          <strong>Položky:</strong> {{ note.items|length }} položiek
+          {% else %}
+          Žiadne položky
+          {% endif %}
+        </div>
+
+        <div class="timeline-card-footer">
+          <div>
+            {% if note.finalized_at %}
+            <span class="badge badge-success">Finalizované</span>
+            {% else %}
+            <span class="badge badge-warning">Koncept</span>
+            {% endif %}
+            {% if note.show_prices %}
+            <span class="badge badge-info" style="margin-left: 8px;">S cenami</span>
+            {% endif %}
+          </div>
+          <div class="timeline-card-actions">
+            <button type="button" class="btn btn-outline btn-sm"
+              onclick="document.querySelector('button[data-id=&quot;{{ note.id }}&quot;][data-bs-target=&quot;#viewDeliveryModal&quot;]').click()">
+              Zobraziť
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# Table View #}
+<div class="table-view">
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -244,5 +366,44 @@ document.getElementById('editDeliveryModal').addEventListener('show.bs.modal', f
   form.querySelector('[name="planned_delivery_datetime"]').value = btn.dataset.plannedDeliveryDatetime || '';
   form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
 });
+
+// View toggle functionality
+document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const view = this.dataset.view;
+
+    // Update active state
+    document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+
+    // Toggle views
+    const timelineView = document.querySelector('.timeline-view');
+    const tableView = document.querySelector('.table-view');
+
+    if (view === 'timeline') {
+      timelineView.style.display = 'block';
+      tableView.style.display = 'none';
+      localStorage.setItem('deliveryNotesView', 'timeline');
+    } else {
+      timelineView.style.display = 'none';
+      tableView.style.display = 'block';
+      localStorage.setItem('deliveryNotesView', 'table');
+    }
+  });
+});
+
+// Restore saved view preference
+const savedView = localStorage.getItem('deliveryNotesView');
+if (savedView === 'timeline') {
+  const timelineView = document.querySelector('.timeline-view');
+  const tableView = document.querySelector('.table-view');
+  timelineView.style.display = 'block';
+  tableView.style.display = 'none';
+  document.querySelector('.view-toggle-btn[data-view="timeline"]').classList.add('active');
+  document.querySelector('.view-toggle-btn[data-view="table"]').classList.remove('active');
+}
 </script>
+
+</div>{# End table-view #}
+
 {% endblock %}
