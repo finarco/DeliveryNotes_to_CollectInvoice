@@ -1,0 +1,149 @@
+/* Partners Page - Grid Layout */
+
+.partner-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-4xl);
+}
+
+.partner-card {
+  background-color: var(--color-card);
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.partner-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.partner-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.partner-card-name {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.partner-card-status {
+  flex-shrink: 0;
+}
+
+.partner-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.partner-card-info-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.partner-card-info-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.partner-card-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: var(--spacing-sm) 0;
+}
+
+.partner-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.partner-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.partner-card-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.partner-card-actions .btn {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+/* Toggle switch for table/grid view */
+.view-toggle {
+  display: flex;
+  gap: var(--spacing-sm);
+  background-color: var(--color-card);
+  padding: 4px;
+  border-radius: var(--border-radius-sm);
+}
+
+.view-toggle-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.view-toggle-btn.active {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border-radius: var(--border-radius-sm);
+}
+
+.view-toggle-btn:hover:not(.active) {
+  color: var(--color-text-primary);
+}
+
+/* Hide grid by default, show table */
+.partner-table-view {
+  display: block;
+}
+
+.partner-grid-view {
+  display: none;
+}
+
+/* When grid view is active */
+body.grid-view .partner-table-view {
+  display: none;
+}
+
+body.grid-view .partner-grid-view {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .partner-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

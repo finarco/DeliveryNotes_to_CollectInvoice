@@ -1,41 +1,108 @@
 {% extends "base.html" %}
+
+{% block page_title %}Prehľad{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('orders.list_orders') }}" class="btn btn-primary">Nová objednávka</a>
+{% endblock %}
+
 {% block content %}
-<div class="row g-3">
-  <div class="col-md-3">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h6 class="card-title">Partneri</h6>
-        <p class="display-6">{{ partner_count }}</p>
-      </div>
+{# Metrics Grid #}
+<div class="metrics-grid">
+  {% set title = 'Partneri' %}
+  {% set value = partner_count %}
+  {% include 'components/metric_card.html' %}
+
+  {% set title = 'Objednávky' %}
+  {% set value = order_count %}
+  {% include 'components/metric_card.html' %}
+
+  {% set title = 'Dodacie listy' %}
+  {% set value = delivery_count %}
+  {% include 'components/metric_card.html' %}
+
+  {% set title = 'Faktúry' %}
+  {% set value = invoice_count %}
+  {% include 'components/metric_card.html' %}
+</div>
+
+{# Recent Activity Section #}
+{% if recent_activity %}
+<div class="two-column-grid">
+  {# Main content area (left side) #}
+  <div class="card">
+    <h3 style="font-size: 16px; font-weight: 600; text-transform: uppercase; margin-bottom: 24px;">
+      Najnovšie transakcie
+    </h3>
+
+    <div class="table-container" style="background: transparent;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Dátum</th>
+            <th>Partner</th>
+            <th>Typ</th>
+            <th>Suma</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in recent_activity %}
+          <tr>
+            <td>{{ item.date.strftime('%d.%m.%Y') if item.date else '-' }}</td>
+            <td>{{ item.partner_name }}</td>
+            <td>{{ item.type }}</td>
+            <td>{{ "%.2f"|format(item.amount) }} €</td>
+            <td>
+              <span class="badge badge-{{ item.status_class }}">
+                {{ item.status }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
-  <div class="col-md-3">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h6 class="card-title">Objednávky</h6>
-        <p class="display-6">{{ order_count }}</p>
+
+  {# Activity Feed (right side) #}
+  <div class="card card-dark">
+    <h3 style="font-size: 16px; font-weight: 600; text-transform: uppercase; color: #888; margin-bottom: 24px;">
+      Nedávna aktivita
+    </h3>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      {% for activity in recent_changes %}
+      <div style="display: flex; gap: 12px;">
+        <span class="status-dot {{ activity.type }}"></span>
+        <div style="flex: 1;">
+          <div style="font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 4px;">
+            {{ activity.title }}
+          </div>
+          <div style="font-size: 12px; color: #888;">
+            {{ activity.description }}
+          </div>
+          <div style="font-size: 10px; color: #666; margin-top: 8px;">
+            {{ activity.time }}
+          </div>
+        </div>
+        <span class="badge badge-{{ activity.badge_class }}">
+          {{ activity.status }}
+        </span>
       </div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h6 class="card-title">Dodacie listy</h6>
-        <p class="display-6">{{ delivery_count }}</p>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h6 class="card-title">Faktúry</h6>
-        <p class="display-6">{{ invoice_count }}</p>
-      </div>
+      {% endfor %}
     </div>
   </div>
 </div>
-<div class="mt-4">
-  <h5>Rýchly prehľad</h5>
-  <p class="text-muted">Aplikácia pokrýva evidenciu partnerov, tvorbu objednávok, dodacie listy a zúčtovacie faktúry s exportom do Superfaktúry.</p>
+{% endif %}
+
+{# Quick Info #}
+<div class="card" style="margin-top: 48px;">
+  <h3 style="font-size: 16px; font-weight: 600; text-transform: uppercase; margin-bottom: 16px;">
+    Rýchly prehľad systému
+  </h3>
+  <p style="color: #555; line-height: 1.6;">
+    Aplikácia pokrýva evidenciu partnerov, tvorbu objednávok, dodacie listy a zúčtovacie faktúry s exportom do Superfaktúry.
+  </p>
 </div>
 {% endblock %}

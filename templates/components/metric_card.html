@@ -1,0 +1,22 @@
+{# Metric Card Component #}
+{# Usage: {% include 'components/metric_card.html' with context %}
+   Required variables: title, value, change (optional), change_type ('positive'|'negative') #}
+
+<div class="card">
+  <div class="card-title">{{ title }}</div>
+  <div class="card-value">{{ value }}</div>
+  {% if change is defined %}
+  <div class="card-change {{ change_type|default('positive') }}">
+    {% if change_type == 'positive' %}
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+    {% else %}
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+    {% endif %}
+    <span>{{ change }}</span>
+  </div>
+  {% endif %}
+</div>
