@@ -1,9 +1,16 @@
 {% extends "base.html" %}
+
+{% block page_title %}Objednávky{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOrderModal">Vytvoriť objednávku</button>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Objednávky</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOrderModal">+ Vytvoriť objednávku</button>
-</div>
 <div class="modal fade" id="addOrderModal" tabindex="-1">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
@@ -175,6 +182,166 @@
     </div>
   </div>
 </div>
+
+{# Tabs Navigation #}
+<div class="orders-tabs">
+  <button type="button" class="orders-tab active" data-status="all">Všetky</button>
+  <button type="button" class="orders-tab" data-status="pending">Čakajúce</button>
+  <button type="button" class="orders-tab" data-status="processing">Spracováva sa</button>
+  <button type="button" class="orders-tab" data-status="completed">Dokončené</button>
+</div>
+
+{# Kanban Board View #}
+<div class="kanban-board-view" style="display: none;">
+  <div class="kanban-board">
+    {# Pending Column #}
+    <div class="kanban-column pending">
+      <div class="kanban-column-header">
+        <h3 class="kanban-column-title">Čakajúce</h3>
+        <span class="kanban-column-count">
+          {{ orders|selectattr('status', 'equalto', 'pending')|list|length }}
+        </span>
+      </div>
+      <div class="kanban-cards">
+        {% for order in orders %}
+        {% if order.status == 'pending' %}
+        <div class="order-card" onclick="showOrderDetail({{ order.id }})">
+          <div class="order-card-header">
+            <span class="order-card-id">#{{ order.id }}</span>
+            <span class="badge badge-pending">Čaká</span>
+          </div>
+          <div class="order-card-partner">{{ order.partner.name if order.partner else '-' }}</div>
+          <div class="order-card-dates">
+            {% if order.pickup_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+            {% if order.delivery_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              </svg>
+              <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="order-card-divider"></div>
+          <div class="order-card-footer">
+            <span class="order-card-items">{{ order.items|length }} položiek</span>
+            <span class="order-card-price">{{ "%.2f"|format(order.total_price or 0) }} €</span>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Processing Column #}
+    <div class="kanban-column processing">
+      <div class="kanban-column-header">
+        <h3 class="kanban-column-title">Spracováva sa</h3>
+        <span class="kanban-column-count">
+          {{ orders|selectattr('status', 'equalto', 'processing')|list|length }}
+        </span>
+      </div>
+      <div class="kanban-cards">
+        {% for order in orders %}
+        {% if order.status == 'processing' %}
+        <div class="order-card" onclick="showOrderDetail({{ order.id }})">
+          <div class="order-card-header">
+            <span class="order-card-id">#{{ order.id }}</span>
+            <span class="badge badge-info">V procese</span>
+          </div>
+          <div class="order-card-partner">{{ order.partner.name if order.partner else '-' }}</div>
+          <div class="order-card-dates">
+            {% if order.pickup_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+            {% if order.delivery_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              </svg>
+              <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="order-card-divider"></div>
+          <div class="order-card-footer">
+            <span class="order-card-items">{{ order.items|length }} položiek</span>
+            <span class="order-card-price">{{ "%.2f"|format(order.total_price or 0) }} €</span>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Completed Column #}
+    <div class="kanban-column completed">
+      <div class="kanban-column-header">
+        <h3 class="kanban-column-title">Dokončené</h3>
+        <span class="kanban-column-count">
+          {{ orders|selectattr('status', 'equalto', 'completed')|list|length }}
+        </span>
+      </div>
+      <div class="kanban-cards">
+        {% for order in orders %}
+        {% if order.status == 'completed' %}
+        <div class="order-card" onclick="showOrderDetail({{ order.id }})">
+          <div class="order-card-header">
+            <span class="order-card-id">#{{ order.id }}</span>
+            <span class="badge badge-success">Hotovo</span>
+          </div>
+          <div class="order-card-partner">{{ order.partner.name if order.partner else '-' }}</div>
+          <div class="order-card-dates">
+            {% if order.pickup_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+            {% if order.delivery_datetime %}
+            <div class="order-card-date-row">
+              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"></rect>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              </svg>
+              <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
+            </div>
+            {% endif %}
+          </div>
+          <div class="order-card-divider"></div>
+          <div class="order-card-footer">
+            <span class="order-card-items">{{ order.items|length }} položiek</span>
+            <span class="order-card-price">{{ "%.2f"|format(order.total_price or 0) }} €</span>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Table View #}
+<div class="orders-table-view">
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -315,5 +482,64 @@ document.getElementById('editOrderModal').addEventListener('show.bs.modal', func
   form.querySelector('[name="payment_terms"]').value = btn.dataset.paymentTerms || '';
   form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
 });
+
+// Tabs functionality
+document.querySelectorAll('.orders-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    const status = this.dataset.status;
+
+    // Update active state
+    document.querySelectorAll('.orders-tab').forEach(t => t.classList.remove('active'));
+    this.classList.add('active');
+
+    // Toggle views based on status
+    const kanbanView = document.querySelector('.kanban-board-view');
+    const tableView = document.querySelector('.orders-table-view');
+
+    if (status === 'all') {
+      // Show table for "all"
+      kanbanView.style.display = 'none';
+      tableView.style.display = 'block';
+    } else {
+      // Show kanban for filtered views
+      kanbanView.style.display = 'block';
+      tableView.style.display = 'none';
+
+      // Filter columns based on status
+      document.querySelectorAll('.kanban-column').forEach(col => {
+        col.style.display = 'block';
+      });
+
+      if (status !== 'all') {
+        document.querySelectorAll('.kanban-column').forEach(col => {
+          if (!col.classList.contains(status)) {
+            col.style.display = 'none';
+          }
+        });
+      }
+    }
+
+    localStorage.setItem('ordersView', status);
+  });
+});
+
+// Restore saved tab
+const savedView = localStorage.getItem('ordersView') || 'all';
+const savedTab = document.querySelector(`.orders-tab[data-status="${savedView}"]`);
+if (savedTab) {
+  savedTab.click();
+}
+
+// Show order detail function (for card clicks)
+function showOrderDetail(orderId) {
+  // Find the corresponding row in the table and trigger its view button
+  const viewBtn = document.querySelector(`button[data-id="${orderId}"][data-bs-target="#viewOrderModal"]`);
+  if (viewBtn) {
+    viewBtn.click();
+  }
+}
 </script>
+
+</div>{# End orders-table-view #}
+
 {% endblock %}
