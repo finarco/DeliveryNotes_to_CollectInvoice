@@ -150,7 +150,6 @@
 <div class="timeline-view" style="display: none;">
   <div class="timeline-container">
     <div class="timeline-line"></div>
-    {% set delivery_notes_by_date = delivery_notes|groupby('created_at.date')|list %}
     {% for date, notes_on_date in delivery_notes_by_date %}
     <div class="timeline-item">
       <div class="timeline-date">

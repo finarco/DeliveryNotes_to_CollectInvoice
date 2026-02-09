@@ -55,9 +55,9 @@ def list_invoices():
 
     # Calculate stats for dashboard
     all_invoices = Invoice.query.all()
-    total_revenue = sum(inv.total_amount or 0 for inv in all_invoices)
-    paid_amount = sum(inv.total_amount or 0 for inv in all_invoices if inv.paid)
-    unpaid_amount = sum(inv.total_amount or 0 for inv in all_invoices if not inv.paid)
+    total_revenue = sum(inv.total_with_vat or 0 for inv in all_invoices)
+    paid_amount = sum(inv.total_with_vat or 0 for inv in all_invoices if inv.status == "paid")
+    unpaid_amount = sum(inv.total_with_vat or 0 for inv in all_invoices if inv.status != "paid")
 
     # Calculate overdue (simplified - invoices not paid)
     overdue_amount = unpaid_amount

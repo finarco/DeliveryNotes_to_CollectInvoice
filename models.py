@@ -211,6 +211,15 @@ class Order(db.Model):
         db.Index("ix_order_confirmed", "confirmed"),
     )
 
+    @property
+    def status(self):
+        """Computed status based on confirmed and is_locked flags."""
+        if self.is_locked:
+            return "completed"
+        elif self.confirmed:
+            return "processing"
+        return "pending"
+
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)

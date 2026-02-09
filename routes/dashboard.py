@@ -18,13 +18,13 @@ def index():
     recent_activity = []
 
     for order in recent_orders:
-        # Determine status
+        # Determine status based on confirmed and is_locked attributes
         status = "ČAKÁ"
         status_class = "pending"
-        if order.status == "completed":
+        if order.is_locked:
             status = "DOKONČENÉ"
             status_class = "success"
-        elif order.status == "processing":
+        elif order.confirmed:
             status = "SPRACOVÁVA SA"
             status_class = "info"
 
@@ -43,8 +43,9 @@ def index():
     # Add recent invoices
     recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(3).all()
     for invoice in recent_invoices:
-        status = "ZAPLATENÉ" if invoice.paid else "NEUHRADENÉ"
-        badge_class = "success" if invoice.paid else "warning"
+        is_paid = invoice.status == "paid"
+        status = "ZAPLATENÉ" if is_paid else "NEUHRADENÉ"
+        badge_class = "success" if is_paid else "warning"
 
         recent_changes.append({
             "title": f"Faktúra #{invoice.invoice_number}",
@@ -52,7 +53,7 @@ def index():
             "time": _format_time_ago(invoice.created_at),
             "status": status,
             "badge_class": badge_class,
-            "type": "success" if invoice.paid else "warning",
+            "type": "success" if is_paid else "warning",
         })
 
     # Add recent delivery notes
@@ -61,8 +62,8 @@ def index():
     ).limit(2).all()
     for delivery in recent_deliveries:
         recent_changes.append({
-            "title": f"Dodací list #{delivery.delivery_number}",
-            "description": f"{delivery.partner.name if delivery.partner else 'N/A'}",
+            "title": f"Dodací list #{delivery.note_number}",
+            "description": f"{delivery.primary_order.partner.name if delivery.primary_order and delivery.primary_order.partner else 'N/A'}",
             "time": _format_time_ago(delivery.created_at),
             "status": "VYTVORENÉ",
             "badge_class": "info",
@@ -75,8 +76,8 @@ def index():
         order_count=Order.query.count(),
         delivery_count=DeliveryNote.query.count(),
         invoice_count=Invoice.query.count(),
-        recent_activity=recent_activity if recent_activity else None,
-        recent_changes=recent_changes if recent_changes else None,
+        recent_activity=recent_activity if recent_activity else [],
+        recent_changes=recent_changes if recent_changes else [],
     )
 
 

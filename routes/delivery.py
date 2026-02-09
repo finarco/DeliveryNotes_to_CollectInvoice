@@ -1,5 +1,7 @@
 """Delivery note routes."""
 
+from itertools import groupby
+
 from flask import (
     Blueprint,
     flash,
@@ -129,9 +131,19 @@ def list_delivery_notes():
     delivery_list = (
         query.offset((page - 1) * per_page).limit(per_page).all()
     )
+
+    # Prepare grouped data for timeline view
+    delivery_notes_by_date = []
+    for date_key, notes in groupby(
+        sorted(delivery_list, key=lambda n: n.created_at.date() if n.created_at else None),
+        key=lambda n: n.created_at.date() if n.created_at else None
+    ):
+        delivery_notes_by_date.append((date_key, list(notes)))
+
     return render_template(
         "delivery_notes.html",
         delivery_notes=delivery_list,
+        delivery_notes_by_date=delivery_notes_by_date,
         total=total,
         page=page,
         per_page=per_page,
