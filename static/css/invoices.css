@@ -1,0 +1,170 @@
+/* Invoices Page - Dashboard View */
+
+.invoice-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-4xl);
+}
+
+.invoice-stat-card {
+  background-color: var(--color-card);
+  padding: var(--spacing-xl);
+  border-radius: var(--border-radius);
+  transition: all var(--transition-base);
+}
+
+.invoice-stat-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.invoice-stat-label {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-md);
+  letter-spacing: 0.5px;
+}
+
+.invoice-stat-value {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.invoice-stat-suffix {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary);
+  margin-left: 4px;
+}
+
+/* Color variants */
+.invoice-stat-card.total {
+  background-color: var(--color-info);
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.total .invoice-stat-label,
+.invoice-stat-card.total .invoice-stat-value,
+.invoice-stat-card.total .invoice-stat-suffix {
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.paid {
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.paid .invoice-stat-label,
+.invoice-stat-card.paid .invoice-stat-value,
+.invoice-stat-card.paid .invoice-stat-suffix {
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.unpaid {
+  background-color: var(--color-warning);
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.unpaid .invoice-stat-label,
+.invoice-stat-card.unpaid .invoice-stat-value,
+.invoice-stat-card.unpaid .invoice-stat-suffix {
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.overdue {
+  background-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.invoice-stat-card.overdue .invoice-stat-label,
+.invoice-stat-card.overdue .invoice-stat-value,
+.invoice-stat-card.overdue .invoice-stat-suffix {
+  color: var(--color-text-inverse);
+}
+
+/* Invoice Table */
+.invoice-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.invoice-table-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.invoice-table-actions {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+/* Invoice row highlights */
+.table tbody tr.paid {
+  background-color: rgba(74, 124, 89, 0.05);
+}
+
+.table tbody tr.overdue {
+  background-color: rgba(192, 90, 60, 0.05);
+}
+
+.table tbody tr.overpaid {
+  background-color: rgba(92, 124, 138, 0.05);
+}
+
+/* Status badges - overrides */
+.badge-paid {
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.badge-unpaid {
+  background-color: var(--color-warning);
+  color: var(--color-text-inverse);
+}
+
+.badge-overdue {
+  background-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.badge-overpaid {
+  background-color: var(--color-info);
+  color: var(--color-text-inverse);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .invoice-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .invoice-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+  }
+
+  .invoice-table-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .invoice-table-actions .btn {
+    width: 100%;
+  }
+}
