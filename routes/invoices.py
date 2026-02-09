@@ -53,6 +53,15 @@ def list_invoices():
 
     query = Invoice.query.order_by(Invoice.created_at.desc())
 
+    # Calculate stats for dashboard
+    all_invoices = Invoice.query.all()
+    total_revenue = sum(inv.total_amount or 0 for inv in all_invoices)
+    paid_amount = sum(inv.total_amount or 0 for inv in all_invoices if inv.paid)
+    unpaid_amount = sum(inv.total_amount or 0 for inv in all_invoices if not inv.paid)
+
+    # Calculate overdue (simplified - invoices not paid)
+    overdue_amount = unpaid_amount
+
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
     total = query.count()
@@ -67,6 +76,10 @@ def list_invoices():
         per_page=per_page,
         partners=partners,
         valid_invoice_statuses=sorted(VALID_INVOICE_STATUSES),
+        total_revenue=total_revenue,
+        paid_amount=paid_amount,
+        unpaid_amount=unpaid_amount,
+        overdue_amount=overdue_amount,
     )
 
 

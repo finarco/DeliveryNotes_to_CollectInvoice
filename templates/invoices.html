@@ -1,12 +1,56 @@
 {% extends "base.html" %}
+
+{% block page_title %}Faktúry{% endblock %}
+
+{% block page_actions %}
+<div style="display: flex; gap: 12px;">
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">Vytvoriť faktúru</button>
+  <button type="button" class="btn btn-outline" data-bs-toggle="modal" data-bs-target="#addManualItemModal">Manuálna položka</button>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/invoices.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Faktúry</h4>
-  <div>
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addInvoiceModal">+ Vytvoriť faktúru</button>
-    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addManualItemModal">+ Manuálna položka</button>
+
+{# Stats Dashboard #}
+<div class="invoice-stats-grid">
+  <div class="invoice-stat-card total">
+    <div class="invoice-stat-label">Celkové tržby</div>
+    <div class="invoice-stat-value">
+      {{ "%.2f"|format(total_revenue|default(0)) }}<span class="invoice-stat-suffix">€</span>
+    </div>
+  </div>
+
+  <div class="invoice-stat-card paid">
+    <div class="invoice-stat-label">Zaplatené</div>
+    <div class="invoice-stat-value">
+      {{ "%.2f"|format(paid_amount|default(0)) }}<span class="invoice-stat-suffix">€</span>
+    </div>
+  </div>
+
+  <div class="invoice-stat-card unpaid">
+    <div class="invoice-stat-label">Neuhradené</div>
+    <div class="invoice-stat-value">
+      {{ "%.2f"|format(unpaid_amount|default(0)) }}<span class="invoice-stat-suffix">€</span>
+    </div>
+  </div>
+
+  <div class="invoice-stat-card overdue">
+    <div class="invoice-stat-label">Po splatnosti</div>
+    <div class="invoice-stat-value">
+      {{ "%.2f"|format(overdue_amount|default(0)) }}<span class="invoice-stat-suffix">€</span>
+    </div>
   </div>
 </div>
+
+{# Table Header #}
+<div class="invoice-table-header">
+  <h3 class="invoice-table-title">Zoznam faktúr</h3>
+</div>
+
 <div class="modal fade" id="addInvoiceModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
