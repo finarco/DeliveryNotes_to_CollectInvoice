@@ -351,6 +351,10 @@
 }
 
 /* === Modal Overrides (Bootstrap) === */
+/* Failsafe: ensure modals are hidden even if Bootstrap CSS fails to load */
+.modal { display: none; }
+.modal.show { display: block; }
+
 .modal-content {
   border-radius: var(--border-radius);
   border: none;
