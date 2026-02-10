@@ -33,6 +33,7 @@ class DatabaseWiper:
         database_uri: str,
         backup_manager: Optional[BackupManager] = None,
         inspector: Optional[DatabaseInspector] = None,
+        app_root: Optional[str] = None,
     ):
         """Initialize wiper.
 
@@ -40,9 +41,12 @@ class DatabaseWiper:
             database_uri: SQLAlchemy database URI
             backup_manager: BackupManager instance (created if not provided)
             inspector: DatabaseInspector instance (created if not provided)
+            app_root: Flask app root path for resolving relative SQLite URIs
         """
         self.database_uri = database_uri
-        self.backup_manager = backup_manager or BackupManager(database_uri)
+        self.backup_manager = backup_manager or BackupManager(
+            database_uri, app_root=app_root
+        )
         self.inspector = inspector or DatabaseInspector()
         self._progress_callback: Optional[Callable[[str, int, int], None]] = None
 

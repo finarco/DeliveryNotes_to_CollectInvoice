@@ -92,7 +92,7 @@ def index():
 @admin_required
 def wipe():
     """Database wipe interface."""
-    wiper = DatabaseWiper(get_database_uri())
+    wiper = DatabaseWiper(get_database_uri(), app_root=current_app.root_path)
     inspector = DatabaseInspector()
 
     is_production = wiper.is_production_environment()
@@ -528,7 +528,7 @@ def sql_query():
 @admin_required
 def list_backups():
     """List available backups."""
-    manager = BackupManager(get_database_uri())
+    manager = BackupManager(get_database_uri(), app_root=current_app.root_path)
     backups = manager.list_backups()
 
     return render_template(
@@ -541,7 +541,7 @@ def list_backups():
 @admin_required
 def create_backup():
     """Create a new backup."""
-    manager = BackupManager(get_database_uri())
+    manager = BackupManager(get_database_uri(), app_root=current_app.root_path)
 
     try:
         backup_path = manager.create_backup(prefix="manual")
@@ -556,7 +556,7 @@ def create_backup():
 @admin_required
 def cleanup_backups():
     """Remove old backups based on retention policy."""
-    manager = BackupManager(get_database_uri())
+    manager = BackupManager(get_database_uri(), app_root=current_app.root_path)
 
     try:
         removed = manager.cleanup_old_backups()

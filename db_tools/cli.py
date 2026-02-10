@@ -26,6 +26,12 @@ def get_database_uri():
     return current_app.config["SQLALCHEMY_DATABASE_URI"]
 
 
+def get_app_root():
+    """Get Flask app root path for resolving relative paths."""
+    from flask import current_app
+    return current_app.root_path
+
+
 # ---------------------------------------------------------------------------
 # Click CLI Group
 # ---------------------------------------------------------------------------
@@ -47,7 +53,7 @@ def backup(output: Optional[str]):
     with get_app_context():
         from db_tools.core.backup import BackupManager
 
-        manager = BackupManager(get_database_uri())
+        manager = BackupManager(get_database_uri(), app_root=get_app_root())
 
         try:
             if output:
@@ -75,7 +81,7 @@ def restore(backup_file: str):
     with get_app_context():
         from db_tools.core.backup import BackupManager
 
-        manager = BackupManager(get_database_uri())
+        manager = BackupManager(get_database_uri(), app_root=get_app_root())
 
         if not click.confirm(f"Restore from {backup_file}? This will overwrite current data."):
             click.echo("Aborted.")
@@ -95,7 +101,7 @@ def list_backups():
     with get_app_context():
         from db_tools.core.backup import BackupManager
 
-        manager = BackupManager(get_database_uri())
+        manager = BackupManager(get_database_uri(), app_root=get_app_root())
         backups = manager.list_backups()
 
         if not backups:
@@ -122,7 +128,7 @@ def wipe(dry_run: bool, include_config: bool, confirm: bool, no_backup: bool):
     with get_app_context():
         from db_tools.operations.wipe import DatabaseWiper
 
-        wiper = DatabaseWiper(get_database_uri())
+        wiper = DatabaseWiper(get_database_uri(), app_root=get_app_root())
 
         # Show preview
         preview = wiper.get_deletion_preview(include_config=include_config)

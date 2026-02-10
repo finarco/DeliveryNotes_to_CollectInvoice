@@ -22,6 +22,7 @@ class BackupManager:
         backup_dir: Optional[Path] = None,
         retention_count: int = BACKUP_RETENTION_COUNT,
         retention_days: int = BACKUP_RETENTION_DAYS,
+        app_root: Optional[str] = None,
     ):
         """Initialize backup manager.
 
@@ -30,11 +31,13 @@ class BackupManager:
             backup_dir: Directory to store backups (default: ./backups)
             retention_count: Maximum number of backups to keep
             retention_days: Maximum age of backups in days
+            app_root: Flask app root path for resolving relative SQLite URIs
         """
         self.database_uri = database_uri
         self.backup_dir = backup_dir or BACKUP_DIR
         self.retention_count = retention_count
         self.retention_days = retention_days
+        self.app_root = app_root
         self._parsed_uri = urlparse(database_uri)
 
     @property
@@ -91,13 +94,51 @@ class BackupManager:
         else:
             raise RuntimeError(f"Unsupported database type: {self.db_type}")
 
+    def _resolve_sqlite_path(self) -> str:
+        """Resolve the actual SQLite database file path from the URI.
+
+        Handles both relative (sqlite:///file.db) and absolute
+        (sqlite:////absolute/path) URI formats. For relative paths,
+        checks the Flask app root, CWD, and instance/ directory.
+        """
+        db_path = self._parsed_uri.path
+
+        # Absolute path: sqlite:////absolute/path → parsed path starts with //
+        if db_path.startswith("//"):
+            return db_path[1:]
+
+        # Relative path: sqlite:///file.db → parsed path = /file.db
+        relative = db_path.lstrip("/")
+        if not relative:
+            return db_path
+
+        # Check Flask app root directory (Flask-SQLAlchemy resolves relative
+        # URIs from here)
+        if self.app_root:
+            app_root_path = os.path.join(self.app_root, relative)
+            if os.path.exists(app_root_path):
+                return os.path.abspath(app_root_path)
+
+        # Check CWD
+        if os.path.exists(relative):
+            return os.path.abspath(relative)
+
+        # Check Flask instance directory
+        instance = os.path.join("instance", relative)
+        if os.path.exists(instance):
+            return os.path.abspath(instance)
+
+        # If app_root was provided, use that as the canonical location even
+        # if the file doesn't exist yet (e.g. first run before DB creation)
+        if self.app_root:
+            return os.path.abspath(os.path.join(self.app_root, relative))
+
+        # Fallback: return relative path (will trigger meaningful error in caller)
+        return relative
+
     def _backup_sqlite(self, backup_path: Path) -> Path:
         """Create SQLite backup by copying the database file."""
-        # Extract database file path from URI
-        # sqlite:///path/to/db.sqlite or sqlite:////absolute/path
-        db_path = self._parsed_uri.path
-        if db_path.startswith("//"):
-            db_path = db_path[1:]  # Remove extra slash for absolute path
+        db_path = self._resolve_sqlite_path()
 
         if not db_path or not os.path.exists(db_path):
             raise RuntimeError(f"SQLite database file not found: {db_path}")
@@ -165,10 +206,7 @@ class BackupManager:
 
     def _restore_sqlite(self, backup_path: Path) -> None:
         """Restore SQLite database by copying backup file."""
-        db_path = self._parsed_uri.path
-        if db_path.startswith("//"):
-            db_path = db_path[1:]
-
+        db_path = self._resolve_sqlite_path()
         shutil.copy2(backup_path, db_path)
 
     def _restore_postgresql(self, backup_path: Path) -> None:
