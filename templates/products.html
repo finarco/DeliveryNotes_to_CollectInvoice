@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+
+{% block page_title %}Produkty a služby{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">Pridať produkt</button>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Produkty a služby</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProductModal">+ Pridať produkt</button>
-</div>
+
 <div class="modal fade" id="addProductModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -30,6 +34,10 @@
               <label class="form-label">Cena</label>
               <input class="form-control" name="price" type="number" step="0.01" required>
             </div>
+            <div class="col-md-4">
+              <label class="form-label">DPH %</label>
+              <input class="form-control" name="vat_rate" type="number" step="0.01" value="20">
+            </div>
             <div class="col-md-4 d-flex align-items-center pt-4">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="is_service" id="is_service" checked>
@@ -52,6 +60,7 @@
     </div>
   </div>
 </div>
+
 <div class="modal fade" id="editProductModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -78,6 +87,10 @@
               <label class="form-label">Cena</label>
               <input class="form-control" name="price" type="number" step="0.01" required>
             </div>
+            <div class="col-md-4">
+              <label class="form-label">DPH %</label>
+              <input class="form-control" name="vat_rate" type="number" step="0.01">
+            </div>
             <div class="col-md-4 d-flex align-items-center pt-4">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="is_service" id="edit_is_service">
@@ -100,6 +113,7 @@
     </div>
   </div>
 </div>
+
 <div class="modal fade" id="viewProductModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -113,6 +127,7 @@
           <dt class="col-sm-4">Popis</dt><dd class="col-sm-8" id="viewProductDescription"></dd>
           <dt class="col-sm-4">Dlhý text</dt><dd class="col-sm-8" id="viewProductLongText"></dd>
           <dt class="col-sm-4">Cena</dt><dd class="col-sm-8" id="viewProductPrice"></dd>
+          <dt class="col-sm-4">DPH %</dt><dd class="col-sm-8" id="viewProductVatRate"></dd>
           <dt class="col-sm-4">Typ</dt><dd class="col-sm-8" id="viewProductType"></dd>
           <dt class="col-sm-4">Zľavy</dt><dd class="col-sm-8" id="viewProductDiscount"></dd>
           <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewProductStatus"></dd>
@@ -124,6 +139,7 @@
     </div>
   </div>
 </div>
+
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -132,8 +148,9 @@
       <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Popis..."></th>
       <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Dlhý text..."></th>
       <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Cena..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Typ..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Zľavy..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="DPH..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="6" placeholder="Typ..."></th>
+      <th><input type="text" class="form-control form-control-sm" data-col="7" placeholder="Zľavy..."></th>
     </tr>
     <tr>
       <th>Akcie</th>
@@ -141,6 +158,7 @@
       <th>Popis</th>
       <th>Dlhý text</th>
       <th>Cena</th>
+      <th>DPH %</th>
       <th>Typ</th>
       <th>Zľavy</th>
     </tr>
@@ -155,6 +173,7 @@
           data-description="{{ product.description or '' }}"
           data-long-text="{{ product.long_text or '' }}"
           data-price="{{ product.price }}"
+          data-vat-rate="{{ product.vat_rate }}"
           data-is-service="{{ 1 if product.is_service else 0 }}"
           data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}"
           data-is-active="{{ 1 if product.is_active else 0 }}">Zobraziť</button>
@@ -175,6 +194,7 @@
           data-description="{{ product.description or '' }}"
           data-long-text="{{ product.long_text or '' }}"
           data-price="{{ product.price }}"
+          data-vat-rate="{{ product.vat_rate }}"
           data-is-service="{{ 1 if product.is_service else 0 }}"
           data-discount-excluded="{{ 1 if product.discount_excluded else 0 }}">Upraviť</button>
         <form method="post" action="{{ url_for('products.delete_product', product_id=product.id) }}"
@@ -186,12 +206,14 @@
       <td>{{ product.description }}</td>
       <td>{{ product.long_text }}</td>
       <td>{{ "%.2f"|format(product.price) }}</td>
+      <td>{{ "%.0f"|format(product.vat_rate) }} %</td>
       <td>{{ "Služba" if product.is_service else "Tovar" }}</td>
       <td>{{ "Zakázané" if product.discount_excluded else "Povolené" }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+
 <script>
 document.getElementById('viewProductModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
@@ -199,6 +221,7 @@ document.getElementById('viewProductModal').addEventListener('show.bs.modal', fu
   this.querySelector('#viewProductDescription').textContent = btn.dataset.description || '-';
   this.querySelector('#viewProductLongText').textContent = btn.dataset.longText || '-';
   this.querySelector('#viewProductPrice').textContent = btn.dataset.price || '0';
+  this.querySelector('#viewProductVatRate').textContent = (btn.dataset.vatRate || '20') + ' %';
   this.querySelector('#viewProductType').textContent = btn.dataset.isService === '1' ? 'Služba' : 'Tovar';
   this.querySelector('#viewProductDiscount').textContent = btn.dataset.discountExcluded === '1' ? 'Zakázané' : 'Povolené';
   this.querySelector('#viewProductStatus').textContent = btn.dataset.isActive === '1' ? 'Aktívny' : 'Neaktívny';
@@ -211,6 +234,7 @@ document.getElementById('editProductModal').addEventListener('show.bs.modal', fu
   form.querySelector('[name="description"]').value = btn.dataset.description || '';
   form.querySelector('[name="long_text"]').value = btn.dataset.longText || '';
   form.querySelector('[name="price"]').value = btn.dataset.price || '';
+  form.querySelector('[name="vat_rate"]').value = btn.dataset.vatRate || '20';
   form.querySelector('[name="is_service"]').checked = btn.dataset.isService === '1';
   form.querySelector('[name="discount_excluded"]').checked = btn.dataset.discountExcluded === '1';
 });
