@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+
+{% block page_title %}Kombinácie{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBundleModal">Pridať kombináciu</button>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Kombinácie</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBundleModal">+ Pridať kombináciu</button>
-</div>
+
 <div class="modal fade" id="addBundleModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -48,6 +52,7 @@
     </div>
   </div>
 </div>
+
 <div class="modal fade" id="editBundleModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -82,6 +87,7 @@
     </div>
   </div>
 </div>
+
 <div class="modal fade" id="viewBundleModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -104,6 +110,7 @@
     </div>
   </div>
 </div>
+
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -167,6 +174,7 @@
     {% endfor %}
   </tbody>
 </table>
+
 <script>
 document.getElementById('viewBundleModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
