@@ -221,11 +221,19 @@ def import_upload(entity_type: str):
             os.rmdir(temp_dir)
             return redirect(request.url)
 
-        # Store in session for review
-        session[IMPORT_SESSION_KEY] = {
-            "entity_type": entity_type,
+        # Store in session for review (only store filename, not full path)
+        import uuid
+        import_id = str(uuid.uuid4())
+        # Store temp path mapping in app-level storage, not in session cookie
+        if not hasattr(current_app, '_import_paths'):
+            current_app._import_paths = {}
+        current_app._import_paths[import_id] = {
             "file_path": file_path,
             "temp_dir": temp_dir,
+        }
+        session[IMPORT_SESSION_KEY] = {
+            "entity_type": entity_type,
+            "import_id": import_id,
             "headers": headers,
             "total_rows": len(validated_rows) + len(errors),
             "valid_rows": len(validated_rows),
@@ -304,9 +312,18 @@ def import_review():
             conflict_mode = request.form.get("conflict_mode", "skip")
             importer = DataImporter()
 
+            # Resolve file path from app-level storage
+            import_id = import_data.get("import_id", "")
+            paths = getattr(current_app, '_import_paths', {}).get(import_id, {})
+            resolved_file_path = paths.get("file_path", "")
+            if not resolved_file_path or not os.path.exists(resolved_file_path):
+                flash("Import session vypršala. Začnite znova.", "warning")
+                _cleanup_import_session()
+                return redirect(url_for("db_tools.import_index"))
+
             try:
                 result = importer.import_file(
-                    Path(import_data["file_path"]),
+                    Path(resolved_file_path),
                     import_data["entity_type"],
                     conflict_mode=conflict_mode,
                     partial_commit=True,
@@ -356,17 +373,14 @@ def import_review():
 @admin_required
 def download_template(entity_type: str):
     """Download CSV template for entity type."""
+    import io
     importer = DataImporter()
     template = importer.generate_template(entity_type)
 
-    # Create temp file
-    temp_dir = tempfile.mkdtemp()
-    file_path = os.path.join(temp_dir, f"{entity_type}_template.csv")
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(template)
-
+    buf = io.BytesIO(template.encode("utf-8"))
+    buf.seek(0)
     return send_file(
-        file_path,
+        buf,
         as_attachment=True,
         download_name=f"{entity_type}_template.csv",
         mimetype="text/csv",
@@ -377,8 +391,10 @@ def _cleanup_import_session():
     """Clean up import session and temp files."""
     import_data = session.pop(IMPORT_SESSION_KEY, None)
     if import_data:
-        file_path = import_data.get("file_path")
-        temp_dir = import_data.get("temp_dir")
+        import_id = import_data.get("import_id", "")
+        paths = getattr(current_app, '_import_paths', {}).pop(import_id, {})
+        file_path = paths.get("file_path")
+        temp_dir = paths.get("temp_dir")
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
         if temp_dir and os.path.exists(temp_dir):
@@ -461,23 +477,27 @@ def unlock_document(entity_type: str, entity_id: int):
 @admin_required
 def export_entity(entity_type: str):
     """Export entity to CSV."""
+    import shutil
     tool = MaintenanceTool()
 
     temp_dir = tempfile.mkdtemp()
-    file_path = os.path.join(temp_dir, f"{entity_type}_export.csv")
+    try:
+        file_path = os.path.join(temp_dir, f"{entity_type}_export.csv")
+        result = tool.export_entity_to_csv(entity_type, file_path)
 
-    result = tool.export_entity_to_csv(entity_type, file_path)
-
-    if result["success"]:
-        return send_file(
-            file_path,
-            as_attachment=True,
-            download_name=f"{entity_type}_export.csv",
-            mimetype="text/csv",
-        )
-    else:
-        flash(f"Chyba pri exporte: {result['error']}", "danger")
-        return redirect(url_for("db_tools.maintenance"))
+        if result["success"]:
+            response = send_file(
+                file_path,
+                as_attachment=True,
+                download_name=f"{entity_type}_export.csv",
+                mimetype="text/csv",
+            )
+            return response
+        else:
+            flash(f"Chyba pri exporte: {result['error']}", "danger")
+            return redirect(url_for("db_tools.maintenance"))
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 @db_tools_bp.route("/maintenance/query", methods=["GET", "POST"])

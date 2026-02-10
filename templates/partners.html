@@ -39,12 +39,17 @@
     {% for partner in partners %}
     <div class="partner-card">
       <div class="partner-card-header">
-        <h3 class="partner-card-name">{{ partner.name }}</h3>
+        <div>
+          <h3 class="partner-card-name">{{ partner.name }}</h3>
+          {% if partner.ico %}
+          <div style="font-size: 12px; color: #888; margin-top: 4px;">IČO: {{ partner.ico }}</div>
+          {% endif %}
+        </div>
         <div class="partner-card-status">
           {% if partner.is_active %}
             <span class="badge badge-success">Aktívny</span>
           {% else %}
-            <span class="badge" style="background: #888; color: white;">Neaktívny</span>
+            <span class="badge badge-inactive">Neaktívny</span>
           {% endif %}
         </div>
       </div>
@@ -123,9 +128,9 @@
           data-price-level="{{ partner.price_level or '' }}"
           data-discount-percent="{{ partner.discount_percent }}"
           data-is-active="{{ 1 if partner.is_active else 0 }}">
-          Zobraziť
+          Detail
         </button>
-        <button type="button" class="btn btn-primary btn-sm"
+        <button type="button" class="btn btn-dark btn-sm"
           data-bs-toggle="modal" data-bs-target="#editPartnerModal"
           data-id="{{ partner.id }}"
           data-name="{{ partner.name or '' }}"
@@ -580,41 +585,116 @@
   </div>
 </div>
 <script>
-var partnerContacts = {
-  {% for partner in partners %}
-  {{ partner.id }}: [
-    {% for c in partner.contacts %}
-    {id:{{ c.id }},name:"{{ c.name|replace('"','\\"') }}",role:"{{ (c.role or '')|replace('"','\\"') }}",email:"{{ (c.email or '')|replace('"','\\"') }}",phone:"{{ (c.phone or '')|replace('"','\\"') }}",canOrder:{{ 'true' if c.can_order else 'false' }},canReceive:{{ 'true' if c.can_receive else 'false' }}}{% if not loop.last %},{% endif %}
-    {% endfor %}
-  ]{% if not loop.last %},{% endif %}
-  {% endfor %}
-};
+var partnerContacts = {{ partner_contacts_json|safe }};
+var canManageAll = {{ "true" if "manage_all" in user_permissions else "false" }};
+var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+function escapeAttr(s) {
+  var d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML.replace(/"/g, '&quot;');
+}
+
 document.getElementById('contactsModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   var partnerId = btn.dataset.partnerId;
   this.querySelector('#contactsPartnerName').textContent = btn.dataset.partnerName;
   this.querySelector('#addContactFromModal').dataset.partnerId = partnerId;
   var contacts = partnerContacts[partnerId] || [];
-  var html = '';
+  var container = this.querySelector('#contactsList');
+
+  // Clear previous content safely
+  while (container.firstChild) container.removeChild(container.firstChild);
+
   if (contacts.length === 0) {
-    html = '<p class="text-muted">Žiadne kontakty.</p>';
+    var p = document.createElement('p');
+    p.className = 'text-muted';
+    p.textContent = 'Žiadne kontakty.';
+    container.appendChild(p);
   } else {
-    html = '<table class="table table-sm"><thead><tr><th>Meno</th><th>Rola</th><th>Email</th><th>Telefón</th><th>Oprávnenia</th><th>Akcie</th></tr></thead><tbody>';
-    contacts.forEach(function(c) {
-      var badges = '';
-      if (c.canOrder) badges += '<span class="badge bg-info me-1">Objednáva</span>';
-      if (c.canReceive) badges += '<span class="badge bg-info">Preberá</span>';
-      html += '<tr><td>' + c.name + '</td><td>' + c.role + '</td><td>' + c.email + '</td><td>' + c.phone + '</td><td>' + badges + '</td>';
-      html += '<td class="text-nowrap">';
-      html += '<button type="button" class="btn btn-sm btn-outline-primary me-1 edit-contact-btn" data-partner-id="' + partnerId + '" data-contact-id="' + c.id + '" data-name="' + c.name + '" data-role="' + c.role + '" data-email="' + c.email + '" data-phone="' + c.phone + '" data-can-order="' + (c.canOrder ? '1' : '0') + '" data-can-receive="' + (c.canReceive ? '1' : '0') + '">Upraviť</button>';
-      {% if "manage_all" in user_permissions %}
-      html += '<form method="post" action="/partners/' + partnerId + '/contacts/' + c.id + '/delete" class="d-inline" onsubmit="return confirm(\'Vymazať kontakt?\')"><button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button></form>';
-      {% endif %}
-      html += '</td></tr>';
+    var table = document.createElement('table');
+    table.className = 'table table-sm';
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    ['Meno','Rola','Email','Telefón','Oprávnenia','Akcie'].forEach(function(h) {
+      var th = document.createElement('th');
+      th.textContent = h;
+      headerRow.appendChild(th);
     });
-    html += '</tbody></table>';
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+
+    contacts.forEach(function(c) {
+      var tr = document.createElement('tr');
+
+      // Text cells
+      [c.name, c.role, c.email, c.phone].forEach(function(val) {
+        var td = document.createElement('td');
+        td.textContent = val;
+        tr.appendChild(td);
+      });
+
+      // Badges cell
+      var badgesTd = document.createElement('td');
+      if (c.canOrder) {
+        var b1 = document.createElement('span');
+        b1.className = 'badge bg-info me-1';
+        b1.textContent = 'Objednáva';
+        badgesTd.appendChild(b1);
+      }
+      if (c.canReceive) {
+        var b2 = document.createElement('span');
+        b2.className = 'badge bg-info';
+        b2.textContent = 'Preberá';
+        badgesTd.appendChild(b2);
+      }
+      tr.appendChild(badgesTd);
+
+      // Actions cell
+      var actionsTd = document.createElement('td');
+      actionsTd.className = 'text-nowrap';
+
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn btn-sm btn-outline-primary me-1 edit-contact-btn';
+      editBtn.textContent = 'Upraviť';
+      editBtn.dataset.partnerId = partnerId;
+      editBtn.dataset.contactId = c.id;
+      editBtn.dataset.name = c.name;
+      editBtn.dataset.role = c.role;
+      editBtn.dataset.email = c.email;
+      editBtn.dataset.phone = c.phone;
+      editBtn.dataset.canOrder = c.canOrder ? '1' : '0';
+      editBtn.dataset.canReceive = c.canReceive ? '1' : '0';
+      actionsTd.appendChild(editBtn);
+
+      if (canManageAll) {
+        var delForm = document.createElement('form');
+        delForm.method = 'post';
+        delForm.action = '/partners/' + partnerId + '/contacts/' + c.id + '/delete';
+        delForm.className = 'd-inline';
+        delForm.onsubmit = function() { return confirm('Vymazať kontakt?'); };
+        var csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = csrfToken;
+        delForm.appendChild(csrfInput);
+        var delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-outline-danger';
+        delBtn.type = 'submit';
+        delBtn.textContent = 'Vymazať';
+        delForm.appendChild(delBtn);
+        actionsTd.appendChild(delForm);
+      }
+
+      tr.appendChild(actionsTd);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    container.appendChild(table);
   }
-  this.querySelector('#contactsList').innerHTML = html;
 });
 document.getElementById('contactsList').addEventListener('click', function(e) {
   var btn = e.target.closest('.edit-contact-btn');

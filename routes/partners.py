@@ -1,5 +1,7 @@
 """Partner management routes."""
 
+import json
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from extensions import db
@@ -52,9 +54,26 @@ def list_partners():
         db.session.commit()
         flash("Partner uložený.", "success")
         return redirect(url_for("partners.list_partners"))
+    partners = Partner.query.filter_by(is_deleted=False).all()
+    # Build safe JSON for partner contacts to avoid XSS via innerHTML
+    contacts_map = {}
+    for p in partners:
+        contacts_map[str(p.id)] = [
+            {
+                "id": c.id,
+                "name": c.name or "",
+                "role": c.role or "",
+                "email": c.email or "",
+                "phone": c.phone or "",
+                "canOrder": bool(c.can_order),
+                "canReceive": bool(c.can_receive),
+            }
+            for c in p.contacts
+        ]
     return render_template(
         "partners.html",
-        partners=Partner.query.filter_by(is_deleted=False).all(),
+        partners=partners,
+        partner_contacts_json=json.dumps(contacts_map),
     )
 
 

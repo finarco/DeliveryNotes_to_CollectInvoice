@@ -1,88 +1,96 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">SQL dotaz (len čítanie)</h4>
-  <a href="{{ url_for('db_tools.maintenance') }}" class="btn btn-secondary">Späť</a>
-</div>
 
-<div class="alert alert-info mb-4">
+{% block page_title %}DB Tools{% endblock %}
+
+{% block page_actions %}
+<a href="{{ url_for('db_tools.maintenance') }}" class="btn btn-outline">Späť na údržbu</a>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/db-tools.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="sql-info">
   <strong>Poznámka:</strong> Povolené sú len SELECT dotazy. INSERT, UPDATE, DELETE a iné modifikujúce príkazy sú zakázané.
 </div>
 
-<form method="post" class="mb-4">
-  <div class="mb-3">
-    <label class="form-label">SQL dotaz</label>
-    <textarea class="form-control font-monospace" name="query" rows="5"
-              placeholder="SELECT * FROM partner LIMIT 10">{{ query }}</textarea>
+<form method="post">
+  <div class="sql-editor">
+    <div class="sql-toolbar">
+      <div class="sql-toolbar-tabs">
+        <button type="button" class="sql-tab active">SQL dotaz</button>
+        <button type="button" class="sql-tab">Histórie</button>
+      </div>
+      <button type="submit" class="sql-run-btn">Spustiť</button>
+    </div>
+    <textarea class="sql-textarea" name="query" placeholder="SELECT * FROM partner LIMIT 10">{{ query }}</textarea>
   </div>
-  <button type="submit" class="btn btn-primary">Spustiť</button>
 </form>
 
 {% if result %}
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>Výsledky</strong>
+<div class="sql-results">
+  <div class="sql-results-bar">
+    <span class="sql-results-title">Výsledky</span>
     {% if result.success %}
-    <span class="badge bg-success">{{ result.row_count }} riadkov</span>
+    <span class="sql-results-count">{{ result.row_count }} riadkov</span>
     {% else %}
-    <span class="badge bg-danger">Chyba</span>
+    <span class="badge badge-danger">Chyba</span>
     {% endif %}
   </div>
-  <div class="card-body">
+  <div class="sql-results-body">
     {% if result.success %}
       {% if result.rows %}
-      <div class="table-responsive">
-        <table class="table table-sm table-striped">
-          <thead>
-            <tr>
-              {% for col in result.columns %}
-              <th>{{ col }}</th>
+      <div class="table-container">
+        <div style="overflow-x: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                {% for col in result.columns %}
+                <th>{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in result.rows[:100] %}
+              <tr>
+                {% for cell in row %}
+                <td>
+                  {% if cell is none %}
+                  <span style="color: #888;">NULL</span>
+                  {% else %}
+                  {{ cell }}
+                  {% endif %}
+                </td>
+                {% endfor %}
+              </tr>
               {% endfor %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in result.rows[:100] %}
-            <tr>
-              {% for cell in row %}
-              <td>
-                {% if cell is none %}
-                <span class="text-muted">NULL</span>
-                {% else %}
-                {{ cell }}
-                {% endif %}
-              </td>
-              {% endfor %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
       {% if result.row_count > 100 %}
-      <p class="text-muted mt-2">Zobrazených prvých 100 z {{ result.row_count }} riadkov.</p>
+      <p style="color: #888; margin-top: 12px; font-size: 12px;">Zobrazených prvých 100 z {{ result.row_count }} riadkov.</p>
       {% endif %}
       {% else %}
-      <p class="text-muted mb-0">Dotaz nevrátil žiadne výsledky.</p>
+      <p style="color: #888;">Dotaz nevrátil žiadne výsledky.</p>
       {% endif %}
     {% else %}
-    <div class="alert alert-danger mb-0">
-      <strong>Chyba:</strong> {{ result.error }}
+    <div class="alert alert-danger">
+      <span><strong>Chyba:</strong> {{ result.error }}</span>
     </div>
     {% endif %}
   </div>
 </div>
 {% endif %}
 
-<div class="card mt-4">
-  <div class="card-header">
-    <strong>Ukážkové dotazy</strong>
-  </div>
-  <div class="card-body">
-    <ul class="mb-0">
-      <li><code>SELECT * FROM partner WHERE is_active = 1 LIMIT 20</code></li>
-      <li><code>SELECT COUNT(*) FROM "order" WHERE confirmed = 1</code></li>
-      <li><code>SELECT p.name, COUNT(o.id) FROM partner p LEFT JOIN "order" o ON p.id = o.partner_id GROUP BY p.id</code></li>
-      <li><code>SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50</code></li>
-    </ul>
-  </div>
+<div class="sql-examples">
+  <h4>Ukážkové dotazy</h4>
+  <ul>
+    <li><code onclick="document.querySelector('.sql-textarea').value=this.textContent">SELECT * FROM partner WHERE is_active = 1 LIMIT 20</code></li>
+    <li><code onclick="document.querySelector('.sql-textarea').value=this.textContent">SELECT COUNT(*) FROM "order" WHERE confirmed = 1</code></li>
+    <li><code onclick="document.querySelector('.sql-textarea').value=this.textContent">SELECT p.name, COUNT(o.id) FROM partner p LEFT JOIN "order" o ON p.id = o.partner_id GROUP BY p.id</code></li>
+    <li><code onclick="document.querySelector('.sql-textarea').value=this.textContent">SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50</code></li>
+  </ul>
 </div>
 {% endblock %}

@@ -153,6 +153,11 @@
     {% for date, notes_on_date in delivery_notes_by_date %}
     <div class="timeline-item">
       <div class="timeline-date">
+        {% if date and today is defined and date == today %}
+        <div class="timeline-date-label">Dnes</div>
+        {% elif date and yesterday is defined and date == yesterday %}
+        <div class="timeline-date-label">Včera</div>
+        {% endif %}
         <div class="timeline-date-day">{{ date.day if date else '--' }}</div>
         <div class="timeline-date-month">{{ date.strftime('%b').upper() if date else '--' }}</div>
         <div class="timeline-date-year">{{ date.year if date else '--' }}</div>

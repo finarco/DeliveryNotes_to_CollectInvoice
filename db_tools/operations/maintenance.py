@@ -5,8 +5,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from flask import g
+
 from extensions import db
 from db_tools.core.database_inspector import DatabaseInspector
+
+
+def _current_user_id():
+    """Return the current user's ID for audit logging, or None."""
+    user = getattr(g, "current_user", None)
+    return user.id if user else None
 
 
 class MaintenanceTool:
@@ -133,7 +141,7 @@ class MaintenanceTool:
 
         # Log the action
         log_entry = models.AuditLog(
-            user_id=None,
+            user_id=_current_user_id(),
             action="db_tool_unlock",
             entity_type=entity_type,
             entity_id=entity_id,
@@ -214,7 +222,7 @@ class MaintenanceTool:
         if deleted:
             # Log the action
             log_entry = models.AuditLog(
-                user_id=None,
+                user_id=_current_user_id(),
                 action="db_tool_repair_orphans",
                 entity_type="database",
                 entity_id=None,
@@ -285,7 +293,11 @@ class MaintenanceTool:
         Returns:
             Dict with columns and rows
         """
-        sql_upper = sql.strip().upper()
+        import re
+        import sqlite3
+
+        sql_stripped = sql.strip()
+        sql_upper = sql_stripped.upper()
 
         # Only allow SELECT statements
         if not sql_upper.startswith("SELECT"):
@@ -294,26 +306,40 @@ class MaintenanceTool:
                 "error": "Only SELECT queries are allowed",
             }
 
-        # Block dangerous keywords
+        # Block dangerous keywords using word boundary matching
+        # to avoid false positives like "UPDATED_AT" matching "UPDATE"
         dangerous = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE", "CREATE"]
         for keyword in dangerous:
-            if keyword in sql_upper:
+            if re.search(r'\b' + keyword + r'\b', sql_upper):
                 return {
                     "success": False,
                     "error": f"Query contains forbidden keyword: {keyword}",
                 }
 
-        try:
-            result = db.session.execute(db.text(sql))
-            columns = list(result.keys())
-            rows = [list(row) for row in result.fetchall()]
-
+        # Block multiple statements (semicolons)
+        if ";" in sql_stripped.rstrip(";"):
             return {
-                "success": True,
-                "columns": columns,
-                "rows": rows,
-                "row_count": len(rows),
+                "success": False,
+                "error": "Multiple statements are not allowed",
             }
+
+        try:
+            # Use a separate read-only connection for safety
+            db_uri = db.engine.url.render_as_string(hide_password=False)
+            db_path = db_uri.replace("sqlite:///", "")
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            try:
+                cursor = conn.execute(sql_stripped)
+                columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                rows = [list(row) for row in cursor.fetchall()]
+                return {
+                    "success": True,
+                    "columns": columns,
+                    "rows": rows,
+                    "row_count": len(rows),
+                }
+            finally:
+                conn.close()
         except Exception as e:
             return {
                 "success": False,

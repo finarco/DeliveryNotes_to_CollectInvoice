@@ -1,0 +1,364 @@
+/* Login Page - Split Panel Layout */
+
+.login-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Left Panel - Dark branding */
+.login-panel-left {
+  width: 560px;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px 48px;
+  flex-shrink: 0;
+}
+
+.login-panel-left .logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-panel-left .logo-icon {
+  width: 40px;
+  height: 40px;
+  background-color: #C05A3C;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.login-panel-left .logo-text {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.login-welcome-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-welcome-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.login-welcome-desc {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  color: #888888;
+  line-height: 1.6;
+  max-width: 400px;
+}
+
+.login-copyright {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12px;
+  color: #555555;
+}
+
+/* Right Panel - Login form */
+.login-panel-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F5F3EF;
+  padding: 48px;
+}
+
+.login-form-container {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-form-title {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: #1a1a1a;
+}
+
+.login-form-subtitle {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  color: #888888;
+  margin-bottom: 32px;
+}
+
+.login-form .form-group {
+  margin-bottom: 20px;
+}
+
+.login-form .form-label {
+  display: block;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555555;
+  margin-bottom: 8px;
+}
+
+.login-form .form-control {
+  width: 100%;
+  padding: 12px 16px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background-color: #ffffff;
+  border: 1px solid #d1cdc4;
+  border-radius: 0;
+  transition: border-color 150ms ease;
+}
+
+.login-form .form-control:focus {
+  outline: none;
+  border-color: #C05A3C;
+}
+
+.login-form .form-control::placeholder {
+  color: #888888;
+}
+
+/* Password toggle */
+.login-password-wrapper {
+  position: relative;
+}
+
+.login-password-wrapper .form-control {
+  padding-right: 44px;
+}
+
+.login-password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888888;
+  padding: 4px;
+}
+
+.login-password-toggle:hover {
+  color: #1a1a1a;
+}
+
+/* Remember me / Forgot password row */
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.login-options .form-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-options .form-check-input {
+  margin: 0;
+}
+
+.login-options .form-check-label {
+  font-size: 12px;
+  color: #555555;
+}
+
+.login-options .forgot-link {
+  font-size: 12px;
+  color: #C05A3C;
+  text-decoration: none;
+}
+
+.login-options .forgot-link:hover {
+  opacity: 0.8;
+}
+
+/* Login button */
+.login-submit-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  border: none;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  margin-bottom: 24px;
+}
+
+.login-submit-btn:hover {
+  background-color: #333333;
+}
+
+/* Divider */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.login-divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: #d1cdc4;
+}
+
+.login-divider-text {
+  font-size: 12px;
+  color: #888888;
+  text-transform: lowercase;
+}
+
+/* Google button */
+.login-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #d1cdc4;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  margin-bottom: 24px;
+}
+
+.login-google-btn:hover {
+  background-color: #f5f5f5;
+}
+
+.login-google-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Register link */
+.login-register {
+  text-align: center;
+  font-size: 14px;
+  color: #555555;
+}
+
+.login-register a {
+  color: #C05A3C;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-register a:hover {
+  opacity: 0.8;
+}
+
+/* Flash messages on login */
+.login-flash {
+  margin-bottom: 20px;
+}
+
+.login-flash .alert {
+  padding: 12px 16px;
+  font-size: 14px;
+  margin-bottom: 8px;
+  border-left: 4px solid;
+}
+
+.login-flash .alert-danger {
+  background-color: rgba(192, 90, 60, 0.1);
+  color: #C05A3C;
+  border-left-color: #C05A3C;
+}
+
+.login-flash .alert-success {
+  background-color: rgba(74, 124, 89, 0.1);
+  color: #4A7C59;
+  border-left-color: #4A7C59;
+}
+
+.login-flash .alert-warning {
+  background-color: rgba(212, 165, 106, 0.1);
+  color: #D4A56A;
+  border-left-color: #D4A56A;
+}
+
+.login-flash .alert-info {
+  background-color: rgba(92, 124, 138, 0.1);
+  color: #5C7C8A;
+  border-left-color: #5C7C8A;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .login-panel-left {
+    width: 400px;
+    padding: 40px 32px;
+  }
+
+  .login-welcome-title {
+    font-size: 36px;
+  }
+}
+
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column;
+  }
+
+  .login-panel-left {
+    width: 100%;
+    padding: 32px 24px;
+    min-height: auto;
+  }
+
+  .login-welcome-section {
+    display: none;
+  }
+
+  .login-copyright {
+    display: none;
+  }
+
+  .login-panel-right {
+    padding: 32px 24px;
+  }
+
+  .login-form-container {
+    max-width: 100%;
+  }
+}

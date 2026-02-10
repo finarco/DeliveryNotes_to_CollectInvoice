@@ -65,8 +65,8 @@ def ensure_admin_user():
         )
         db.session.add(admin)
         db.session.commit()
-        logger.warning(
-            "Created default admin user. Initial password: %s "
-            "(change immediately after first login)",
-            password,
+        # Print to stdout only — never log credentials to persistent log files
+        print(
+            f"Created default admin user. Initial password: {password} "
+            "(change immediately after first login)"
         )

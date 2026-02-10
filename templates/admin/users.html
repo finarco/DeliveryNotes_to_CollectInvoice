@@ -1,9 +1,29 @@
 {% extends "base.html" %}
+
+{% block page_title %}Administrácia{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">Nový používateľ</button>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Správa používateľov</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">+ Vytvoriť používateľa</button>
+{# Stats Cards #}
+<div class="metrics-grid" style="grid-template-columns: repeat(3, 1fr);">
+  <div class="card">
+    <div class="card-title">Aktívni používatelia</div>
+    <div class="card-value">{{ active_user_count|default(users|selectattr('is_active')|list|length) }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Roly</div>
+    <div class="card-value">{{ role_count|default(valid_roles|length) }}</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Celkom používateľov</div>
+    <div class="card-value">{{ users|length }}</div>
+  </div>
 </div>
+
+{# Add User Modal #}
 <div class="modal fade" id="addUserModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -40,6 +60,8 @@
     </div>
   </div>
 </div>
+
+{# View User Modal #}
 <div class="modal fade" id="viewUserModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -62,71 +84,109 @@
     </div>
   </div>
 </div>
-<table class="table table-striped bg-white shadow-sm">
-  <thead>
-    <tr class="table-filter">
-      <th></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Meno..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Rola..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Aktívny..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Vytvorený..."></th>
-    </tr>
-    <tr>
-      <th>Akcie</th>
-      <th>ID</th>
-      <th>Meno</th>
-      <th>Rola</th>
-      <th>Aktívny</th>
-      <th>Vytvorený</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for user in users %}
-    <tr>
-      <td class="actions-col">
-        <button type="button" class="btn btn-sm btn-outline-info"
-          data-bs-toggle="modal" data-bs-target="#viewUserModal"
-          data-user-id="{{ user.id }}"
-          data-username="{{ user.username }}"
-          data-role="{{ user.role }}"
-          data-is-active="{{ 1 if user.is_active else 0 }}"
-          data-created="{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}">Zobraziť</button>
-        <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}">
+
+{# Reset Password Modal #}
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="resetPasswordForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Reset hesla — <span id="resetPasswordUsername"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Nové heslo</label>
+              <input class="form-control" type="password" name="new_password" placeholder="Min. 8 znakov, veľké/malé písmeno, číslica" required minlength="8">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Resetovať heslo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Users Table #}
+<div class="table-container">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--color-border);">
+    <h3 style="font-family: var(--font-heading); font-size: 16px; font-weight: 700; text-transform: uppercase; margin: 0;">Používatelia</h3>
+    <input type="text" class="form-control" placeholder="Hľadať používateľa..." style="width: 250px;" id="userSearchInput">
+  </div>
+  <table class="table" id="usersTable">
+    <thead>
+      <tr>
+        <th>Meno</th>
+        <th>Rola</th>
+        <th>Stav</th>
+        <th>Vytvorený</th>
+        <th>Akcie</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background-color: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-size: 14px; font-weight: 700; flex-shrink: 0;">
+              {{ user.username[0].upper() }}
+            </div>
+            <span>{{ user.username }}</span>
+          </div>
+        </td>
+        <td><span class="badge badge-info">{{ user.role }}</span></td>
+        <td>
           {% if user.is_active %}
-            <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+            <span class="badge badge-success">Aktívny</span>
           {% else %}
-            <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+            <span class="badge badge-inactive">Neaktívny</span>
           {% endif %}
-        </form>
-        <form method="post" action="{{ url_for('admin.reset_password', user_id=user.id) }}">
-          <input type="hidden" name="new_password" value="">
-          <button class="btn btn-sm btn-outline-info" type="button"
-                  onclick="var pw=prompt('Nové heslo (min. 8 znakov):');if(pw&&pw.length>=8){this.form.querySelector('[name=new_password]').value=pw;this.form.submit();}else if(pw){alert('Heslo musí mať aspoň 8 znakov.');}">
-            Reset hesla
-          </button>
-        </form>
-        <form method="post" action="{{ url_for('admin.force_password_change', user_id=user.id) }}">
-          <button class="btn btn-sm btn-outline-secondary" type="submit"
-                  title="Vynútiť zmenu hesla pri najbližšom prihlásení">Vynútiť zmenu</button>
-        </form>
-      </td>
-      <td>{{ user.id }}</td>
-      <td>{{ user.username }}</td>
-      <td>{{ user.role }}</td>
-      <td>
-        {% if user.is_active %}
-          <span class="badge bg-success">Áno</span>
-        {% else %}
-          <span class="badge bg-danger">Nie</span>
-        {% endif %}
-      </td>
-      <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+        </td>
+        <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '' }}</td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-outline-info"
+              data-bs-toggle="modal" data-bs-target="#viewUserModal"
+              data-user-id="{{ user.id }}"
+              data-username="{{ user.username }}"
+              data-role="{{ user.role }}"
+              data-is-active="{{ 1 if user.is_active else 0 }}"
+              data-created="{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '' }}">Zobraziť</button>
+            <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.id) }}" class="d-inline">
+              {% if user.is_active %}
+                <button class="btn btn-sm btn-outline-warning" type="submit">Deaktivovať</button>
+              {% else %}
+                <button class="btn btn-sm btn-outline-success" type="submit">Aktivovať</button>
+              {% endif %}
+            </form>
+            <button class="btn btn-sm btn-outline-info" type="button"
+              data-bs-toggle="modal" data-bs-target="#resetPasswordModal"
+              data-user-id="{{ user.id }}"
+              data-username="{{ user.username }}">
+              Reset hesla
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
 <script>
+document.getElementById('resetPasswordModal').addEventListener('show.bs.modal', function(event) {
+  var btn = event.relatedTarget;
+  var userId = btn.dataset.userId;
+  var username = btn.dataset.username;
+  this.querySelector('#resetPasswordUsername').textContent = username;
+  this.querySelector('form').action = '{{ url_for("admin.reset_password", user_id=0) }}'.replace('/0/', '/' + userId + '/');
+  this.querySelector('[name="new_password"]').value = '';
+});
+
 document.getElementById('viewUserModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
   this.querySelector('#viewUserId').textContent = btn.dataset.userId || '-';
@@ -134,6 +194,16 @@ document.getElementById('viewUserModal').addEventListener('show.bs.modal', funct
   this.querySelector('#viewUserRole').textContent = btn.dataset.role || '-';
   this.querySelector('#viewUserActive').textContent = btn.dataset.isActive === '1' ? 'Áno' : 'Nie';
   this.querySelector('#viewUserCreated').textContent = btn.dataset.created || '-';
+});
+
+// Search functionality
+document.getElementById('userSearchInput').addEventListener('input', function() {
+  var val = this.value.toLowerCase().trim();
+  var rows = document.querySelectorAll('#usersTable tbody tr');
+  rows.forEach(function(row) {
+    var text = row.textContent.toLowerCase();
+    row.style.display = text.indexOf(val) !== -1 ? '' : 'none';
+  });
 });
 </script>
 {% endblock %}

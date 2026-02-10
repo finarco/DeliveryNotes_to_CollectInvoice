@@ -145,7 +145,7 @@ def create_app():
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
     app.config["SESSION_COOKIE_SECURE"] = (
-        os.environ.get("FLASK_ENV", "") == "production"
+        os.environ.get("FLASK_ENV", "") != "development"
     )
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 
@@ -177,7 +177,12 @@ def create_app():
         """Set ``g.current_user`` from the session for every request."""
         user_id = session.get("user_id")
         if user_id:
-            g.current_user = db.session.get(User, user_id)
+            user = db.session.get(User, user_id)
+            if user and not user.is_active:
+                session.clear()
+                g.current_user = None
+            else:
+                g.current_user = user
         else:
             g.current_user = None
 
@@ -256,12 +261,23 @@ def create_app():
     def set_security_headers(response):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # X-XSS-Protection "0" is recommended; the filter is deprecated
+        # and can introduce vulnerabilities in older browsers
+        response.headers["X-XSS-Protection"] = "0"
         response.headers["Referrer-Policy"] = (
             "strict-origin-when-cross-origin"
         )
         response.headers["Permissions-Policy"] = (
             "geolocation=(), camera=(), microphone=()"
+        )
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'"
         )
         if os.environ.get("FLASK_ENV") == "production":
             response.headers["Strict-Transport-Security"] = (
@@ -312,7 +328,7 @@ if __name__ == "__main__":
         "1",
         "yes",
     )
-    host = os.environ.get("FLASK_HOST", "0.0.0.0")
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
     port = int(os.environ.get("FLASK_PORT", 5000))
     logger.info("Starting application on %s:%s (debug=%s)", host, port, debug_mode)
     app.run(host=host, port=port, debug=debug_mode)

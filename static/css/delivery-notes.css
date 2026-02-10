@@ -136,6 +136,17 @@
   gap: var(--spacing-sm);
 }
 
+/* Timeline Date Label */
+.timeline-date-label {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .timeline-container {

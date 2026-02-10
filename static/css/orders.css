@@ -4,7 +4,7 @@
   display: flex;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-4xl);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid #D1CCC4;
 }
 
 .orders-tab {
@@ -16,7 +16,7 @@
   color: var(--color-text-secondary);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
 }

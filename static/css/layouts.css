@@ -34,8 +34,8 @@
 .logo-icon {
   width: 40px;
   height: 40px;
-  background-color: var(--color-text-inverse);
-  color: var(--color-sidebar);
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,6 +312,64 @@
   height: 24px;
 }
 
+/* === Quick Actions (mobile) === */
+.quick-actions {
+  display: none;
+  margin-bottom: var(--spacing-4xl);
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-md);
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  background-color: var(--color-card);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.quick-action-btn:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.quick-action-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--color-primary);
+}
+
+/* === Page Subtitle === */
+.page-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-normal);
+  margin-top: var(--spacing-xs);
+}
+
+/* === Upgrade Box Button === */
+.upgrade-box .btn-sm {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: none;
+  width: 100%;
+  text-align: center;
+}
+
 /* === Responsive Design === */
 @media (max-width: 1024px) {
   .sidebar {
@@ -389,6 +447,10 @@
 
   .three-column-grid {
     grid-template-columns: 1fr;
+  }
+
+  .quick-actions {
+    display: block;
   }
 }
 

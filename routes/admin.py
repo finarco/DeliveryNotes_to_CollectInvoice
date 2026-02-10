@@ -1,9 +1,21 @@
 """Admin routes — user management (Feature F1)."""
 
+from urllib.parse import urlparse
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
 from utils import utc_now
+
+
+def _safe_referrer(fallback: str) -> str:
+    """Return request.referrer only if it is same-origin, else fallback."""
+    ref = request.referrer
+    if ref:
+        parsed = urlparse(ref)
+        if parsed.netloc == "" or parsed.netloc == request.host:
+            return ref
+    return fallback
 
 from extensions import db
 from models import (
@@ -60,8 +72,14 @@ def users():
         return redirect(url_for("admin.users"))
 
     all_users = User.query.order_by(User.id).all()
+    active_count = User.query.filter_by(is_active=True).count()
+    role_count = db.session.query(User.role).distinct().count()
     return render_template(
-        "admin/users.html", users=all_users, valid_roles=VALID_ROLES
+        "admin/users.html",
+        users=all_users,
+        valid_roles=VALID_ROLES,
+        active_user_count=active_count,
+        role_count=role_count,
     )
 
 
@@ -88,6 +106,10 @@ def reset_password(user_id: int):
     if len(new_password) < 8:
         flash("Heslo musí mať aspoň 8 znakov.", "danger")
         return redirect(url_for("admin.users"))
+    import re
+    if not (re.search(r"[A-Z]", new_password) and re.search(r"[a-z]", new_password) and re.search(r"\d", new_password)):
+        flash("Heslo musí obsahovať veľké, malé písmeno a číslicu.", "danger")
+        return redirect(url_for("admin.users"))
     user.password_hash = generate_password_hash(new_password)
     user.must_change_password = True
     user.password_changed_at = utc_now()
@@ -105,7 +127,7 @@ def unlock_order(order_id: int):
     log_action("unlock", "order", order.id, "unlocked by admin")
     db.session.commit()
     flash(f"Objednávka #{order.id} odomknutá.", "success")
-    return redirect(request.referrer or url_for("orders.list_orders"))
+    return redirect(_safe_referrer(url_for("orders.list_orders")))
 
 
 @admin_bp.route("/unlock/delivery/<int:delivery_id>", methods=["POST"])
@@ -116,7 +138,7 @@ def unlock_delivery(delivery_id: int):
     log_action("unlock", "delivery_note", delivery.id, "unlocked by admin")
     db.session.commit()
     flash(f"Dodací list #{delivery.id} odomknutý.", "success")
-    return redirect(request.referrer or url_for("delivery.list_delivery_notes"))
+    return redirect(_safe_referrer(url_for("delivery.list_delivery_notes")))
 
 
 @admin_bp.route("/unlock/invoice/<int:invoice_id>", methods=["POST"])
@@ -127,7 +149,7 @@ def unlock_invoice(invoice_id: int):
     log_action("unlock", "invoice", invoice.id, "unlocked by admin")
     db.session.commit()
     flash(f"Faktúra #{invoice.id} odomknutá.", "success")
-    return redirect(request.referrer or url_for("invoices.list_invoices"))
+    return redirect(_safe_referrer(url_for("invoices.list_invoices")))
 
 
 # ------------------------------------------------------------------

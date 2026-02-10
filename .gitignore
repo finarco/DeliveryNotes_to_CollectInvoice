@@ -5,3 +5,4 @@ output/
 .env
 instance/
 .pytest_cache/
+config.yaml

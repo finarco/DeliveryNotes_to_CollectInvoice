@@ -175,82 +175,73 @@ document.getElementById('manual-item-form').addEventListener('submit', function(
     </div>
   </div>
 </div>
-<table class="table table-striped bg-white shadow-sm">
+<div class="table-container">
+<table class="table">
   <thead>
-    <tr class="table-filter">
-      <th></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="1" placeholder="ID..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="2" placeholder="Partner..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="3" placeholder="Stav..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="4" placeholder="Spolu..."></th>
-      <th><input type="text" class="form-control form-control-sm" data-col="5" placeholder="Položky..."></th>
-      <th></th>
-    </tr>
     <tr>
-      <th>Akcie</th>
-      <th>ID</th>
+      <th>Číslo</th>
       <th>Partner</th>
+      <th>Dátum</th>
+      <th>Splatnosť</th>
+      <th>Suma</th>
       <th>Stav</th>
-      <th>Spolu</th>
-      <th>Položky</th>
-      <th>Export</th>
+      <th>Akcie</th>
     </tr>
   </thead>
   <tbody>
     {% for invoice in invoices %}
-    <tr>
-      <td class="actions-col">
-        <button type="button" class="btn btn-sm btn-outline-info"
-          data-bs-toggle="modal" data-bs-target="#viewInvoiceModal"
-          data-invoice-id="{{ invoice.id }}"
-          data-invoice-number="{{ invoice.invoice_number or '' }}"
-          data-partner="{{ invoice.partner.name }}"
-          data-status="{{ invoice.status or '' }}"
-          data-total="{{ '%.2f'|format(invoice.total) }}"
-          data-total-vat="{{ '%.2f'|format(invoice.total_with_vat) }}"
-          data-items="{% for item in invoice.items %}{{ item.description }} | {{ item.quantity }}x | {{ '%.2f'|format(item.total) }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
-        {% if invoice.is_locked %}
-          <span class="badge bg-secondary mb-1">Uzamknutá</span>
-          {% if "manage_all" in user_permissions %}
-          <form method="post" action="{{ url_for('admin.unlock_invoice', invoice_id=invoice.id) }}">
-            <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
-          </form>
-          {% endif %}
-        {% elif "manage_all" in user_permissions %}
-          <button type="button" class="btn btn-sm btn-outline-primary"
-            data-bs-toggle="modal" data-bs-target="#editInvoiceModal"
-            data-id="{{ invoice.id }}"
-            data-status="{{ invoice.status or '' }}">Upraviť</button>
-          <form method="post" action="{{ url_for('invoices.delete_invoice', invoice_id=invoice.id) }}"
-                onsubmit="return confirm('Naozaj chcete vymazať túto faktúru?')">
-            <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
-          </form>
+    <tr class="{{ 'paid' if invoice.status == 'paid' else ('overdue' if invoice.status == 'overdue' else '') }}">
+      <td>{{ invoice.invoice_number or invoice.id }}</td>
+      <td>{{ invoice.partner.name }}</td>
+      <td>{{ invoice.created_at.strftime('%d.%m.%Y') if invoice.created_at else '-' }}</td>
+      <td>{{ invoice.due_date.strftime('%d.%m.%Y') if invoice.due_date is defined and invoice.due_date else '-' }}</td>
+      <td>{{ "%.2f"|format(invoice.total) }} &euro;</td>
+      <td>
+        {% if invoice.status == 'paid' %}
+          <span class="badge badge-paid">Plne zaplatená</span>
+        {% elif invoice.status == 'overdue' %}
+          <span class="badge badge-overdue">Po splatnosti</span>
+        {% elif invoice.status == 'overpaid' %}
+          <span class="badge badge-overpaid">Preplatená</span>
+        {% else %}
+          <span class="badge badge-unpaid">Čaká platbu</span>
         {% endif %}
       </td>
-      <td>{{ invoice.id }}</td>
-      <td>{{ invoice.partner.name }}</td>
-      <td>{{ invoice.status }}</td>
-      <td>{{ "%.2f"|format(invoice.total) }}</td>
       <td>
-        <ul class="list-unstyled mb-0">
-          {% for item in invoice.items %}
-          <li>{{ item.description }} | {{ item.quantity }}x | {{ "%.2f"|format(item.total) }}</li>
-          {% endfor %}
-        </ul>
-      </td>
-      <td>
-        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('invoices.invoice_pdf', invoice_id=invoice.id) }}">PDF</a>
-        <form method="post" action="{{ url_for('invoices.send_invoice', invoice_id=invoice.id) }}" class="d-inline">
-          <button class="btn btn-sm btn-outline-secondary" type="submit">Email</button>
-        </form>
-        <form method="post" action="{{ url_for('invoices.export_invoice', invoice_id=invoice.id) }}" class="d-inline">
-          <button class="btn btn-sm btn-outline-success" type="submit">Superfaktúra</button>
-        </form>
+        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm btn-outline-info"
+            data-bs-toggle="modal" data-bs-target="#viewInvoiceModal"
+            data-invoice-id="{{ invoice.id }}"
+            data-invoice-number="{{ invoice.invoice_number or '' }}"
+            data-partner="{{ invoice.partner.name }}"
+            data-status="{{ invoice.status or '' }}"
+            data-total="{{ '%.2f'|format(invoice.total) }}"
+            data-total-vat="{{ '%.2f'|format(invoice.total_with_vat) }}"
+            data-items="{% for item in invoice.items %}{{ item.description }} | {{ item.quantity }}x | {{ '%.2f'|format(item.total) }}{% if not loop.last %}; {% endif %}{% endfor %}">Zobraziť</button>
+          {% if invoice.is_locked %}
+            <span class="badge bg-secondary">Uzamknutá</span>
+            {% if "manage_all" in user_permissions %}
+            <form method="post" action="{{ url_for('admin.unlock_invoice', invoice_id=invoice.id) }}" class="d-inline">
+              <button class="btn btn-sm btn-outline-warning" type="submit">Odomknúť</button>
+            </form>
+            {% endif %}
+          {% elif "manage_all" in user_permissions %}
+            <button type="button" class="btn btn-sm btn-outline-primary"
+              data-bs-toggle="modal" data-bs-target="#editInvoiceModal"
+              data-id="{{ invoice.id }}"
+              data-status="{{ invoice.status or '' }}">Upraviť</button>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('invoices.invoice_pdf', invoice_id=invoice.id) }}">PDF</a>
+            <form method="post" action="{{ url_for('invoices.send_invoice', invoice_id=invoice.id) }}" class="d-inline">
+              <button class="btn btn-sm btn-outline-secondary" type="submit">Email</button>
+            </form>
+          {% endif %}
+        </div>
       </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% set total_pages = (total // per_page) + (1 if total % per_page else 0) %}
 {% if total_pages > 1 %}
 <nav>

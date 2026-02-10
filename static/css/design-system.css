@@ -28,6 +28,8 @@
   --font-size-lg: 20px;
   --font-size-xl: 24px;
   --font-size-2xl: 32px;
+  --font-size-3xl: 48px;
+  --color-inactive: #888888;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -118,7 +120,7 @@ a:hover {
 .fw-semibold { font-weight: var(--font-weight-semibold); }
 .fw-bold { font-weight: var(--font-weight-bold); }
 
-.text-uppercase { text-transform: uppercase; }
+.text-uppercase { text-transform: uppercase; letter-spacing: 1px; }
 
 /* === Animations === */
 @keyframes fadeIn {

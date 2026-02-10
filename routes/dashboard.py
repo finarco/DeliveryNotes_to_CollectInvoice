@@ -1,6 +1,6 @@
 """Dashboard route."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template
 
@@ -70,6 +70,9 @@ def index():
             "type": "info",
         })
 
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+
     return render_template(
         "index.html",
         partner_count=Partner.query.count(),
@@ -78,6 +81,12 @@ def index():
         invoice_count=Invoice.query.count(),
         recent_activity=recent_activity if recent_activity else [],
         recent_changes=recent_changes if recent_changes else [],
+        today=today,
+        yesterday=yesterday,
+        partner_change=0,
+        order_change=0,
+        delivery_change=0,
+        invoice_change=0,
     )
 
 

@@ -62,21 +62,25 @@ def seed(append: bool = False):
             username="admin",
             password_hash=generate_password_hash("admin123"),
             role="admin",
+            must_change_password=True,
         )
         operator = User(
             username="operator",
             password_hash=generate_password_hash("operator123"),
             role="operator",
+            must_change_password=True,
         )
         collector = User(
             username="zberač",
             password_hash=generate_password_hash("collector123"),
             role="collector",
+            must_change_password=True,
         )
         customer = User(
             username="zakaznik",
             password_hash=generate_password_hash("customer123"),
             role="customer",
+            must_change_password=True,
         )
         db.session.add_all([admin, operator, collector, customer])
         db.session.flush()

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 
-from jinja2 import BaseLoader, Environment
+from jinja2.sandbox import SandboxedEnvironment
 
 from models import PdfTemplate
 
@@ -151,7 +151,7 @@ def _get_template(entity_type: str) -> tuple[str, str]:
 
 def _render_html(html_template: str, css: str, context: dict) -> str:
     """Render the Jinja2 HTML template wrapped in a full HTML document."""
-    env = Environment(loader=BaseLoader())
+    env = SandboxedEnvironment()
     tmpl = env.from_string(html_template)
     body = tmpl.render(**context)
     return (

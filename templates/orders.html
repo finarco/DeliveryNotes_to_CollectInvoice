@@ -197,7 +197,7 @@
     {# Pending Column #}
     <div class="kanban-column pending">
       <div class="kanban-column-header">
-        <h3 class="kanban-column-title">Čakajúce</h3>
+        <h3 class="kanban-column-title">Nové</h3>
         <span class="kanban-column-count">
           {{ orders|selectattr('status', 'equalto', 'pending')|list|length }}
         </span>
@@ -245,7 +245,7 @@
     {# Processing Column #}
     <div class="kanban-column processing">
       <div class="kanban-column-header">
-        <h3 class="kanban-column-title">Spracováva sa</h3>
+        <h3 class="kanban-column-title">V procese</h3>
         <span class="kanban-column-count">
           {{ orders|selectattr('status', 'equalto', 'processing')|list|length }}
         </span>

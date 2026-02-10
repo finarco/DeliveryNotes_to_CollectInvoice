@@ -29,14 +29,19 @@ def _next_sequence(entity_type: str, scope_key: str) -> int:
     """Atomically increment and return the next sequence value."""
     seq = NumberSequence.query.filter_by(
         entity_type=entity_type, scope_key=scope_key
-    ).first()
+    ).with_for_update().first()
     if not seq:
         seq = NumberSequence(
-            entity_type=entity_type, scope_key=scope_key, last_value=0
+            entity_type=entity_type, scope_key=scope_key, last_value=1
         )
         db.session.add(seq)
-    seq.last_value += 1
+        db.session.flush()
+        return 1
+    # Atomic increment via SQL expression to prevent race conditions
+    seq.last_value = NumberSequence.last_value + 1
     db.session.flush()
+    # Refresh to get the actual value after increment
+    db.session.refresh(seq)
     return seq.last_value
 
 

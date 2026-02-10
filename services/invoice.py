@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 
 from extensions import db
 from models import (
@@ -82,12 +83,16 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
     )
     db.session.add(invoice)
 
-    total = 0.0
-    total_with_vat = 0.0
+    _Q2 = Decimal("0.01")
+    total = Decimal("0")
+    total_with_vat = Decimal("0")
 
     for note in unbilled_notes:
         for item in note.items:
-            line_total = item.line_total or (item.unit_price * item.quantity)
+            line_total = item.line_total if item.line_total else (
+                Decimal(str(item.unit_price)) * item.quantity
+            )
+            line_total = Decimal(str(line_total))
             item_name = (
                 item.product.name
                 if item.product
@@ -97,16 +102,18 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
                 f"Dodací list {note.id}: {item_name} ({item.quantity}x)"
             )
 
-            vat_rate = 20.0
+            vat_rate = Decimal("20")
             if (
                 item.product
                 and hasattr(item.product, "vat_rate")
                 and item.product.vat_rate is not None
             ):
-                vat_rate = item.product.vat_rate
+                vat_rate = Decimal(str(item.product.vat_rate))
 
-            vat_amount = round(line_total * vat_rate / 100, 2)
-            line_total_with_vat = round(line_total + vat_amount, 2)
+            vat_amount = (line_total * vat_rate / Decimal("100")).quantize(
+                _Q2, rounding=ROUND_HALF_UP
+            )
+            line_total_with_vat = line_total + vat_amount
 
             invoice.items.append(
                 InvoiceItem(
@@ -124,7 +131,7 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
             total_with_vat += line_total_with_vat
         note.invoiced = True
 
-    invoice.total = round(total, 2)
-    invoice.total_with_vat = round(total_with_vat, 2)
+    invoice.total = total.quantize(_Q2, rounding=ROUND_HALF_UP)
+    invoice.total_with_vat = total_with_vat.quantize(_Q2, rounding=ROUND_HALF_UP)
     db.session.commit()
     return invoice

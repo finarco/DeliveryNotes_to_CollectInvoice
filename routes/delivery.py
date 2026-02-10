@@ -1,5 +1,6 @@
 """Delivery note routes."""
 
+from datetime import datetime, timedelta
 from itertools import groupby
 
 from flask import (
@@ -140,6 +141,9 @@ def list_delivery_notes():
     ):
         delivery_notes_by_date.append((date_key, list(notes)))
 
+    today = datetime.now().date()
+    yesterday = today - timedelta(days=1)
+
     return render_template(
         "delivery_notes.html",
         delivery_notes=delivery_list,
@@ -150,6 +154,8 @@ def list_delivery_notes():
         orders=all_orders,
         products=products,
         bundles=bundles,
+        today=today,
+        yesterday=yesterday,
     )
 
 

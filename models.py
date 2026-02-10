@@ -57,7 +57,7 @@ class Partner(db.Model):
     email = db.Column(db.String(120))
     phone = db.Column(db.String(60))
     price_level = db.Column(db.String(60))
-    discount_percent = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
+    discount_percent = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
     is_active = db.Column(db.Boolean, default=True)
     is_deleted = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=utc_now)
@@ -111,8 +111,8 @@ class Product(db.Model):
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(255))
     long_text = db.Column(db.Text)
-    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
-    vat_rate = db.Column(db.Numeric(5, 2, asdecimal=False), default=20.0)
+    price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
+    vat_rate = db.Column(db.Numeric(5, 2, asdecimal=True), default=20.0)
     is_service = db.Column(db.Boolean, default=True)
     discount_excluded = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
@@ -127,7 +127,7 @@ class Product(db.Model):
 class ProductPriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
-    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
 
 
@@ -135,7 +135,7 @@ class Bundle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bundle_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
-    bundle_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    bundle_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     discount_excluded = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=utc_now)
@@ -150,7 +150,7 @@ class Bundle(db.Model):
 class BundlePriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"), nullable=False)
-    price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
 
 
@@ -226,7 +226,7 @@ class OrderItem(db.Model):
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
 
     product = db.relationship("Product")
 
@@ -238,7 +238,7 @@ class OrderItem(db.Model):
 class DeliveryNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     note_number = db.Column(db.String(60))
-    primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
+    primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"), index=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     show_prices = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=utc_now)
@@ -292,13 +292,20 @@ class DeliveryItem(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"))
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
-    line_total = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False, default=0.0)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
+    line_total = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False, default=0.0)
 
     product = db.relationship("Product")
     bundle = db.relationship("Bundle")
     components = db.relationship(
         "DeliveryItemComponent", backref="delivery_item", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "product_id IS NOT NULL OR bundle_id IS NOT NULL",
+            name="ck_delivery_item_has_source",
+        ),
     )
 
 
@@ -423,8 +430,8 @@ class Invoice(db.Model):
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
-    total = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
-    total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
+    total = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
+    total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
     status = db.Column(db.String(30), default="draft")
     is_locked = db.Column(db.Boolean, default=False)
 
@@ -443,11 +450,11 @@ class InvoiceItem(db.Model):
     source_delivery_id = db.Column(db.Integer, db.ForeignKey("delivery_note.id"))
     description = db.Column(db.String(255), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    unit_price = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
-    total = db.Column(db.Numeric(10, 2, asdecimal=False), nullable=False)
-    vat_rate = db.Column(db.Numeric(5, 2, asdecimal=False), default=20.0)
-    vat_amount = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
-    total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=False), default=0.0)
+    unit_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
+    total = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
+    vat_rate = db.Column(db.Numeric(5, 2, asdecimal=True), default=20.0)
+    vat_amount = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
+    total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
     is_manual = db.Column(db.Boolean, default=False)
 
 
