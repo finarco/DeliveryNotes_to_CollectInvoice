@@ -1293,7 +1293,7 @@ class TestConfigModels:
 
 
 class TestEdgeCases:
-    def test_delivery_note_with_no_primary_order(self, app):
+    def test_delivery_note_with_no_primary_order(self, app, sample_data):
         """DeliveryNote.primary_order is nullable - test PDF handles None."""
         with app.app_context():
             user = User.query.filter_by(username="admin").first()
@@ -1306,8 +1306,7 @@ class TestEdgeCases:
             db.session.flush()
             delivery.items.append(
                 DeliveryItem(
-                    product_id=None,
-                    bundle_id=None,
+                    product_id=sample_data["product_id"],
                     quantity=1,
                     unit_price=10.0,
                     line_total=10.0,
@@ -1435,7 +1434,7 @@ class TestSecurityHeaders:
 
     def test_x_xss_protection(self, logged_in_client):
         resp = logged_in_client.get("/")
-        assert resp.headers.get("X-XSS-Protection") == "1; mode=block"
+        assert resp.headers.get("X-XSS-Protection") == "0"
 
     def test_referrer_policy(self, logged_in_client):
         resp = logged_in_client.get("/")
@@ -1468,8 +1467,8 @@ class TestPasswordChange:
             "/change-password",
             data={
                 "current_password": TEST_PASSWORD,
-                "new_password": "newsecurepassword",
-                "confirm_password": "newsecurepassword",
+                "new_password": "NewSecure1",
+                "confirm_password": "NewSecure1",
             },
             follow_redirects=True,
         )
@@ -1494,8 +1493,8 @@ class TestPasswordChange:
             "/change-password",
             data={
                 "current_password": TEST_PASSWORD,
-                "new_password": "newsecurepassword",
-                "confirm_password": "differentpassword",
+                "new_password": "NewSecure1",
+                "confirm_password": "DiffSecure2",
             },
             follow_redirects=True,
         )

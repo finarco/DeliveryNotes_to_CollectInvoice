@@ -3,6 +3,7 @@ __pycache__/
 *.db
 output/
 .env
+.venv/
 instance/
 .pytest_cache/
 config.yaml

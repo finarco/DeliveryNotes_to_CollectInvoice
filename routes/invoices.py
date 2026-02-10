@@ -122,7 +122,7 @@ def add_invoice_item(invoice_id: int):
     description = request.form.get("description", "").strip()
     quantity = safe_int(request.form.get("quantity"), default=1)
     unit_price = safe_float(request.form.get("unit_price"))
-    total = unit_price * quantity
+    total = round(unit_price * quantity, 2)
     vat_rate = safe_float(request.form.get("vat_rate"), default=20.0)
     vat_amount = round(total * vat_rate / 100, 2)
     total_with_vat = round(total + vat_amount, 2)
@@ -139,8 +139,8 @@ def add_invoice_item(invoice_id: int):
             is_manual=True,
         )
     )
-    invoice.total += total
-    invoice.total_with_vat = (invoice.total_with_vat or 0) + total_with_vat
+    invoice.total = float(invoice.total or 0) + total
+    invoice.total_with_vat = float(invoice.total_with_vat or 0) + total_with_vat
     db.session.commit()
     log_action("create", "invoice_item", invoice.id, "manual")
     db.session.commit()
