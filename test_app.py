@@ -529,7 +529,10 @@ class TestOrderRoutes:
             "/orders",
             data={
                 "partner_id": str(sample_data["partner_id"]),
-                f"product_{product_id}": "5",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(product_id),
+                "items[0][quantity]": "5",
+                "items[0][unit_price]": "10.00",
                 "pickup_method": "kurier",
                 "delivery_method": "rozvoz",
                 "payment_method": "prevod",
@@ -580,7 +583,10 @@ class TestOrderRoutes:
                 "partner_id": str(sample_data["partner_id"]),
                 "pickup_datetime": "2026-02-01T10:00",
                 "delivery_datetime": "2026-02-02T14:00",
-                f"product_{sample_data['product_id']}": "1",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "1",
+                "items[0][unit_price]": "10.00",
             },
             follow_redirects=True,
         )
@@ -601,18 +607,23 @@ class TestDeliveryNoteRoutes:
         resp = logged_in_client.post(
             "/delivery-notes",
             data={
+                "partner_id": str(sample_data["partner_id"]),
                 "order_ids": str(sample_data["order_id"]),
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "3",
+                "items[0][unit_price]": "15.50",
                 "show_prices": "on",
             },
             follow_redirects=True,
         )
         assert resp.status_code == 200
 
-    def test_create_delivery_note_no_orders(self, logged_in_client):
-        """Should flash error when no orders selected."""
+    def test_create_delivery_note_no_partner(self, logged_in_client):
+        """Should flash error when no partner selected."""
         resp = logged_in_client.post(
             "/delivery-notes",
-            data={"order_ids": "99999"},
+            data={"partner_id": ""},
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -621,8 +632,12 @@ class TestDeliveryNoteRoutes:
         resp = logged_in_client.post(
             "/delivery-notes",
             data={
+                "partner_id": str(sample_data["partner_id"]),
                 "order_ids": str(sample_data["order_id"]),
-                f"extra_{sample_data['product_id']}": "2",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "2",
+                "items[0][unit_price]": "15.50",
                 "show_prices": "on",
                 "planned_delivery_datetime": "2026-02-01T10:00",
             },
@@ -644,8 +659,26 @@ class TestDeliveryNoteRoutes:
         resp = logged_in_client.post(
             "/delivery-notes",
             data={
+                "partner_id": str(sample_data["partner_id"]),
                 "order_ids": str(sample_data["order_id"]),
-                f"bundle_{bundle_id}": "1",
+                "items[0][type]": "bundle",
+                "items[0][bundle_id]": str(bundle_id),
+                "items[0][quantity]": "1",
+                "items[0][unit_price]": "40.00",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+
+    def test_create_delivery_note_with_manual_item(self, logged_in_client, sample_data):
+        resp = logged_in_client.post(
+            "/delivery-notes",
+            data={
+                "partner_id": str(sample_data["partner_id"]),
+                "items[0][type]": "manual",
+                "items[0][manual_name]": "Ručná položka",
+                "items[0][quantity]": "1",
+                "items[0][unit_price]": "25.00",
             },
             follow_redirects=True,
         )
@@ -831,8 +864,8 @@ class TestInvoiceRoutes:
         )
         assert resp.status_code == 200
 
-    def test_create_invoice_no_unbilled(self, logged_in_client, sample_data):
-        """Should flash error when no unbilled delivery notes."""
+    def test_create_invoice_no_items(self, logged_in_client, sample_data):
+        """Should flash error when no items and no delivery notes."""
         resp = logged_in_client.post(
             "/invoices",
             data={"partner_id": str(sample_data["partner_id"])},
@@ -843,6 +876,7 @@ class TestInvoiceRoutes:
     def test_create_invoice_with_delivery(self, logged_in_client, sample_data, app):
         with app.app_context():
             delivery = DeliveryNote(
+                partner_id=sample_data["partner_id"],
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
             )
@@ -858,10 +892,20 @@ class TestInvoiceRoutes:
                 )
             )
             db.session.commit()
+            dn_id = delivery.id
 
         resp = logged_in_client.post(
             "/invoices",
-            data={"partner_id": str(sample_data["partner_id"])},
+            data={
+                "partner_id": str(sample_data["partner_id"]),
+                "delivery_note_ids": str(dn_id),
+                "items[0][type]": "delivery",
+                "items[0][description]": "DL: Test Service (3x)",
+                "items[0][quantity]": "3",
+                "items[0][unit_price]": "15.50",
+                "items[0][vat_rate]": "20",
+                "items[0][source_delivery_id]": str(dn_id),
+            },
             follow_redirects=True,
         )
         assert resp.status_code == 200
@@ -1384,34 +1428,25 @@ class TestEdgeCases:
             "/orders",
             data={
                 "partner_id": str(sample_data["partner_id"]),
-                f"product_{sample_data['product_id']}": "0",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "0",
+                "items[0][unit_price]": "10.00",
             },
             follow_redirects=True,
         )
         assert resp.status_code == 200
 
-    def test_delivery_note_cross_group_check(self, logged_in_client, app, sample_data):
-        """Test delivery note creation rejects orders from different groups."""
-        with app.app_context():
-            partner2 = Partner(name="Different Group", group_code="GRP_OTHER")
-            db.session.add(partner2)
-            db.session.flush()
-
-            order2 = Order(
-                partner_id=partner2.id,
-                created_by_id=sample_data["user_id"],
-            )
-            db.session.add(order2)
-            db.session.commit()
-            order2_id = order2.id
-
+    def test_delivery_note_partner_required(self, logged_in_client, sample_data):
+        """Test delivery note creation requires a partner."""
         resp = logged_in_client.post(
             "/delivery-notes",
             data={
-                "order_ids": [
-                    str(sample_data["order_id"]),
-                    str(order2_id),
-                ],
+                "partner_id": "",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "1",
+                "items[0][unit_price]": "10.00",
             },
             follow_redirects=True,
         )
@@ -1530,6 +1565,240 @@ class TestPasswordChange:
     def test_change_password_requires_login(self, client):
         resp = client.get("/change-password")
         assert resp.status_code == 302
+
+
+# ============================================================================
+# Route tests - Detail endpoints & Edit with items
+# ============================================================================
+
+
+class TestOrderDetail:
+    def test_order_detail_returns_json(self, logged_in_client, sample_data):
+        resp = logged_in_client.get(f"/orders/{sample_data['order_id']}/detail")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["id"] == sample_data["order_id"]
+        assert "items" in data
+        assert len(data["items"]) == 1
+        assert data["items"][0]["type"] == "product"
+        assert data["items"][0]["quantity"] == 3
+
+    def test_order_detail_nonexistent(self, logged_in_client):
+        resp = logged_in_client.get("/orders/99999/detail")
+        assert resp.status_code == 404
+
+    def test_edit_order_with_items(self, logged_in_client, sample_data):
+        resp = logged_in_client.post(
+            f"/orders/{sample_data['order_id']}/edit",
+            data={
+                "pickup_method": "vlastny",
+                "delivery_method": "kurier",
+                "payment_method": "hotovost",
+                "payment_terms": "7 dni",
+                "items[0][type]": "product",
+                "items[0][product_id]": str(sample_data["product_id"]),
+                "items[0][quantity]": "10",
+                "items[0][unit_price]": "20.00",
+                "items[1][type]": "manual",
+                "items[1][manual_name]": "Extra sluzba",
+                "items[1][quantity]": "1",
+                "items[1][unit_price]": "5.00",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+
+    def test_edit_order_replaces_items(self, logged_in_client, sample_data, app):
+        """Verify that editing replaces old items with new ones."""
+        logged_in_client.post(
+            f"/orders/{sample_data['order_id']}/edit",
+            data={
+                "items[0][type]": "manual",
+                "items[0][manual_name]": "New item only",
+                "items[0][quantity]": "2",
+                "items[0][unit_price]": "8.00",
+            },
+            follow_redirects=True,
+        )
+        resp = logged_in_client.get(f"/orders/{sample_data['order_id']}/detail")
+        data = resp.get_json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["type"] == "manual"
+        assert data["items"][0]["manual_name"] == "New item only"
+
+
+class TestDeliveryNoteDetail:
+    def test_delivery_detail_returns_json(self, logged_in_client, sample_data, app):
+        with app.app_context():
+            delivery = DeliveryNote(
+                partner_id=sample_data["partner_id"],
+                created_by_id=sample_data["user_id"],
+                show_prices=True,
+            )
+            db.session.add(delivery)
+            db.session.flush()
+            delivery.items.append(
+                DeliveryItem(
+                    product_id=sample_data["product_id"],
+                    quantity=5,
+                    unit_price=15.50,
+                    line_total=77.50,
+                )
+            )
+            db.session.commit()
+            delivery_id = delivery.id
+
+        resp = logged_in_client.get(f"/delivery-notes/{delivery_id}/detail")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["id"] == delivery_id
+        assert len(data["items"]) == 1
+        assert data["items"][0]["quantity"] == 5
+
+    def test_delivery_detail_nonexistent(self, logged_in_client):
+        resp = logged_in_client.get("/delivery-notes/99999/detail")
+        assert resp.status_code == 404
+
+    def test_edit_delivery_with_items(self, logged_in_client, sample_data, app):
+        with app.app_context():
+            delivery = DeliveryNote(
+                partner_id=sample_data["partner_id"],
+                created_by_id=sample_data["user_id"],
+            )
+            db.session.add(delivery)
+            db.session.flush()
+            delivery.items.append(
+                DeliveryItem(
+                    product_id=sample_data["product_id"],
+                    quantity=1,
+                    unit_price=10.00,
+                    line_total=10.00,
+                )
+            )
+            db.session.commit()
+            delivery_id = delivery.id
+
+        resp = logged_in_client.post(
+            f"/delivery-notes/{delivery_id}/edit",
+            data={
+                "planned_delivery_datetime": "2026-03-01T09:00",
+                "show_prices": "on",
+                "items[0][type]": "manual",
+                "items[0][manual_name]": "Replaced item",
+                "items[0][quantity]": "3",
+                "items[0][unit_price]": "12.00",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        # Verify items were replaced
+        resp2 = logged_in_client.get(f"/delivery-notes/{delivery_id}/detail")
+        data = resp2.get_json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["type"] == "manual"
+
+
+class TestInvoiceDetail:
+    def test_invoice_detail_returns_json(self, logged_in_client, sample_data, app):
+        with app.app_context():
+            invoice = Invoice(
+                partner_id=sample_data["partner_id"],
+                status="draft",
+                total=100.0,
+                total_with_vat=120.0,
+            )
+            db.session.add(invoice)
+            db.session.flush()
+            invoice.items.append(
+                InvoiceItem(
+                    description="Test item",
+                    quantity=2,
+                    unit_price=50.0,
+                    total=100.0,
+                    vat_rate=20.0,
+                    vat_amount=20.0,
+                    total_with_vat=120.0,
+                )
+            )
+            db.session.commit()
+            invoice_id = invoice.id
+
+        resp = logged_in_client.get(f"/invoices/{invoice_id}/detail")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["id"] == invoice_id
+        assert len(data["items"]) == 1
+        assert data["items"][0]["description"] == "Test item"
+
+    def test_invoice_detail_nonexistent(self, logged_in_client):
+        resp = logged_in_client.get("/invoices/99999/detail")
+        assert resp.status_code == 404
+
+    def test_edit_invoice_with_items(self, logged_in_client, sample_data, app):
+        with app.app_context():
+            invoice = Invoice(
+                partner_id=sample_data["partner_id"],
+                status="draft",
+                total=50.0,
+                total_with_vat=60.0,
+            )
+            db.session.add(invoice)
+            db.session.flush()
+            invoice.items.append(
+                InvoiceItem(
+                    description="Old item",
+                    quantity=1,
+                    unit_price=50.0,
+                    total=50.0,
+                    vat_rate=20.0,
+                    vat_amount=10.0,
+                    total_with_vat=60.0,
+                )
+            )
+            db.session.commit()
+            invoice_id = invoice.id
+
+        resp = logged_in_client.post(
+            f"/invoices/{invoice_id}/edit",
+            data={
+                "status": "sent",
+                "items[0][type]": "manual",
+                "items[0][description]": "New manual item",
+                "items[0][quantity]": "2",
+                "items[0][unit_price]": "25.00",
+                "items[0][vat_rate]": "20",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        # Verify items and totals updated
+        resp2 = logged_in_client.get(f"/invoices/{invoice_id}/detail")
+        data = resp2.get_json()
+        assert data["status"] == "sent"
+        assert len(data["items"]) == 1
+        assert data["items"][0]["description"] == "New manual item"
+        assert data["total"] == "50.00"
+        assert data["total_with_vat"] == "60.00"
+
+    def test_edit_locked_invoice_rejected(self, logged_in_client, sample_data, app):
+        with app.app_context():
+            invoice = Invoice(
+                partner_id=sample_data["partner_id"],
+                status="draft",
+                total=0.0,
+                is_locked=True,
+            )
+            db.session.add(invoice)
+            db.session.commit()
+            invoice_id = invoice.id
+
+        resp = logged_in_client.post(
+            f"/invoices/{invoice_id}/edit",
+            data={"status": "paid"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert "uzamknutá" in resp.data.decode("utf-8").lower()
 
 
 class TestPDFAccessControl:

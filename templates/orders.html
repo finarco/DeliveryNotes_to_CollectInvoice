@@ -31,28 +31,14 @@
             </div>
             <div class="col-md-4">
               <label class="form-label">Adresa zvozu</label>
-              <select class="form-select" name="pickup_address_id">
-                <option value="">-- vyberte --</option>
-                {% for address in addresses %}
-                <option value="{{ address.id }}">
-                  {{ address.partner.name }} / {{ address.address_type }}
-                  {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
-                  - {{ address.street }} {{ address.street_number }}, {{ address.city }}
-                </option>
-                {% endfor %}
+              <select class="form-select" name="pickup_address_id" id="pickup_address_id">
+                <option value="">-- najprv vyberte partnera --</option>
               </select>
             </div>
             <div class="col-md-4">
               <label class="form-label">Adresa doručenia</label>
-              <select class="form-select" name="delivery_address_id">
-                <option value="">-- vyberte --</option>
-                {% for address in addresses %}
-                <option value="{{ address.id }}">
-                  {{ address.partner.name }} / {{ address.address_type }}
-                  {% if address.related_partner %}({{ address.related_partner.name }}){% endif %}
-                  - {{ address.street }} {{ address.street_number }}, {{ address.city }}
-                </option>
-                {% endfor %}
+              <select class="form-select" name="delivery_address_id" id="delivery_address_id">
+                <option value="">-- najprv vyberte partnera --</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -88,13 +74,26 @@
           </div>
           <hr>
           <h6>Položky</h6>
-          <div class="row g-3">
-            {% for product in products %}
-            <div class="col-md-3">
-              <label class="form-label">{{ product.name }}</label>
-              <input class="form-control" type="number" name="product_{{ product.id }}" min="0" value="0">
-            </div>
-            {% endfor %}
+          <table class="table table-sm" id="orderItemsTable">
+            <thead>
+              <tr>
+                <th>Typ</th>
+                <th>Produkt / Kombinácia / Názov</th>
+                <th style="width:100px">Množstvo</th>
+                <th style="width:120px">Jedn. cena</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="orderItemsBody">
+              <!-- rows added dynamically by JS -->
+            </tbody>
+          </table>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addProductRow()">+ Produkt</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addBundleRow()">+ Kombinácia</button>
+            {% if "manage_all" in user_permissions or "manage_orders" in user_permissions %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addManualRow()">+ Manuálna položka</button>
+            {% endif %}
           </div>
         </div>
         <div class="modal-footer">
@@ -106,7 +105,7 @@
   </div>
 </div>
 <div class="modal fade" id="editOrderModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <form id="editOrderForm" method="post">
         <div class="modal-header">
@@ -146,24 +145,44 @@
               </div>
             </div>
           </div>
+          <hr>
+          <h6>Položky</h6>
+          <div id="editOrderReadonlyNotice" class="alert alert-warning d-none">Objednávka je uzamknutá alebo má dodací list — položky nie je možné upraviť.</div>
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Typ</th>
+                <th>Produkt / Kombinácia / Názov</th>
+                <th style="width:100px">Množstvo</th>
+                <th style="width:120px">Jedn. cena</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="editOrderItemsBody"></tbody>
+          </table>
+          <div id="editOrderItemButtons" class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditOrderProductRow()">+ Produkt</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditOrderBundleRow()">+ Kombinácia</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addEditOrderManualRow()">+ Manuálna položka</button>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
-          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+          <button type="submit" class="btn btn-primary" id="editOrderSaveBtn">Uložiť zmeny</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 <div class="modal fade" id="viewOrderModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Detail objednávky</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <dl class="row mb-0">
+        <dl class="row mb-3">
           <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewOrderId"></dd>
           <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewOrderPartner"></dd>
           <dt class="col-sm-4">Termín zvozu</dt><dd class="col-sm-8" id="viewOrderPickupDatetime"></dd>
@@ -175,6 +194,18 @@
           <dt class="col-sm-4">Zobraziť ceny</dt><dd class="col-sm-8" id="viewOrderShowPrices"></dd>
           <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewOrderStatus"></dd>
         </dl>
+        <h6>Položky</h6>
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Typ</th>
+              <th>Produkt / Názov</th>
+              <th>Množstvo</th>
+              <th>Jedn. cena</th>
+            </tr>
+          </thead>
+          <tbody id="viewOrderItemsBody"></tbody>
+        </table>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
@@ -371,16 +402,7 @@
       <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewOrderModal"
-          data-order-id="{{ order.id }}"
-          data-partner="{{ order.partner.name }}"
-          data-pickup-datetime="{{ order.pickup_datetime or '' }}"
-          data-pickup-method="{{ order.pickup_method or '' }}"
-          data-delivery-datetime="{{ order.delivery_datetime or '' }}"
-          data-delivery-method="{{ order.delivery_method or '' }}"
-          data-payment-method="{{ order.payment_method or '' }}"
-          data-payment-terms="{{ order.payment_terms or '' }}"
-          data-show-prices="{{ 1 if order.show_prices else 0 }}"
-          data-confirmed="{{ 1 if order.confirmed else 0 }}">Zobraziť</button>
+          data-order-id="{{ order.id }}">Zobraziť</button>
         {% if order.is_locked %}
           <span class="badge bg-secondary mb-1">Uzamknutá</span>
           {% if "manage_all" in user_permissions %}
@@ -393,14 +415,7 @@
         {% else %}
           <button type="button" class="btn btn-sm btn-outline-primary"
             data-bs-toggle="modal" data-bs-target="#editOrderModal"
-            data-id="{{ order.id }}"
-            data-pickup-datetime="{{ order.pickup_datetime.strftime('%Y-%m-%dT%H:%M') if order.pickup_datetime else '' }}"
-            data-delivery-datetime="{{ order.delivery_datetime.strftime('%Y-%m-%dT%H:%M') if order.delivery_datetime else '' }}"
-            data-pickup-method="{{ order.pickup_method or '' }}"
-            data-delivery-method="{{ order.delivery_method or '' }}"
-            data-payment-method="{{ order.payment_method or '' }}"
-            data-payment-terms="{{ order.payment_terms or '' }}"
-            data-show-prices="{{ 1 if order.show_prices else 0 }}">Upraviť</button>
+            data-id="{{ order.id }}">Upraviť</button>
           <form method="post" action="{{ url_for('orders.delete_order', order_id=order.id) }}"
                 onsubmit="return confirm('Naozaj chcete vymazať túto objednávku?')">
             <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
@@ -457,30 +472,278 @@
 </nav>
 {% endif %}
 <script>
+// -- Product/Bundle data for dynamic item rows --
+var PRODUCTS = [
+  {% for p in products %}
+  { id: {{ p.id }}, name: {{ p.name|tojson }}, price: "{{ p.price }}" }{{ "," if not loop.last }}
+  {% endfor %}
+];
+var BUNDLES = [
+  {% for b in bundles %}
+  { id: {{ b.id }}, name: {{ b.name|tojson }}, price: "{{ b.bundle_price }}" }{{ "," if not loop.last }}
+  {% endfor %}
+];
+var _itemIdx = 0;
+
+// -- Address filtering --
+var partnerSelect = document.querySelector('#addOrderModal select[name="partner_id"]');
+function loadPartnerAddresses() {
+  var pid = partnerSelect.value;
+  if (!pid) return;
+  fetch('/orders/partner-addresses/' + pid)
+    .then(function(r) { return r.json(); })
+    .then(function(addrs) {
+      ['pickup_address_id', 'delivery_address_id'].forEach(function(selId) {
+        var sel = document.getElementById(selId);
+        sel.innerHTML = '<option value="">-- vyberte --</option>';
+        addrs.forEach(function(a) {
+          var opt = document.createElement('option');
+          opt.value = a.id;
+          opt.textContent = a.label;
+          sel.appendChild(opt);
+        });
+      });
+    });
+}
+if (partnerSelect) {
+  partnerSelect.addEventListener('change', loadPartnerAddresses);
+}
+document.getElementById('addOrderModal').addEventListener('show.bs.modal', function() {
+  if (partnerSelect && partnerSelect.value) {
+    loadPartnerAddresses();
+  }
+});
+
+// -- Dynamic item rows --
+function addProductRow() {
+  var i = _itemIdx++;
+  var opts = PRODUCTS.map(function(p) {
+    return '<option value="' + p.id + '" data-price="' + p.price + '">' + p.name + '</option>';
+  }).join('');
+  var defaultPrice = PRODUCTS.length ? PRODUCTS[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onProductChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addBundleRow() {
+  var i = _itemIdx++;
+  var opts = BUNDLES.map(function(b) {
+    return '<option value="' + b.id + '" data-price="' + b.price + '">' + b.name + '</option>';
+  }).join('');
+  var defaultPrice = BUNDLES.length ? BUNDLES[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addManualRow() {
+  var i = _itemIdx++;
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+    '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" placeholder="Názov položky" required></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="0" required></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function onProductChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  var price = opt ? opt.dataset.price : '0';
+  var row = sel.closest('tr');
+  row.querySelector('input[name="items[' + idx + '][unit_price]"]').value = price;
+}
+
+function onBundleChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  var price = opt ? opt.dataset.price : '0';
+  var row = sel.closest('tr');
+  row.querySelector('input[name="items[' + idx + '][unit_price]"]').value = price;
+}
+
+var _editOrderItemIdx = 0;
+
+function addEditOrderProductRow() {
+  var i = _editOrderItemIdx++;
+  var opts = PRODUCTS.map(function(p) {
+    return '<option value="' + p.id + '" data-price="' + p.price + '">' + p.name + '</option>';
+  }).join('');
+  var defaultPrice = PRODUCTS.length ? PRODUCTS[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onEditOrderProductChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editOrderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditOrderBundleRow() {
+  var i = _editOrderItemIdx++;
+  var opts = BUNDLES.map(function(b) {
+    return '<option value="' + b.id + '" data-price="' + b.price + '">' + b.name + '</option>';
+  }).join('');
+  var defaultPrice = BUNDLES.length ? BUNDLES[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onEditOrderBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editOrderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditOrderManualRow() {
+  var i = _editOrderItemIdx++;
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+    '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" placeholder="Názov položky" required></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="0" required></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editOrderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditOrderItemRow(item) {
+  var i = _editOrderItemIdx++;
+  var html = '';
+  if (item.type === 'product') {
+    var opts = PRODUCTS.map(function(p) {
+      var sel = p.id === item.product_id ? ' selected' : '';
+      return '<option value="' + p.id + '" data-price="' + p.price + '"' + sel + '>' + p.name + '</option>';
+    }).join('');
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+      '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onEditOrderProductChange(this,' + i + ')">' + opts + '</select></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  } else if (item.type === 'bundle') {
+    var opts = BUNDLES.map(function(b) {
+      var sel = b.id === item.bundle_id ? ' selected' : '';
+      return '<option value="' + b.id + '" data-price="' + b.price + '"' + sel + '>' + b.name + '</option>';
+    }).join('');
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+      '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onEditOrderBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  } else {
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+      '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" value="' + (item.manual_name || '').replace(/"/g, '&quot;') + '" required></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '" required></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  }
+  document.getElementById('editOrderItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function onEditOrderProductChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  sel.closest('tr').querySelector('input[name="items[' + idx + '][unit_price]"]').value = opt ? opt.dataset.price : '0';
+}
+function onEditOrderBundleChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  sel.closest('tr').querySelector('input[name="items[' + idx + '][unit_price]"]').value = opt ? opt.dataset.price : '0';
+}
+
 document.getElementById('viewOrderModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
-  this.querySelector('#viewOrderId').textContent = btn.dataset.orderId || '-';
-  this.querySelector('#viewOrderPartner').textContent = btn.dataset.partner || '-';
-  this.querySelector('#viewOrderPickupDatetime').textContent = btn.dataset.pickupDatetime || '-';
-  this.querySelector('#viewOrderPickupMethod').textContent = btn.dataset.pickupMethod || '-';
-  this.querySelector('#viewOrderDeliveryDatetime').textContent = btn.dataset.deliveryDatetime || '-';
-  this.querySelector('#viewOrderDeliveryMethod').textContent = btn.dataset.deliveryMethod || '-';
-  this.querySelector('#viewOrderPaymentMethod').textContent = btn.dataset.paymentMethod || '-';
-  this.querySelector('#viewOrderPaymentTerms').textContent = btn.dataset.paymentTerms || '-';
-  this.querySelector('#viewOrderShowPrices').textContent = btn.dataset.showPrices === '1' ? 'Áno' : 'Nie';
-  this.querySelector('#viewOrderStatus').textContent = btn.dataset.confirmed === '1' ? 'Potvrdená' : 'Nepotvrdená';
+  var orderId = btn ? btn.dataset.orderId : null;
+  if (!orderId) return;
+  var modal = this;
+  fetch('/orders/' + orderId + '/detail')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      modal.querySelector('#viewOrderId').textContent = data.id;
+      modal.querySelector('#viewOrderPartner').textContent = data.partner_name || '-';
+      modal.querySelector('#viewOrderPickupDatetime').textContent = data.pickup_datetime || '-';
+      modal.querySelector('#viewOrderPickupMethod').textContent = data.pickup_method || '-';
+      modal.querySelector('#viewOrderDeliveryDatetime').textContent = data.delivery_datetime || '-';
+      modal.querySelector('#viewOrderDeliveryMethod').textContent = data.delivery_method || '-';
+      modal.querySelector('#viewOrderPaymentMethod').textContent = data.payment_method || '-';
+      modal.querySelector('#viewOrderPaymentTerms').textContent = data.payment_terms || '-';
+      modal.querySelector('#viewOrderShowPrices').textContent = data.show_prices ? 'Áno' : 'Nie';
+      modal.querySelector('#viewOrderStatus').textContent = data.confirmed ? 'Potvrdená' : 'Nepotvrdená';
+      var tbody = modal.querySelector('#viewOrderItemsBody');
+      tbody.innerHTML = '';
+      data.items.forEach(function(item) {
+        var typeLabel = item.type === 'product' ? 'Produkt' : (item.type === 'bundle' ? 'Kombinácia' : 'Manuálna');
+        tbody.insertAdjacentHTML('beforeend',
+          '<tr><td>' + typeLabel + '</td><td>' + item.name + '</td><td>' + item.quantity + '</td><td>' + item.unit_price + '</td></tr>');
+      });
+      if (data.items.length === 0) {
+        tbody.insertAdjacentHTML('beforeend', '<tr><td colspan="4" class="text-muted">Žiadne položky</td></tr>');
+      }
+    });
 });
+document.getElementById('viewOrderModal').addEventListener('hidden.bs.modal', function() {
+  this.querySelector('#viewOrderItemsBody').innerHTML = '';
+});
+
 document.getElementById('editOrderModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
-  var form = this.querySelector('form');
-  form.action = '/orders/' + btn.dataset.id + '/edit';
-  form.querySelector('[name="pickup_datetime"]').value = btn.dataset.pickupDatetime || '';
-  form.querySelector('[name="delivery_datetime"]').value = btn.dataset.deliveryDatetime || '';
-  form.querySelector('[name="pickup_method"]').value = btn.dataset.pickupMethod || '';
-  form.querySelector('[name="delivery_method"]').value = btn.dataset.deliveryMethod || '';
-  form.querySelector('[name="payment_method"]').value = btn.dataset.paymentMethod || '';
-  form.querySelector('[name="payment_terms"]').value = btn.dataset.paymentTerms || '';
-  form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
+  var orderId = btn ? btn.dataset.id : null;
+  if (!orderId) return;
+  var modal = this;
+  var form = modal.querySelector('form');
+  form.action = '/orders/' + orderId + '/edit';
+  _editOrderItemIdx = 0;
+  fetch('/orders/' + orderId + '/detail')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      form.querySelector('[name="pickup_datetime"]').value = data.pickup_datetime || '';
+      form.querySelector('[name="delivery_datetime"]').value = data.delivery_datetime || '';
+      form.querySelector('[name="pickup_method"]').value = data.pickup_method || '';
+      form.querySelector('[name="delivery_method"]').value = data.delivery_method || '';
+      form.querySelector('[name="payment_method"]').value = data.payment_method || '';
+      form.querySelector('[name="payment_terms"]').value = data.payment_terms || '';
+      form.querySelector('[name="show_prices"]').checked = data.show_prices;
+      var tbody = document.getElementById('editOrderItemsBody');
+      tbody.innerHTML = '';
+      var readonly = data.is_locked || data.has_delivery_notes;
+      if (readonly) {
+        document.getElementById('editOrderReadonlyNotice').classList.remove('d-none');
+        document.getElementById('editOrderItemButtons').style.display = 'none';
+        document.getElementById('editOrderSaveBtn').disabled = true;
+        data.items.forEach(function(item) {
+          var typeLabel = item.type === 'product' ? 'Produkt' : (item.type === 'bundle' ? 'Kombinácia' : 'Manuálna');
+          tbody.insertAdjacentHTML('beforeend',
+            '<tr><td>' + typeLabel + '</td><td>' + item.name + '</td><td>' + item.quantity + '</td><td>' + item.unit_price + '</td><td></td></tr>');
+        });
+      } else {
+        document.getElementById('editOrderReadonlyNotice').classList.add('d-none');
+        document.getElementById('editOrderItemButtons').style.display = '';
+        document.getElementById('editOrderSaveBtn').disabled = false;
+        data.items.forEach(function(item) {
+          addEditOrderItemRow(item);
+        });
+      }
+    });
+});
+document.getElementById('editOrderModal').addEventListener('hidden.bs.modal', function() {
+  document.getElementById('editOrderItemsBody').innerHTML = '';
+  _editOrderItemIdx = 0;
 });
 
 // Tabs functionality
@@ -532,8 +795,7 @@ if (savedTab) {
 
 // Show order detail function (for card clicks)
 function showOrderDetail(orderId) {
-  // Find the corresponding row in the table and trigger its view button
-  const viewBtn = document.querySelector(`button[data-id="${orderId}"][data-bs-target="#viewOrderModal"]`);
+  var viewBtn = document.querySelector('button[data-order-id="' + orderId + '"][data-bs-target="#viewOrderModal"]');
   if (viewBtn) {
     viewBtn.click();
   }

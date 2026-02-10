@@ -1,11 +1,13 @@
 """Delivery note routes."""
 
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from itertools import groupby
 
 from flask import (
     Blueprint,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -17,11 +19,13 @@ from flask import current_app
 from extensions import db
 from models import (
     Bundle,
+    BundleItem,
     DeliveryItem,
     DeliveryItemComponent,
     DeliveryNote,
     DeliveryNoteOrder,
     Order,
+    Partner,
     Product,
 )
 from services.audit import log_action
@@ -33,34 +37,83 @@ from utils import parse_datetime, safe_int, utc_now
 delivery_bp = Blueprint("delivery", __name__)
 
 
+@delivery_bp.route("/delivery-notes/partner-orders/<int:partner_id>", methods=["GET"])
+@role_required("manage_delivery")
+def partner_orders(partner_id: int):
+    """Return confirmed orders for a partner that have no delivery note links."""
+    partner = db.session.get(Partner, partner_id)
+    if not partner:
+        return jsonify([])
+
+    # Build query for confirmed orders without delivery notes
+    query = (
+        Order.query
+        .join(Partner, Order.partner_id == Partner.id)
+        .filter(Order.confirmed.is_(True))
+        .outerjoin(DeliveryNoteOrder, Order.id == DeliveryNoteOrder.order_id)
+        .filter(DeliveryNoteOrder.id.is_(None))
+    )
+
+    # Respect group_code
+    if partner.group_code:
+        query = query.filter(Partner.group_code == partner.group_code)
+    else:
+        query = query.filter(Order.partner_id == partner_id)
+
+    orders = query.order_by(Order.created_at.desc()).all()
+
+    result = []
+    for order in orders:
+        items = []
+        for item in order.items:
+            if item.product:
+                name = item.product.name
+            elif item.bundle:
+                name = item.bundle.name
+            elif item.is_manual:
+                name = item.manual_name or "Manuálna položka"
+            else:
+                name = "Položka"
+            items.append({
+                "product_name": name,
+                "quantity": item.quantity,
+                "unit_price": str(item.unit_price),
+                "product_id": item.product_id,
+                "bundle_id": item.bundle_id,
+                "is_manual": item.is_manual,
+                "manual_name": item.manual_name,
+            })
+        result.append({
+            "id": order.id,
+            "order_number": order.order_number or f"#{order.id}",
+            "partner_name": order.partner.name,
+            "items": items,
+        })
+    return jsonify(result)
+
+
 @delivery_bp.route("/delivery-notes", methods=["GET", "POST"])
 @role_required("manage_delivery")
 def list_delivery_notes():
-    all_orders = Order.query.order_by(Order.created_at.desc()).all()
+    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
     products = Product.query.filter_by(is_active=True).all()
     bundles = Bundle.query.filter_by(is_active=True).all()
 
     if request.method == "POST":
-        order_ids = request.form.getlist("order_ids")
-        selected_orders = Order.query.filter(Order.id.in_(order_ids)).all()
-        if not selected_orders:
-            flash("Objednávka neexistuje.", "danger")
-            return redirect(url_for("delivery.list_delivery_notes"))
-
-        group_codes = {
-            order.partner.group_code or None for order in selected_orders
-        }
-        group_codes.discard(None)
-        if len(group_codes) > 1:
-            flash(
-                "Objednávky musia byť v rovnakej partnerskej skupine.",
-                "danger",
-            )
+        partner_id = safe_int(request.form.get("partner_id"))
+        if not partner_id:
+            flash("Partner je povinný.", "danger")
             return redirect(url_for("delivery.list_delivery_notes"))
 
         user = get_current_user()
+        order_ids = request.form.getlist("order_ids")
+        selected_orders = (
+            Order.query.filter(Order.id.in_(order_ids)).all() if order_ids else []
+        )
+
         delivery = DeliveryNote(
-            primary_order_id=selected_orders[0].id,
+            partner_id=partner_id,
+            primary_order_id=selected_orders[0].id if selected_orders else None,
             created_by_id=user.id,
             show_prices=request.form.get("show_prices") == "on",
             planned_delivery_datetime=parse_datetime(
@@ -70,54 +123,95 @@ def list_delivery_notes():
         db.session.add(delivery)
         db.session.flush()
         delivery.note_number = generate_number(
-            "delivery_note",
-            partner_id=selected_orders[0].partner_id,
+            "delivery_note", partner_id=partner_id,
         )
 
+        # Link selected orders
         for order in selected_orders:
             delivery.orders.append(DeliveryNoteOrder(order_id=order.id))
-            for item in order.items:
-                line_total = item.unit_price * item.quantity
-                delivery.items.append(
-                    DeliveryItem(
-                        product_id=item.product_id,
-                        quantity=item.quantity,
-                        unit_price=item.unit_price,
-                        line_total=line_total,
-                    )
-                )
 
-        for product in products:
-            extra_qty = safe_int(request.form.get(f"extra_{product.id}"))
-            if extra_qty > 0:
-                line_total = product.price * extra_qty
-                delivery.items.append(
-                    DeliveryItem(
-                        product_id=product.id,
-                        quantity=extra_qty,
-                        unit_price=product.price,
-                        line_total=line_total,
-                    )
-                )
-
-        for bundle in bundles:
-            bundle_qty = safe_int(request.form.get(f"bundle_{bundle.id}"))
-            if bundle_qty > 0:
-                line_total = bundle.bundle_price * bundle_qty
-                delivery_item = DeliveryItem(
-                    bundle_id=bundle.id,
-                    quantity=bundle_qty,
-                    unit_price=bundle.bundle_price,
-                    line_total=line_total,
-                )
-                for bundle_item in bundle.items:
-                    delivery_item.components.append(
-                        DeliveryItemComponent(
-                            product_id=bundle_item.product_id,
-                            quantity=bundle_item.quantity * bundle_qty,
+        # Parse items from dynamic table (same pattern as orders)
+        idx = 0
+        while True:
+            item_type = request.form.get(f"items[{idx}][type]")
+            if item_type is None:
+                break
+            qty = safe_int(request.form.get(f"items[{idx}][quantity]"))
+            price_str = request.form.get(f"items[{idx}][unit_price]", "0")
+            try:
+                unit_price = Decimal(price_str) if price_str else Decimal("0")
+            except InvalidOperation:
+                unit_price = Decimal("0")
+            if qty and qty > 0:
+                if item_type == "product":
+                    pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
+                    if pid:
+                        line_total = unit_price * qty
+                        delivery.items.append(DeliveryItem(
+                            product_id=pid, quantity=qty,
+                            unit_price=unit_price, line_total=line_total,
+                        ))
+                elif item_type == "bundle":
+                    bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
+                    if bid:
+                        line_total = unit_price * qty
+                        delivery_item = DeliveryItem(
+                            bundle_id=bid, quantity=qty,
+                            unit_price=unit_price, line_total=line_total,
                         )
-                    )
-                delivery.items.append(delivery_item)
+                        bundle = db.session.get(Bundle, bid)
+                        if bundle:
+                            for bundle_item in bundle.items:
+                                delivery_item.components.append(
+                                    DeliveryItemComponent(
+                                        product_id=bundle_item.product_id,
+                                        quantity=bundle_item.quantity * qty,
+                                    )
+                                )
+                        delivery.items.append(delivery_item)
+                elif item_type == "manual":
+                    name = request.form.get(f"items[{idx}][manual_name]", "").strip()
+                    if name:
+                        line_total = unit_price * qty
+                        delivery.items.append(DeliveryItem(
+                            is_manual=True, manual_name=name,
+                            quantity=qty, unit_price=unit_price,
+                            line_total=line_total,
+                        ))
+                elif item_type == "order_item":
+                    # Items sourced from an order — treat as product/bundle/manual
+                    pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
+                    bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
+                    is_manual = request.form.get(f"items[{idx}][is_manual]") == "true"
+                    manual_name = request.form.get(f"items[{idx}][manual_name]", "").strip()
+                    line_total = unit_price * qty
+                    if pid:
+                        delivery.items.append(DeliveryItem(
+                            product_id=pid, quantity=qty,
+                            unit_price=unit_price, line_total=line_total,
+                        ))
+                    elif bid:
+                        delivery_item = DeliveryItem(
+                            bundle_id=bid, quantity=qty,
+                            unit_price=unit_price, line_total=line_total,
+                        )
+                        bundle = db.session.get(Bundle, bid)
+                        if bundle:
+                            for bundle_item in bundle.items:
+                                delivery_item.components.append(
+                                    DeliveryItemComponent(
+                                        product_id=bundle_item.product_id,
+                                        quantity=bundle_item.quantity * qty,
+                                    )
+                                )
+                        delivery.items.append(delivery_item)
+                    elif is_manual and manual_name:
+                        delivery.items.append(DeliveryItem(
+                            is_manual=True, manual_name=manual_name,
+                            quantity=qty, unit_price=unit_price,
+                            line_total=line_total,
+                        ))
+            idx += 1
 
         log_action("create", "delivery_note", delivery.id, "created")
         db.session.commit()
@@ -151,12 +245,66 @@ def list_delivery_notes():
         total=total,
         page=page,
         per_page=per_page,
-        orders=all_orders,
+        partners=partners,
         products=products,
         bundles=bundles,
         today=today,
         yesterday=yesterday,
     )
+
+
+@delivery_bp.route("/delivery-notes/<int:delivery_id>/detail", methods=["GET"])
+@role_required("manage_delivery")
+def delivery_detail(delivery_id: int):
+    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    items = []
+    for item in delivery.items:
+        if item.product:
+            name = item.product.name
+            item_type = "product"
+        elif item.bundle:
+            name = item.bundle.name
+            item_type = "bundle"
+        elif item.is_manual:
+            name = item.manual_name or "Manuálna položka"
+            item_type = "manual"
+        else:
+            name = "Položka"
+            item_type = "product"
+        line_total = item.line_total or (item.unit_price * item.quantity)
+        items.append({
+            "type": item_type,
+            "product_id": item.product_id,
+            "bundle_id": item.bundle_id,
+            "is_manual": item.is_manual or False,
+            "manual_name": item.manual_name,
+            "name": name,
+            "quantity": item.quantity,
+            "unit_price": str(item.unit_price),
+            "line_total": str(line_total),
+        })
+    orders_list = []
+    for link in delivery.orders:
+        orders_list.append({
+            "id": link.order.id,
+            "order_number": link.order.order_number or f"#{link.order.id}",
+        })
+    return jsonify({
+        "id": delivery.id,
+        "note_number": delivery.note_number or f"DL-{delivery.id}",
+        "partner_id": delivery.partner_id,
+        "partner_name": delivery.partner.name if delivery.partner else "",
+        "planned_delivery_datetime": delivery.planned_delivery_datetime.strftime("%Y-%m-%dT%H:%M") if delivery.planned_delivery_datetime else "",
+        "actual_delivery_datetime": delivery.actual_delivery_datetime.strftime("%Y-%m-%dT%H:%M") if delivery.actual_delivery_datetime else "",
+        "show_prices": delivery.show_prices,
+        "confirmed": delivery.confirmed,
+        "is_locked": delivery.is_locked,
+        "has_logistics_plans": bool(delivery.logistics_plans),
+        "has_invoice_refs": bool(delivery.invoice_item_refs),
+        "invoiced": delivery.invoiced,
+        "orders": orders_list,
+        "items": items,
+    })
 
 
 @delivery_bp.route("/delivery-notes/<int:delivery_id>/edit", methods=["POST"])
@@ -173,6 +321,88 @@ def edit_delivery(delivery_id: int):
         request.form.get("planned_delivery_datetime")
     )
     delivery.show_prices = request.form.get("show_prices") == "on"
+    # Replace items
+    delivery.items.clear()
+    idx = 0
+    while True:
+        item_type = request.form.get(f"items[{idx}][type]")
+        if item_type is None:
+            break
+        qty = safe_int(request.form.get(f"items[{idx}][quantity]"))
+        price_str = request.form.get(f"items[{idx}][unit_price]", "0")
+        try:
+            unit_price = Decimal(price_str) if price_str else Decimal("0")
+        except InvalidOperation:
+            unit_price = Decimal("0")
+        if qty and qty > 0:
+            if item_type == "product":
+                pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
+                if pid:
+                    line_total = unit_price * qty
+                    delivery.items.append(DeliveryItem(
+                        product_id=pid, quantity=qty,
+                        unit_price=unit_price, line_total=line_total,
+                    ))
+            elif item_type == "bundle":
+                bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
+                if bid:
+                    line_total = unit_price * qty
+                    delivery_item = DeliveryItem(
+                        bundle_id=bid, quantity=qty,
+                        unit_price=unit_price, line_total=line_total,
+                    )
+                    bundle = db.session.get(Bundle, bid)
+                    if bundle:
+                        for bundle_item in bundle.items:
+                            delivery_item.components.append(
+                                DeliveryItemComponent(
+                                    product_id=bundle_item.product_id,
+                                    quantity=bundle_item.quantity * qty,
+                                )
+                            )
+                    delivery.items.append(delivery_item)
+            elif item_type == "manual":
+                name = request.form.get(f"items[{idx}][manual_name]", "").strip()
+                if name:
+                    line_total = unit_price * qty
+                    delivery.items.append(DeliveryItem(
+                        is_manual=True, manual_name=name,
+                        quantity=qty, unit_price=unit_price,
+                        line_total=line_total,
+                    ))
+            elif item_type == "order_item":
+                pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
+                bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
+                is_manual = request.form.get(f"items[{idx}][is_manual]") == "true"
+                manual_name = request.form.get(f"items[{idx}][manual_name]", "").strip()
+                line_total = unit_price * qty
+                if pid:
+                    delivery.items.append(DeliveryItem(
+                        product_id=pid, quantity=qty,
+                        unit_price=unit_price, line_total=line_total,
+                    ))
+                elif bid:
+                    delivery_item = DeliveryItem(
+                        bundle_id=bid, quantity=qty,
+                        unit_price=unit_price, line_total=line_total,
+                    )
+                    bundle = db.session.get(Bundle, bid)
+                    if bundle:
+                        for bundle_item in bundle.items:
+                            delivery_item.components.append(
+                                DeliveryItemComponent(
+                                    product_id=bundle_item.product_id,
+                                    quantity=bundle_item.quantity * qty,
+                                )
+                            )
+                    delivery.items.append(delivery_item)
+                elif is_manual and manual_name:
+                    delivery.items.append(DeliveryItem(
+                        is_manual=True, manual_name=manual_name,
+                        quantity=qty, unit_price=unit_price,
+                        line_total=line_total,
+                    ))
+        idx += 1
     log_action("edit", "delivery_note", delivery.id, "updated")
     db.session.commit()
     flash("Dodací list upravený.", "success")

@@ -40,19 +40,16 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Objednávky (rovnaká skupina)</label>
-              <select class="form-select" name="order_ids" multiple required>
-                {% for order in orders %}
-                <option value="{{ order.id }}">
-                  #{{ order.id }} - {{ order.partner.name }}
-                  {% if order.partner.group_code %}({{ order.partner.group_code }}){% endif %}
-                </option>
+            <div class="col-md-5">
+              <label class="form-label">Partner</label>
+              <select class="form-select" name="partner_id" id="dnPartnerSelect" required>
+                <option value="">-- vyberte partnera --</option>
+                {% for partner in partners %}
+                <option value="{{ partner.id }}">{{ partner.name }}</option>
                 {% endfor %}
               </select>
-              <div class="form-text">Vyberte jednu alebo viac objednávok v rovnakej skupine.</div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
               <label class="form-label">Plánovaný termín dodania</label>
               <input type="datetime-local" class="form-control" name="planned_delivery_datetime">
             </div>
@@ -63,24 +60,35 @@
               </div>
             </div>
           </div>
-          <hr>
-          <h6>Neobjednané položky</h6>
-          <div class="row g-3">
-            {% for product in products %}
-            <div class="col-md-3">
-              <label class="form-label">{{ product.name }}</label>
-              <input class="form-control" type="number" name="extra_{{ product.id }}" min="0" value="0">
+
+          {# Orders area — hidden until partner selected #}
+          <div id="dnOrdersArea" style="display:none;" class="mt-3">
+            <h6>Dostupné objednávky</h6>
+            <div id="dnOrdersList" class="row g-2">
+              <div class="text-muted">Načítavam...</div>
             </div>
-            {% endfor %}
           </div>
-          <h6 class="mt-3">Kombinácie</h6>
-          <div class="row g-3">
-            {% for bundle in bundles %}
-            <div class="col-md-3">
-              <label class="form-label">{{ bundle.name }}</label>
-              <input class="form-control" type="number" name="bundle_{{ bundle.id }}" min="0" value="0">
-            </div>
-            {% endfor %}
+
+          <hr>
+          <h6>Položky</h6>
+          <table class="table table-sm" id="dnItemsTable">
+            <thead>
+              <tr>
+                <th>Zdroj</th>
+                <th>Produkt / Názov</th>
+                <th style="width:100px">Množstvo</th>
+                <th style="width:120px">Jedn. cena</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="dnItemsBody">
+              <!-- rows added dynamically by JS -->
+            </tbody>
+          </table>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDnProductRow()">+ Produkt</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addDnBundleRow()">+ Kombinácia</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addDnManualRow()">+ Manuálna položka</button>
           </div>
         </div>
         <div class="modal-footer">
@@ -92,7 +100,7 @@
   </div>
 </div>
 <div class="modal fade" id="editDeliveryModal" tabindex="-1">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <form id="editDeliveryForm" method="post">
         <div class="modal-header">
@@ -101,35 +109,55 @@
         </div>
         <div class="modal-body">
           <div class="row g-3">
-            <div class="col-md-12">
+            <div class="col-md-6">
               <label class="form-label">Plánovaný termín dodania</label>
               <input type="datetime-local" class="form-control" name="planned_delivery_datetime">
             </div>
-            <div class="col-md-12">
+            <div class="col-md-6 d-flex align-items-end">
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="show_prices" id="edit_dn_show_prices">
                 <label class="form-check-label" for="edit_dn_show_prices">Zobraziť ceny</label>
               </div>
             </div>
           </div>
+          <hr>
+          <h6>Položky</h6>
+          <div id="editDnReadonlyNotice" class="alert alert-warning d-none">Dodací list je uzamknutý alebo má priradený zvoz/faktúru — položky nie je možné upraviť.</div>
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Typ</th>
+                <th>Produkt / Názov</th>
+                <th style="width:100px">Množstvo</th>
+                <th style="width:120px">Jedn. cena</th>
+                <th style="width:50px"></th>
+              </tr>
+            </thead>
+            <tbody id="editDnItemsBody"></tbody>
+          </table>
+          <div id="editDnItemButtons" class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditDnProductRow()">+ Produkt</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditDnBundleRow()">+ Kombinácia</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addEditDnManualRow()">+ Manuálna položka</button>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
-          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+          <button type="submit" class="btn btn-primary" id="editDnSaveBtn">Uložiť zmeny</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 <div class="modal fade" id="viewDeliveryModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title">Detail dodacieho listu</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <dl class="row mb-0">
+        <dl class="row mb-3">
           <dt class="col-sm-4">ID</dt><dd class="col-sm-8" id="viewDeliveryId"></dd>
           <dt class="col-sm-4">Partner</dt><dd class="col-sm-8" id="viewDeliveryPartner"></dd>
           <dt class="col-sm-4">Objednávky</dt><dd class="col-sm-8" id="viewDeliveryOrders"></dd>
@@ -138,6 +166,19 @@
           <dt class="col-sm-4">Zobraziť ceny</dt><dd class="col-sm-8" id="viewDeliveryShowPrices"></dd>
           <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewDeliveryStatus"></dd>
         </dl>
+        <h6>Položky</h6>
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>Typ</th>
+              <th>Produkt / Názov</th>
+              <th>Množstvo</th>
+              <th>Jedn. cena</th>
+              <th>Spolu</th>
+            </tr>
+          </thead>
+          <tbody id="viewDeliveryItemsBody"></tbody>
+        </table>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
@@ -274,13 +315,7 @@
       <td class="actions-col">
         <button type="button" class="btn btn-sm btn-outline-info"
           data-bs-toggle="modal" data-bs-target="#viewDeliveryModal"
-          data-delivery-id="{{ delivery.id }}"
-          data-partner="{{ delivery.primary_order.partner.name if delivery.primary_order else '' }}"
-          data-orders="{% for link in delivery.orders %}#{{ link.order.id }} - {{ link.order.partner.name }}{% if not loop.last %}, {% endif %}{% endfor %}"
-          data-planned="{{ delivery.planned_delivery_datetime or '' }}"
-          data-actual="{{ delivery.actual_delivery_datetime or '' }}"
-          data-show-prices="{{ 1 if delivery.show_prices else 0 }}"
-          data-confirmed="{{ 1 if delivery.confirmed else 0 }}">Zobraziť</button>
+          data-delivery-id="{{ delivery.id }}">Zobraziť</button>
         {% if delivery.is_locked %}
           <span class="badge bg-secondary mb-1">Uzamknutý</span>
           {% if "manage_all" in user_permissions %}
@@ -293,9 +328,7 @@
         {% else %}
           <button type="button" class="btn btn-sm btn-outline-primary"
             data-bs-toggle="modal" data-bs-target="#editDeliveryModal"
-            data-id="{{ delivery.id }}"
-            data-planned-delivery-datetime="{{ delivery.planned_delivery_datetime.strftime('%Y-%m-%dT%H:%M') if delivery.planned_delivery_datetime else '' }}"
-            data-show-prices="{{ 1 if delivery.show_prices else 0 }}">Upraviť</button>
+            data-id="{{ delivery.id }}">Upraviť</button>
           <form method="post" action="{{ url_for('delivery.delete_delivery', delivery_id=delivery.id) }}"
                 onsubmit="return confirm('Naozaj chcete vymazať tento dodací list?')">
             <button class="btn btn-sm btn-outline-danger" type="submit">Vymazať</button>
@@ -303,7 +336,7 @@
         {% endif %}
       </td>
       <td>{{ delivery.id }}</td>
-      <td>{{ delivery.primary_order.partner.name if delivery.primary_order }}</td>
+      <td>{{ delivery.partner.name if delivery.partner else (delivery.primary_order.partner.name if delivery.primary_order else '') }}</td>
       <td>
         <ul class="list-unstyled mb-0">
           {% for link in delivery.orders %}
@@ -353,22 +386,321 @@
 </nav>
 {% endif %}
 <script>
+// -- Product/Bundle data for dynamic item rows --
+var DN_PRODUCTS = [
+  {% for p in products %}
+  { id: {{ p.id }}, name: {{ p.name|tojson }}, price: "{{ p.price }}" }{{ "," if not loop.last }}
+  {% endfor %}
+];
+var DN_BUNDLES = [
+  {% for b in bundles %}
+  { id: {{ b.id }}, name: {{ b.name|tojson }}, price: "{{ b.bundle_price }}" }{{ "," if not loop.last }}
+  {% endfor %}
+];
+var _dnItemIdx = 0;
+
+// -- Partner change → load orders --
+var dnPartnerSelect = document.getElementById('dnPartnerSelect');
+if (dnPartnerSelect) {
+  dnPartnerSelect.addEventListener('change', function() {
+    var pid = this.value;
+    var area = document.getElementById('dnOrdersArea');
+    var list = document.getElementById('dnOrdersList');
+    if (!pid) {
+      area.style.display = 'none';
+      return;
+    }
+    area.style.display = 'block';
+    list.innerHTML = '<div class="text-muted">Načítavam...</div>';
+    loadPartnerOrders(pid);
+  });
+}
+
+function loadPartnerOrders(partnerId) {
+  fetch('/delivery-notes/partner-orders/' + partnerId)
+    .then(function(r) { return r.json(); })
+    .then(function(orders) {
+      var list = document.getElementById('dnOrdersList');
+      if (orders.length === 0) {
+        list.innerHTML = '<div class="text-muted col-12">Žiadne dostupné objednávky pre tohto partnera.</div>';
+        return;
+      }
+      var html = '';
+      orders.forEach(function(order) {
+        var itemSummary = order.items.map(function(it) { return it.product_name + ' (' + it.quantity + 'x)'; }).join(', ');
+        html += '<div class="col-md-6">' +
+          '<div class="form-check border rounded p-2">' +
+          '<input class="form-check-input dn-order-checkbox" type="checkbox" name="order_ids" value="' + order.id + '" ' +
+          'data-items=\'' + JSON.stringify(order.items).replace(/'/g, "&#39;") + '\' ' +
+          'data-order-id="' + order.id + '" onchange="onDnOrderToggle(this)">' +
+          '<label class="form-check-label">' +
+          '<strong>' + order.order_number + '</strong> — ' + order.partner_name +
+          '<br><small class="text-muted">' + itemSummary + '</small>' +
+          '</label>' +
+          '</div></div>';
+      });
+      list.innerHTML = html;
+    });
+}
+
+function onDnOrderToggle(checkbox) {
+  var orderId = checkbox.dataset.orderId;
+  var items = JSON.parse(checkbox.dataset.items);
+  var tbody = document.getElementById('dnItemsBody');
+  if (checkbox.checked) {
+    items.forEach(function(item) {
+      var i = _dnItemIdx++;
+      var html = '<tr data-source-order="' + orderId + '">' +
+        '<td><input type="hidden" name="items[' + i + '][type]" value="order_item">Obj. ' + orderId + '</td>' +
+        '<td>' + item.product_name +
+          '<input type="hidden" name="items[' + i + '][product_id]" value="' + (item.product_id || '') + '">' +
+          '<input type="hidden" name="items[' + i + '][bundle_id]" value="' + (item.bundle_id || '') + '">' +
+          '<input type="hidden" name="items[' + i + '][is_manual]" value="' + (item.is_manual ? 'true' : 'false') + '">' +
+          '<input type="hidden" name="items[' + i + '][manual_name]" value="' + (item.manual_name || '') + '">' +
+        '</td>' +
+        '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+        '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '"></td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+        '</tr>';
+      tbody.insertAdjacentHTML('beforeend', html);
+    });
+  } else {
+    // Remove rows for this order
+    tbody.querySelectorAll('tr[data-source-order="' + orderId + '"]').forEach(function(row) {
+      row.remove();
+    });
+  }
+}
+
+function addDnProductRow() {
+  var i = _dnItemIdx++;
+  var opts = DN_PRODUCTS.map(function(p) {
+    return '<option value="' + p.id + '" data-price="' + p.price + '">' + p.name + '</option>';
+  }).join('');
+  var defaultPrice = DN_PRODUCTS.length ? DN_PRODUCTS[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onDnProductChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('dnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addDnBundleRow() {
+  var i = _dnItemIdx++;
+  var opts = DN_BUNDLES.map(function(b) {
+    return '<option value="' + b.id + '" data-price="' + b.price + '">' + b.name + '</option>';
+  }).join('');
+  var defaultPrice = DN_BUNDLES.length ? DN_BUNDLES[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onDnBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('dnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addDnManualRow() {
+  var i = _dnItemIdx++;
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+    '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" placeholder="Názov položky" required></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="0" required></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('dnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function onDnProductChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  var price = opt ? opt.dataset.price : '0';
+  var row = sel.closest('tr');
+  row.querySelector('input[name="items[' + idx + '][unit_price]"]').value = price;
+}
+
+function onDnBundleChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  var price = opt ? opt.dataset.price : '0';
+  var row = sel.closest('tr');
+  row.querySelector('input[name="items[' + idx + '][unit_price]"]').value = price;
+}
+
+// Reset modal state when closed
+document.getElementById('addDeliveryModal').addEventListener('hidden.bs.modal', function() {
+  document.getElementById('dnItemsBody').innerHTML = '';
+  document.getElementById('dnOrdersArea').style.display = 'none';
+  _dnItemIdx = 0;
+});
+
+var _editDnItemIdx = 0;
+
+function addEditDnProductRow() {
+  var i = _editDnItemIdx++;
+  var opts = DN_PRODUCTS.map(function(p) {
+    return '<option value="' + p.id + '" data-price="' + p.price + '">' + p.name + '</option>';
+  }).join('');
+  var defaultPrice = DN_PRODUCTS.length ? DN_PRODUCTS[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onEditDnProductChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editDnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditDnBundleRow() {
+  var i = _editDnItemIdx++;
+  var opts = DN_BUNDLES.map(function(b) {
+    return '<option value="' + b.id + '" data-price="' + b.price + '">' + b.name + '</option>';
+  }).join('');
+  var defaultPrice = DN_BUNDLES.length ? DN_BUNDLES[0].price : '0';
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+    '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onEditDnBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + defaultPrice + '"></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editDnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditDnManualRow() {
+  var i = _editDnItemIdx++;
+  var html = '<tr>' +
+    '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+    '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" placeholder="Názov položky" required></td>' +
+    '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="1"></td>' +
+    '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="0" required></td>' +
+    '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+    '</tr>';
+  document.getElementById('editDnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function addEditDnItemRow(item) {
+  var i = _editDnItemIdx++;
+  var html = '';
+  if (item.type === 'product') {
+    var opts = DN_PRODUCTS.map(function(p) {
+      var sel = p.id === item.product_id ? ' selected' : '';
+      return '<option value="' + p.id + '" data-price="' + p.price + '"' + sel + '>' + p.name + '</option>';
+    }).join('');
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="product">Produkt</td>' +
+      '<td><select class="form-select form-select-sm" name="items[' + i + '][product_id]" onchange="onEditDnProductChange(this,' + i + ')">' + opts + '</select></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  } else if (item.type === 'bundle') {
+    var opts = DN_BUNDLES.map(function(b) {
+      var sel = b.id === item.bundle_id ? ' selected' : '';
+      return '<option value="' + b.id + '" data-price="' + b.price + '"' + sel + '>' + b.name + '</option>';
+    }).join('');
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="bundle">Kombinácia</td>' +
+      '<td><select class="form-select form-select-sm" name="items[' + i + '][bundle_id]" onchange="onEditDnBundleChange(this,' + i + ')">' + opts + '</select></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  } else {
+    html = '<tr>' +
+      '<td><input type="hidden" name="items[' + i + '][type]" value="manual">Manuálna</td>' +
+      '<td><input class="form-control form-control-sm" type="text" name="items[' + i + '][manual_name]" value="' + (item.manual_name || '').replace(/"/g, '&quot;') + '" required></td>' +
+      '<td><input class="form-control form-control-sm" type="number" name="items[' + i + '][quantity]" min="1" value="' + item.quantity + '"></td>' +
+      '<td><input class="form-control form-control-sm" type="number" step="0.01" name="items[' + i + '][unit_price]" value="' + item.unit_price + '" required></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">&times;</button></td>' +
+      '</tr>';
+  }
+  document.getElementById('editDnItemsBody').insertAdjacentHTML('beforeend', html);
+}
+
+function onEditDnProductChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  sel.closest('tr').querySelector('input[name="items[' + idx + '][unit_price]"]').value = opt ? opt.dataset.price : '0';
+}
+function onEditDnBundleChange(sel, idx) {
+  var opt = sel.options[sel.selectedIndex];
+  sel.closest('tr').querySelector('input[name="items[' + idx + '][unit_price]"]').value = opt ? opt.dataset.price : '0';
+}
+
 document.getElementById('viewDeliveryModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
-  this.querySelector('#viewDeliveryId').textContent = btn.dataset.deliveryId || '-';
-  this.querySelector('#viewDeliveryPartner').textContent = btn.dataset.partner || '-';
-  this.querySelector('#viewDeliveryOrders').textContent = btn.dataset.orders || '-';
-  this.querySelector('#viewDeliveryPlanned').textContent = btn.dataset.planned || '-';
-  this.querySelector('#viewDeliveryActual').textContent = btn.dataset.actual || '-';
-  this.querySelector('#viewDeliveryShowPrices').textContent = btn.dataset.showPrices === '1' ? 'Áno' : 'Nie';
-  this.querySelector('#viewDeliveryStatus').textContent = btn.dataset.confirmed === '1' ? 'Potvrdený' : 'Nepotvrdený';
+  var deliveryId = btn ? btn.dataset.deliveryId : null;
+  if (!deliveryId) return;
+  var modal = this;
+  fetch('/delivery-notes/' + deliveryId + '/detail')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      modal.querySelector('#viewDeliveryId').textContent = data.id;
+      modal.querySelector('#viewDeliveryPartner').textContent = data.partner_name || '-';
+      var ordersText = data.orders.map(function(o) { return o.order_number; }).join(', ') || '-';
+      modal.querySelector('#viewDeliveryOrders').textContent = ordersText;
+      modal.querySelector('#viewDeliveryPlanned').textContent = data.planned_delivery_datetime || '-';
+      modal.querySelector('#viewDeliveryActual').textContent = data.actual_delivery_datetime || '-';
+      modal.querySelector('#viewDeliveryShowPrices').textContent = data.show_prices ? 'Áno' : 'Nie';
+      modal.querySelector('#viewDeliveryStatus').textContent = data.confirmed ? 'Potvrdený' : 'Nepotvrdený';
+      var tbody = modal.querySelector('#viewDeliveryItemsBody');
+      tbody.innerHTML = '';
+      data.items.forEach(function(item) {
+        var typeLabel = item.type === 'product' ? 'Produkt' : (item.type === 'bundle' ? 'Kombinácia' : 'Manuálna');
+        tbody.insertAdjacentHTML('beforeend',
+          '<tr><td>' + typeLabel + '</td><td>' + item.name + '</td><td>' + item.quantity + '</td><td>' + item.unit_price + '</td><td>' + item.line_total + '</td></tr>');
+      });
+      if (data.items.length === 0) {
+        tbody.insertAdjacentHTML('beforeend', '<tr><td colspan="5" class="text-muted">Žiadne položky</td></tr>');
+      }
+    });
 });
+document.getElementById('viewDeliveryModal').addEventListener('hidden.bs.modal', function() {
+  this.querySelector('#viewDeliveryItemsBody').innerHTML = '';
+});
+
 document.getElementById('editDeliveryModal').addEventListener('show.bs.modal', function(event) {
   var btn = event.relatedTarget;
-  var form = this.querySelector('form');
-  form.action = '/delivery-notes/' + btn.dataset.id + '/edit';
-  form.querySelector('[name="planned_delivery_datetime"]').value = btn.dataset.plannedDeliveryDatetime || '';
-  form.querySelector('[name="show_prices"]').checked = btn.dataset.showPrices === '1';
+  var deliveryId = btn ? btn.dataset.id : null;
+  if (!deliveryId) return;
+  var modal = this;
+  var form = modal.querySelector('form');
+  form.action = '/delivery-notes/' + deliveryId + '/edit';
+  _editDnItemIdx = 0;
+  fetch('/delivery-notes/' + deliveryId + '/detail')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      form.querySelector('[name="planned_delivery_datetime"]').value = data.planned_delivery_datetime || '';
+      form.querySelector('[name="show_prices"]').checked = data.show_prices;
+      var tbody = document.getElementById('editDnItemsBody');
+      tbody.innerHTML = '';
+      var readonly = data.is_locked || data.has_logistics_plans || data.has_invoice_refs || data.invoiced;
+      if (readonly) {
+        document.getElementById('editDnReadonlyNotice').classList.remove('d-none');
+        document.getElementById('editDnItemButtons').style.display = 'none';
+        document.getElementById('editDnSaveBtn').disabled = true;
+        data.items.forEach(function(item) {
+          var typeLabel = item.type === 'product' ? 'Produkt' : (item.type === 'bundle' ? 'Kombinácia' : 'Manuálna');
+          tbody.insertAdjacentHTML('beforeend',
+            '<tr><td>' + typeLabel + '</td><td>' + item.name + '</td><td>' + item.quantity + '</td><td>' + item.unit_price + '</td><td></td></tr>');
+        });
+      } else {
+        document.getElementById('editDnReadonlyNotice').classList.add('d-none');
+        document.getElementById('editDnItemButtons').style.display = '';
+        document.getElementById('editDnSaveBtn').disabled = false;
+        data.items.forEach(function(item) {
+          addEditDnItemRow(item);
+        });
+      }
+    });
+});
+document.getElementById('editDeliveryModal').addEventListener('hidden.bs.modal', function() {
+  document.getElementById('editDnItemsBody').innerHTML = '';
+  _editDnItemIdx = 0;
 });
 
 // View toggle functionality
