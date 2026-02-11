@@ -33,6 +33,117 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _needs_rebuild(insp, table_name: str) -> bool:
+    """Check if a table needs rebuilding for manual item support.
+
+    Returns True when the table's DDL still contains the old check
+    constraint that does NOT allow ``is_manual = 1``, OR when a column
+    that should be nullable is still NOT NULL (e.g. order_item.product_id).
+    """
+    if not insp.has_table(table_name):
+        return False
+    # Read the original CREATE TABLE statement from sqlite_master
+    result = db.session.execute(
+        text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:t"),
+        {"t": table_name},
+    ).scalar()
+    if not result:
+        return False
+    # If the DDL has the old constraint without is_manual, rebuild
+    if "product_id IS NOT NULL OR bundle_id IS NOT NULL" in result and "is_manual" not in result:
+        return True
+    # If order_item.product_id is still NOT NULL, rebuild
+    if table_name == "order_item":
+        cols = insp.get_columns(table_name)
+        pid_col = next((c for c in cols if c["name"] == "product_id"), None)
+        if pid_col and pid_col.get("nullable") is False:
+            return True
+    return False
+
+
+def _rebuild_for_manual_items(insp):
+    """Rebuild order_item and delivery_item tables if needed for manual items."""
+    if _needs_rebuild(insp, "order_item"):
+        logger.info("Rebuilding order_item table for manual item support")
+        db.session.execute(text(
+            'ALTER TABLE "order_item" RENAME TO "_order_item_old"'
+        ))
+        db.session.execute(text("""
+            CREATE TABLE "order_item" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id INTEGER NOT NULL REFERENCES "order"(id),
+                product_id INTEGER REFERENCES product(id),
+                bundle_id INTEGER REFERENCES bundle(id),
+                is_manual BOOLEAN DEFAULT 0,
+                manual_name VARCHAR(200),
+                quantity INTEGER NOT NULL DEFAULT 1,
+                unit_price NUMERIC(10,2) NOT NULL,
+                CONSTRAINT ck_order_item_has_source
+                    CHECK (product_id IS NOT NULL OR bundle_id IS NOT NULL OR is_manual = 1)
+            )
+        """))
+        db.session.execute(text("""
+            INSERT INTO "order_item" (id, order_id, product_id, bundle_id,
+                is_manual, manual_name, quantity, unit_price)
+            SELECT id, order_id, product_id, bundle_id,
+                COALESCE(is_manual, 0), manual_name, quantity, unit_price
+            FROM "_order_item_old"
+        """))
+        db.session.execute(text('DROP TABLE "_order_item_old"'))
+        logger.info("Rebuilt order_item table successfully")
+
+    if _needs_rebuild(insp, "delivery_item"):
+        logger.info("Rebuilding delivery_item table for manual item support")
+        db.session.execute(text(
+            'ALTER TABLE "delivery_item" RENAME TO "_delivery_item_old"'
+        ))
+        db.session.execute(text("""
+            CREATE TABLE "delivery_item" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                delivery_note_id INTEGER NOT NULL REFERENCES delivery_note(id),
+                product_id INTEGER REFERENCES product(id),
+                bundle_id INTEGER REFERENCES bundle(id),
+                is_manual BOOLEAN DEFAULT 0,
+                manual_name VARCHAR(200),
+                quantity INTEGER NOT NULL DEFAULT 1,
+                unit_price NUMERIC(10,2) NOT NULL,
+                line_total NUMERIC(10,2) NOT NULL DEFAULT 0.0,
+                CONSTRAINT ck_delivery_item_has_source
+                    CHECK (product_id IS NOT NULL OR bundle_id IS NOT NULL OR is_manual = 1)
+            )
+        """))
+        db.session.execute(text("""
+            INSERT INTO "delivery_item" (id, delivery_note_id, product_id, bundle_id,
+                is_manual, manual_name, quantity, unit_price, line_total)
+            SELECT id, delivery_note_id, product_id, bundle_id,
+                COALESCE(is_manual, 0), manual_name, quantity, unit_price,
+                COALESCE(line_total, 0.0)
+            FROM "_delivery_item_old"
+        """))
+        db.session.execute(text('DROP TABLE "_delivery_item_old"'))
+        # Rebuild the child table's FK (delivery_item_component)
+        if insp.has_table("delivery_item_component"):
+            logger.info("Rebuilding delivery_item_component to restore FK")
+            db.session.execute(text(
+                'ALTER TABLE "delivery_item_component" RENAME TO "_dic_old"'
+            ))
+            db.session.execute(text("""
+                CREATE TABLE "delivery_item_component" (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    delivery_item_id INTEGER NOT NULL REFERENCES delivery_item(id),
+                    product_id INTEGER NOT NULL REFERENCES product(id),
+                    quantity INTEGER NOT NULL DEFAULT 1
+                )
+            """))
+            db.session.execute(text("""
+                INSERT INTO "delivery_item_component" (id, delivery_item_id, product_id, quantity)
+                SELECT id, delivery_item_id, product_id, quantity
+                FROM "_dic_old"
+            """))
+            db.session.execute(text('DROP TABLE "_dic_old"'))
+        logger.info("Rebuilt delivery_item table successfully")
+
+
 def _migrate_schema():
     """Add columns introduced by the refactor to existing tables.
 
@@ -126,6 +237,10 @@ def _migrate_schema():
                 stmt = f'ALTER TABLE "{table_name}" ADD COLUMN {col_name} {col_sql}'
                 db.session.execute(text(stmt))
                 logger.info("Migrated: %s.%s", table_name, col_name)
+
+    # SQLite cannot ALTER COLUMN nullability or CHECK constraints.
+    # Rebuild tables that need schema changes for manual item support.
+    _rebuild_for_manual_items(insp)
 
     # Unique index that SQLite cannot add inline with ALTER TABLE
     try:
