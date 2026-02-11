@@ -220,15 +220,30 @@ class Order(db.Model):
             return "processing"
         return "pending"
 
+    @property
+    def total_price(self):
+        return sum(item.quantity * item.unit_price for item in self.items)
+
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
+    bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"))
+    is_manual = db.Column(db.Boolean, default=False)
+    manual_name = db.Column(db.String(200))
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
 
     product = db.relationship("Product")
+    bundle = db.relationship("Bundle")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "product_id IS NOT NULL OR bundle_id IS NOT NULL OR is_manual = 1",
+            name="ck_order_item_has_source",
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +253,7 @@ class OrderItem(db.Model):
 class DeliveryNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     note_number = db.Column(db.String(60))
+    partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
     primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"), index=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     show_prices = db.Column(db.Boolean, default=True)
@@ -249,6 +265,7 @@ class DeliveryNote(db.Model):
     confirmed = db.Column(db.Boolean, default=False)
     is_locked = db.Column(db.Boolean, default=False)
 
+    partner = db.relationship("Partner")
     primary_order = db.relationship("Order")
     created_by = db.relationship("User")
     items = db.relationship(
@@ -291,6 +308,8 @@ class DeliveryItem(db.Model):
     )
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"))
+    is_manual = db.Column(db.Boolean, default=False)
+    manual_name = db.Column(db.String(200))
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     line_total = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False, default=0.0)
@@ -303,7 +322,7 @@ class DeliveryItem(db.Model):
 
     __table_args__ = (
         db.CheckConstraint(
-            "product_id IS NOT NULL OR bundle_id IS NOT NULL",
+            "product_id IS NOT NULL OR bundle_id IS NOT NULL OR is_manual = 1",
             name="ck_delivery_item_has_source",
         ),
     )

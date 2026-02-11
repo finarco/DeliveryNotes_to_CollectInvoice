@@ -83,6 +83,11 @@ def _migrate_schema():
             ("updated_at", "DATETIME"),
             ("actual_delivery_datetime", "DATETIME"),
             ("is_locked", "BOOLEAN DEFAULT 0"),
+            ("partner_id", "INTEGER REFERENCES partner(id)"),
+        ],
+        "delivery_item": [
+            ("is_manual", "BOOLEAN DEFAULT 0"),
+            ("manual_name", "VARCHAR(200)"),
         ],
         "vehicle": [
             ("registration_number", "VARCHAR(20)"),
@@ -99,6 +104,11 @@ def _migrate_schema():
             ("vat_amount", "REAL DEFAULT 0.0"),
             ("total_with_vat", "REAL DEFAULT 0.0"),
             ("is_manual", "BOOLEAN DEFAULT 0"),
+        ],
+        "order_item": [
+            ("bundle_id", "INTEGER REFERENCES bundle(id)"),
+            ("is_manual", "BOOLEAN DEFAULT 0"),
+            ("manual_name", "VARCHAR(200)"),
         ],
         "numbering_config": [
             ("pattern", "VARCHAR(120) DEFAULT ''"),
