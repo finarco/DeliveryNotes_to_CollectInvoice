@@ -617,10 +617,12 @@ def create_app():
         with app.app_context():
             event.listen(db.engine, "connect", enable_sqlite_fks)
 
-    # Migrate schema, create new tables, backfill tenants & seed admin
+    # Create new tables first (so FK references like tenant(id) exist),
+    # then migrate columns on pre-existing tables, rebuild constraints,
+    # backfill tenants & seed admin.
     with app.app_context():
-        _migrate_schema()
         db.create_all()
+        _migrate_schema()
         _rebuild_unique_constraints()
         _migrate_tenants()
         ensure_admin_user()
