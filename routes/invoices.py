@@ -43,7 +43,7 @@ invoices_bp = Blueprint("invoices", __name__)
 @role_required("manage_invoices")
 def partner_delivery_notes(partner_id: int):
     """Return uninvoiced delivery notes for a partner (respecting group_code)."""
-    partner = db.session.get(Partner, partner_id)
+    partner = tenant_query(Partner).filter_by(id=partner_id).first()
     if not partner:
         return jsonify([])
 
@@ -135,6 +135,8 @@ def list_invoices():
         if not partner_id:
             flash("Partner je povinný.", "danger")
             return redirect(url_for("invoices.list_invoices"))
+        # Verify partner belongs to current tenant
+        tenant_get_or_404(Partner, partner_id)
 
         dn_ids = request.form.getlist("delivery_note_ids")
         selected_dns = (
@@ -183,7 +185,7 @@ def list_invoices():
                 )
                 line_total_with_vat = line_total + vat_amount
 
-                invoice.items.append(InvoiceItem(
+                ii = InvoiceItem(
                     source_delivery_id=source_dn_id,
                     description=description,
                     quantity=qty,
@@ -193,7 +195,9 @@ def list_invoices():
                     vat_amount=vat_amount,
                     total_with_vat=line_total_with_vat,
                     is_manual=is_manual,
-                ))
+                )
+                stamp_tenant(ii)
+                invoice.items.append(ii)
                 total += line_total
                 total_with_vat += line_total_with_vat
             idx += 1
@@ -325,7 +329,7 @@ def edit_invoice(invoice_id: int):
                     _Q2, rounding=ROUND_HALF_UP
                 )
                 line_total_with_vat = line_total + vat_amount
-                invoice.items.append(InvoiceItem(
+                ii = InvoiceItem(
                     source_delivery_id=source_dn_id,
                     description=description,
                     quantity=qty,
@@ -335,7 +339,9 @@ def edit_invoice(invoice_id: int):
                     vat_amount=vat_amount,
                     total_with_vat=line_total_with_vat,
                     is_manual=is_manual,
-                ))
+                )
+                stamp_tenant(ii)
+                invoice.items.append(ii)
                 total += line_total
                 total_with_vat += line_total_with_vat
             idx += 1
@@ -375,18 +381,18 @@ def add_invoice_item(invoice_id: int):
     vat_amount = round(total * vat_rate / 100, 2)
     total_with_vat = round(total + vat_amount, 2)
 
-    invoice.items.append(
-        InvoiceItem(
-            description=description,
-            quantity=quantity,
-            unit_price=unit_price,
-            total=total,
-            vat_rate=vat_rate,
-            vat_amount=vat_amount,
-            total_with_vat=total_with_vat,
-            is_manual=True,
-        )
+    ii = InvoiceItem(
+        description=description,
+        quantity=quantity,
+        unit_price=unit_price,
+        total=total,
+        vat_rate=vat_rate,
+        vat_amount=vat_amount,
+        total_with_vat=total_with_vat,
+        is_manual=True,
     )
+    stamp_tenant(ii)
+    invoice.items.append(ii)
     invoice.total = float(invoice.total or 0) + total
     invoice.total_with_vat = float(invoice.total_with_vat or 0) + total_with_vat
     db.session.commit()

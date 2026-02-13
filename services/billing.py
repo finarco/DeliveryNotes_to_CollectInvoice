@@ -77,6 +77,9 @@ def extend_trial(tenant_id: int, extra_days: int, extended_by_user_id: int) -> N
     sub = get_tenant_subscription(tenant_id)
     if not sub:
         return
+    # Only extend trials or suspended (post-trial) subscriptions
+    if sub.status not in ("trial", "suspended"):
+        return
     now = datetime.now(timezone.utc)
     if sub.trial_ends_at:
         trial_end = sub.trial_ends_at
@@ -90,7 +93,8 @@ def extend_trial(tenant_id: int, extra_days: int, extended_by_user_id: int) -> N
     # If subscription was suspended, reactivate to trial
     if sub.status == "suspended":
         sub.status = "trial"
-    sub.current_period_end = sub.trial_ends_at
+    if sub.status == "trial":
+        sub.current_period_end = sub.trial_ends_at
     # Log in audit
     db.session.add(AuditLog(
         user_id=extended_by_user_id,
@@ -288,7 +292,7 @@ def check_subscription_expiry() -> None:
 def get_plan_limits(tenant_id: int) -> dict:
     """Return the current plan limits for a tenant."""
     sub = get_tenant_subscription(tenant_id)
-    if not sub:
+    if not sub or not sub.plan:
         return {"max_users": 0, "max_partners": 0, "max_invoices_per_month": 0}
     plan = sub.plan
     return {

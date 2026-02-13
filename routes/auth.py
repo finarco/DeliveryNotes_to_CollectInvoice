@@ -73,6 +73,12 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
+    from services.audit import log_action
+    user = get_current_user()
+    if user:
+        log_action("logout", "user", user.id, "user logged out")
+        from extensions import db
+        db.session.commit()
     session.clear()
     return redirect(url_for("auth.login"))
 

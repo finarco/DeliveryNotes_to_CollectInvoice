@@ -17,6 +17,8 @@ def _safe_referrer(fallback: str) -> str:
             return ref
     return fallback
 
+from flask import abort
+
 from extensions import db
 from models import (
     AppSetting,
@@ -31,8 +33,25 @@ from models import (
 )
 from services.pdf import get_default_css, get_default_html
 from services.audit import log_action
-from services.auth import role_required
-from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
+from services.auth import get_current_user, role_required
+from services.tenant import get_current_tenant_id, tenant_query, stamp_tenant, tenant_get_or_404
+
+
+def _get_tenant_user_or_404(user_id: int) -> User:
+    """Fetch a user by PK, verifying they belong to the current tenant."""
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    caller = get_current_user()
+    if caller and caller.is_superadmin:
+        return user
+    tid = get_current_tenant_id()
+    if not tid:
+        abort(403)
+    membership = UserTenant.query.filter_by(user_id=user_id, tenant_id=tid).first()
+    if not membership:
+        abort(404)
+    return user
 
 _ENTITY_TYPES = ["product", "bundle", "order", "delivery_note", "invoice"]
 
@@ -50,8 +69,10 @@ def users():
         if not username:
             flash("Meno používateľa je povinné.", "danger")
             return redirect(url_for("admin.users"))
-        if len(password) < 8:
-            flash("Heslo musí mať aspoň 8 znakov.", "danger")
+        from routes.auth import _validate_password
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, "danger")
             return redirect(url_for("admin.users"))
         if role not in VALID_ROLES:
             flash("Neplatná rola.", "danger")
@@ -79,9 +100,20 @@ def users():
         flash(f"Používateľ '{username}' vytvorený.", "success")
         return redirect(url_for("admin.users"))
 
-    all_users = User.query.order_by(User.id).all()
-    active_count = User.query.filter_by(is_active=True).count()
-    role_count = db.session.query(User.role).distinct().count()
+    # Scope users to current tenant (superadmins see all)
+    caller = get_current_user()
+    if caller and caller.is_superadmin:
+        all_users = User.query.order_by(User.id).all()
+        active_count = User.query.filter_by(is_active=True).count()
+        role_count = db.session.query(User.role).distinct().count()
+    else:
+        tid = get_current_tenant_id()
+        tenant_user_ids = [
+            ut.user_id for ut in UserTenant.query.filter_by(tenant_id=tid).all()
+        ]
+        all_users = User.query.filter(User.id.in_(tenant_user_ids)).order_by(User.id).all()
+        active_count = User.query.filter(User.id.in_(tenant_user_ids), User.is_active.is_(True)).count()
+        role_count = db.session.query(User.role).filter(User.id.in_(tenant_user_ids)).distinct().count()
     return render_template(
         "admin/users.html",
         users=all_users,
@@ -94,7 +126,7 @@ def users():
 @admin_bp.route("/users/<int:user_id>/toggle", methods=["POST"])
 @role_required("manage_all")
 def toggle_user(user_id: int):
-    user = db.get_or_404(User, user_id)
+    user = _get_tenant_user_or_404(user_id)
     user.is_active = not user.is_active
     action = "activate" if user.is_active else "deactivate"
     log_action(action, "user", user.id, f"is_active={user.is_active}")
@@ -109,7 +141,7 @@ def toggle_user(user_id: int):
 )
 @role_required("manage_all")
 def reset_password(user_id: int):
-    user = db.get_or_404(User, user_id)
+    user = _get_tenant_user_or_404(user_id)
     new_password = request.form.get("new_password", "")
     if len(new_password) < 8:
         flash("Heslo musí mať aspoň 8 znakov.", "danger")
@@ -231,7 +263,7 @@ def settings():
 )
 @role_required("manage_all")
 def force_password_change(user_id: int):
-    user = db.get_or_404(User, user_id)
+    user = _get_tenant_user_or_404(user_id)
     user.must_change_password = True
     log_action("force_password_change", "user", user.id, "forced by admin")
     db.session.commit()

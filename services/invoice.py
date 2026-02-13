@@ -119,18 +119,18 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
             )
             line_total_with_vat = line_total + vat_amount
 
-            invoice.items.append(
-                InvoiceItem(
-                    source_delivery_id=note.id,
-                    description=description,
-                    quantity=item.quantity,
-                    unit_price=item.unit_price,
-                    total=line_total,
-                    vat_rate=vat_rate,
-                    vat_amount=vat_amount,
-                    total_with_vat=line_total_with_vat,
-                )
+            ii = InvoiceItem(
+                source_delivery_id=note.id,
+                description=description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total=line_total,
+                vat_rate=vat_rate,
+                vat_amount=vat_amount,
+                total_with_vat=line_total_with_vat,
             )
+            stamp_tenant(ii)
+            invoice.items.append(ii)
             total += line_total
             total_with_vat += line_total_with_vat
         note.invoiced = True

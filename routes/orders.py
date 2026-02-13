@@ -40,15 +40,22 @@ def list_orders():
         if not partner_id:
             flash("Partner je povinný.", "danger")
             return redirect(url_for("orders.list_orders"))
+        # Verify partner belongs to current tenant
+        tenant_get_or_404(Partner, partner_id)
         show_prices = request.form.get("show_prices") == "on"
-        pickup_address_id = request.form.get("pickup_address_id")
-        delivery_address_id = request.form.get("delivery_address_id")
+        pickup_address_id = safe_int(request.form.get("pickup_address_id")) or None
+        delivery_address_id = safe_int(request.form.get("delivery_address_id")) or None
+        # Verify addresses belong to current tenant
+        if pickup_address_id:
+            tenant_get_or_404(PartnerAddress, pickup_address_id)
+        if delivery_address_id:
+            tenant_get_or_404(PartnerAddress, delivery_address_id)
 
         user = get_current_user()
         order = Order(
             partner_id=partner_id,
-            pickup_address_id=safe_int(pickup_address_id) or None,
-            delivery_address_id=safe_int(delivery_address_id) or None,
+            pickup_address_id=pickup_address_id,
+            delivery_address_id=delivery_address_id,
             created_by_id=user.id,
             pickup_datetime=parse_datetime(
                 request.form.get("pickup_datetime")
@@ -84,22 +91,21 @@ def list_orders():
                 if item_type == "product":
                     pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                     if pid:
-                        order.items.append(OrderItem(
-                            product_id=pid, quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(product_id=pid, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
                 elif item_type == "bundle":
                     bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                     if bid:
-                        order.items.append(OrderItem(
-                            bundle_id=bid, quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(bundle_id=bid, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
                 elif item_type == "manual":
                     name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                     if name:
-                        order.items.append(OrderItem(
-                            is_manual=True, manual_name=name,
-                            quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(is_manual=True, manual_name=name, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
             idx += 1
         log_action("create", "order", order.id, f"partner={partner_id}")
         db.session.commit()
@@ -207,22 +213,21 @@ def edit_order(order_id: int):
             if item_type == "product":
                 pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                 if pid:
-                    order.items.append(OrderItem(
-                        product_id=pid, quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(product_id=pid, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
             elif item_type == "bundle":
                 bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                 if bid:
-                    order.items.append(OrderItem(
-                        bundle_id=bid, quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(bundle_id=bid, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
             elif item_type == "manual":
                 name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                 if name:
-                    order.items.append(OrderItem(
-                        is_manual=True, manual_name=name,
-                        quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(is_manual=True, manual_name=name, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
         idx += 1
     log_action("edit", "order", order.id, "updated")
     db.session.commit()

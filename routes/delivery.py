@@ -42,7 +42,7 @@ delivery_bp = Blueprint("delivery", __name__)
 @role_required("manage_delivery")
 def partner_orders(partner_id: int):
     """Return confirmed orders for a partner that have no delivery note links."""
-    partner = db.session.get(Partner, partner_id)
+    partner = tenant_query(Partner).filter_by(id=partner_id).first()
     if not partner:
         return jsonify([])
 
@@ -105,6 +105,8 @@ def list_delivery_notes():
         if not partner_id:
             flash("Partner je povinný.", "danger")
             return redirect(url_for("delivery.list_delivery_notes"))
+        # Verify partner belongs to current tenant
+        tenant_get_or_404(Partner, partner_id)
 
         user = get_current_user()
         order_ids = request.form.getlist("order_ids")
@@ -130,7 +132,9 @@ def list_delivery_notes():
 
         # Link selected orders
         for order in selected_orders:
-            delivery.orders.append(DeliveryNoteOrder(order_id=order.id))
+            dno = DeliveryNoteOrder(order_id=order.id)
+            stamp_tenant(dno)
+            delivery.orders.append(dno)
 
         # Parse items from dynamic table (same pattern as orders)
         idx = 0
@@ -149,10 +153,12 @@ def list_delivery_notes():
                     pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                     if pid:
                         line_total = unit_price * qty
-                        delivery.items.append(DeliveryItem(
+                        di = DeliveryItem(
                             product_id=pid, quantity=qty,
                             unit_price=unit_price, line_total=line_total,
-                        ))
+                        )
+                        stamp_tenant(di)
+                        delivery.items.append(di)
                 elif item_type == "bundle":
                     bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                     if bid:
@@ -161,25 +167,28 @@ def list_delivery_notes():
                             bundle_id=bid, quantity=qty,
                             unit_price=unit_price, line_total=line_total,
                         )
-                        bundle = db.session.get(Bundle, bid)
+                        stamp_tenant(delivery_item)
+                        bundle = tenant_query(Bundle).filter_by(id=bid).first()
                         if bundle:
                             for bundle_item in bundle.items:
-                                delivery_item.components.append(
-                                    DeliveryItemComponent(
-                                        product_id=bundle_item.product_id,
-                                        quantity=bundle_item.quantity * qty,
-                                    )
+                                comp = DeliveryItemComponent(
+                                    product_id=bundle_item.product_id,
+                                    quantity=bundle_item.quantity * qty,
                                 )
+                                stamp_tenant(comp)
+                                delivery_item.components.append(comp)
                         delivery.items.append(delivery_item)
                 elif item_type == "manual":
                     name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                     if name:
                         line_total = unit_price * qty
-                        delivery.items.append(DeliveryItem(
+                        di = DeliveryItem(
                             is_manual=True, manual_name=name,
                             quantity=qty, unit_price=unit_price,
                             line_total=line_total,
-                        ))
+                        )
+                        stamp_tenant(di)
+                        delivery.items.append(di)
                 elif item_type == "order_item":
                     # Items sourced from an order — treat as product/bundle/manual
                     pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
@@ -188,31 +197,36 @@ def list_delivery_notes():
                     manual_name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                     line_total = unit_price * qty
                     if pid:
-                        delivery.items.append(DeliveryItem(
+                        di = DeliveryItem(
                             product_id=pid, quantity=qty,
                             unit_price=unit_price, line_total=line_total,
-                        ))
+                        )
+                        stamp_tenant(di)
+                        delivery.items.append(di)
                     elif bid:
                         delivery_item = DeliveryItem(
                             bundle_id=bid, quantity=qty,
                             unit_price=unit_price, line_total=line_total,
                         )
-                        bundle = db.session.get(Bundle, bid)
+                        stamp_tenant(delivery_item)
+                        bundle = tenant_query(Bundle).filter_by(id=bid).first()
                         if bundle:
                             for bundle_item in bundle.items:
-                                delivery_item.components.append(
-                                    DeliveryItemComponent(
-                                        product_id=bundle_item.product_id,
-                                        quantity=bundle_item.quantity * qty,
-                                    )
+                                comp = DeliveryItemComponent(
+                                    product_id=bundle_item.product_id,
+                                    quantity=bundle_item.quantity * qty,
                                 )
+                                stamp_tenant(comp)
+                                delivery_item.components.append(comp)
                         delivery.items.append(delivery_item)
                     elif is_manual and manual_name:
-                        delivery.items.append(DeliveryItem(
+                        di = DeliveryItem(
                             is_manual=True, manual_name=manual_name,
                             quantity=qty, unit_price=unit_price,
                             line_total=line_total,
-                        ))
+                        )
+                        stamp_tenant(di)
+                        delivery.items.append(di)
             idx += 1
 
         log_action("create", "delivery_note", delivery.id, "created")
@@ -341,10 +355,12 @@ def edit_delivery(delivery_id: int):
                 pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                 if pid:
                     line_total = unit_price * qty
-                    delivery.items.append(DeliveryItem(
+                    di = DeliveryItem(
                         product_id=pid, quantity=qty,
                         unit_price=unit_price, line_total=line_total,
-                    ))
+                    )
+                    stamp_tenant(di)
+                    delivery.items.append(di)
             elif item_type == "bundle":
                 bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                 if bid:
@@ -353,25 +369,28 @@ def edit_delivery(delivery_id: int):
                         bundle_id=bid, quantity=qty,
                         unit_price=unit_price, line_total=line_total,
                     )
-                    bundle = db.session.get(Bundle, bid)
+                    stamp_tenant(delivery_item)
+                    bundle = tenant_query(Bundle).filter_by(id=bid).first()
                     if bundle:
                         for bundle_item in bundle.items:
-                            delivery_item.components.append(
-                                DeliveryItemComponent(
-                                    product_id=bundle_item.product_id,
-                                    quantity=bundle_item.quantity * qty,
-                                )
+                            comp = DeliveryItemComponent(
+                                product_id=bundle_item.product_id,
+                                quantity=bundle_item.quantity * qty,
                             )
+                            stamp_tenant(comp)
+                            delivery_item.components.append(comp)
                     delivery.items.append(delivery_item)
             elif item_type == "manual":
                 name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                 if name:
                     line_total = unit_price * qty
-                    delivery.items.append(DeliveryItem(
+                    di = DeliveryItem(
                         is_manual=True, manual_name=name,
                         quantity=qty, unit_price=unit_price,
                         line_total=line_total,
-                    ))
+                    )
+                    stamp_tenant(di)
+                    delivery.items.append(di)
             elif item_type == "order_item":
                 pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                 bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
@@ -379,31 +398,36 @@ def edit_delivery(delivery_id: int):
                 manual_name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                 line_total = unit_price * qty
                 if pid:
-                    delivery.items.append(DeliveryItem(
+                    di = DeliveryItem(
                         product_id=pid, quantity=qty,
                         unit_price=unit_price, line_total=line_total,
-                    ))
+                    )
+                    stamp_tenant(di)
+                    delivery.items.append(di)
                 elif bid:
                     delivery_item = DeliveryItem(
                         bundle_id=bid, quantity=qty,
                         unit_price=unit_price, line_total=line_total,
                     )
-                    bundle = db.session.get(Bundle, bid)
+                    stamp_tenant(delivery_item)
+                    bundle = tenant_query(Bundle).filter_by(id=bid).first()
                     if bundle:
                         for bundle_item in bundle.items:
-                            delivery_item.components.append(
-                                DeliveryItemComponent(
-                                    product_id=bundle_item.product_id,
-                                    quantity=bundle_item.quantity * qty,
-                                )
+                            comp = DeliveryItemComponent(
+                                product_id=bundle_item.product_id,
+                                quantity=bundle_item.quantity * qty,
                             )
+                            stamp_tenant(comp)
+                            delivery_item.components.append(comp)
                     delivery.items.append(delivery_item)
                 elif is_manual and manual_name:
-                    delivery.items.append(DeliveryItem(
+                    di = DeliveryItem(
                         is_manual=True, manual_name=manual_name,
                         quantity=qty, unit_price=unit_price,
                         line_total=line_total,
-                    ))
+                    )
+                    stamp_tenant(di)
+                    delivery.items.append(di)
         idx += 1
     log_action("edit", "delivery_note", delivery.id, "updated")
     db.session.commit()

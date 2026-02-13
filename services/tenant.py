@@ -68,6 +68,17 @@ class TenantSecurityError(Exception):
     """Raised when a cross-tenant write is attempted."""
 
 
+# Models that MUST have a non-NULL tenant_id when created within a request context.
+_TENANT_REQUIRED_MODELS = {
+    "Partner", "PartnerAddress", "Contact", "Product", "ProductPriceHistory",
+    "Bundle", "BundlePriceHistory", "BundleItem", "ProductRestriction",
+    "Order", "OrderItem", "DeliveryNote", "DeliveryNoteOrder",
+    "DeliveryItem", "DeliveryItemComponent", "Invoice", "InvoiceItem",
+    "Vehicle", "VehicleSchedule", "LogisticsPlan",
+    "AppSetting", "NumberingConfig", "NumberSequence", "PdfTemplate",
+}
+
+
 def _enforce_tenant_on_flush(session, flush_context):
     """Verify that all new/dirty tenant-scoped objects match the current tenant.
 
@@ -86,9 +97,20 @@ def _enforce_tenant_on_flush(session, flush_context):
 
     for obj in list(session.new) + list(session.dirty):
         obj_tid = getattr(obj, "tenant_id", None)
-        if obj_tid is not None and obj_tid != tid:
+        class_name = type(obj).__name__
+        if class_name in _TENANT_REQUIRED_MODELS:
+            if obj_tid is None:
+                raise TenantSecurityError(
+                    f"{class_name} has tenant_id=None (forgot stamp_tenant?)"
+                )
+            if obj_tid != tid:
+                raise TenantSecurityError(
+                    f"Cross-tenant write blocked: {class_name} "
+                    f"has tenant_id={obj_tid}, active tenant is {tid}"
+                )
+        elif obj_tid is not None and obj_tid != tid:
             raise TenantSecurityError(
-                f"Cross-tenant write blocked: {type(obj).__name__} "
+                f"Cross-tenant write blocked: {class_name} "
                 f"has tenant_id={obj_tid}, active tenant is {tid}"
             )
 

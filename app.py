@@ -833,11 +833,13 @@ def create_app():
         except Exception:
             pass
 
-        # User's tenant list for the switcher
+        # User's tenant list for the switcher (eager-load tenant names)
         user_tenants = []
         if user:
+            from sqlalchemy.orm import joinedload
             user_tenants = (
                 UserTenant.query
+                .options(joinedload(UserTenant.tenant))
                 .filter_by(user_id=user.id)
                 .join(Tenant, UserTenant.tenant_id == Tenant.id)
                 .filter(Tenant.is_active.is_(True))

@@ -42,7 +42,9 @@ def list_products():
         product.product_number = generate_number(
             "product", is_service=product.is_service
         )
-        product.price_history.append(ProductPriceHistory(price=price))
+        ph = ProductPriceHistory(price=price)
+        stamp_tenant(ph)
+        product.price_history.append(ph)
         db.session.commit()
         flash("Produkt uložený.", "success")
         return redirect(url_for("products.list_products"))
@@ -71,7 +73,9 @@ def edit_product(product_id: int):
     product.long_text = request.form.get("long_text", "")
     new_price = safe_float(request.form.get("price"))
     if new_price != product.price:
-        product.price_history.append(ProductPriceHistory(price=new_price))
+        ph = ProductPriceHistory(price=new_price)
+        stamp_tenant(ph)
+        product.price_history.append(ph)
     product.price = new_price
     product.vat_rate = safe_float(request.form.get("vat_rate"), default=20.0)
     product.is_service = request.form.get("is_service") == "on"
@@ -135,10 +139,12 @@ def list_bundles():
         for product in all_products:
             qty = safe_int(request.form.get(f"bundle_product_{product.id}"))
             if qty > 0:
-                bundle.items.append(
-                    BundleItem(product_id=product.id, quantity=qty)
-                )
-        bundle.price_history.append(BundlePriceHistory(price=bundle_price))
+                bi = BundleItem(product_id=product.id, quantity=qty)
+                stamp_tenant(bi)
+                bundle.items.append(bi)
+        bph = BundlePriceHistory(price=bundle_price)
+        stamp_tenant(bph)
+        bundle.price_history.append(bph)
         db.session.commit()
         flash("Kombinácia uložená.", "success")
         return redirect(url_for("products.list_bundles"))
@@ -169,7 +175,9 @@ def edit_bundle(bundle_id: int):
     bundle.name = request.form.get("name", "").strip() or bundle.name
     new_price = safe_float(request.form.get("bundle_price"))
     if new_price != bundle.bundle_price:
-        bundle.price_history.append(BundlePriceHistory(price=new_price))
+        bph = BundlePriceHistory(price=new_price)
+        stamp_tenant(bph)
+        bundle.price_history.append(bph)
     bundle.bundle_price = new_price
     bundle.discount_excluded = request.form.get("discount_excluded") == "on"
     log_action("edit", "bundle", bundle.id, "updated")

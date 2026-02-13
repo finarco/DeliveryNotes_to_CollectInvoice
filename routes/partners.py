@@ -43,16 +43,16 @@ def list_partners():
         stamp_tenant(partner)
         db.session.add(partner)
         db.session.flush()
-        partner.addresses.append(
-            PartnerAddress(
-                address_type="headquarters",
-                related_partner_id=partner.id,
-                street=partner.street,
-                street_number=partner.street_number,
-                postal_code=partner.postal_code,
-                city=partner.city,
-            )
+        hq_addr = PartnerAddress(
+            address_type="headquarters",
+            related_partner_id=partner.id,
+            street=partner.street,
+            street_number=partner.street_number,
+            postal_code=partner.postal_code,
+            city=partner.city,
         )
+        stamp_tenant(hq_addr)
+        partner.addresses.append(hq_addr)
         db.session.commit()
         flash("Partner uložený.", "success")
         return redirect(url_for("partners.list_partners"))
