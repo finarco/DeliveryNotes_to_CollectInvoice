@@ -21,18 +21,20 @@ from typing import Optional
 
 from extensions import db
 from models import NumberingConfig, NumberSequence
+from services.tenant import get_current_tenant_id
 
 _TAG_RE = re.compile(r"\[([A-Z]+)\]")
 
 
-def _next_sequence(entity_type: str, scope_key: str) -> int:
+def _next_sequence(entity_type: str, scope_key: str, tenant_id: int) -> int:
     """Atomically increment and return the next sequence value."""
     seq = NumberSequence.query.filter_by(
-        entity_type=entity_type, scope_key=scope_key
+        tenant_id=tenant_id, entity_type=entity_type, scope_key=scope_key
     ).with_for_update().first()
     if not seq:
         seq = NumberSequence(
-            entity_type=entity_type, scope_key=scope_key, last_value=1
+            tenant_id=tenant_id, entity_type=entity_type,
+            scope_key=scope_key, last_value=1,
         )
         db.session.add(seq)
         db.session.flush()
@@ -55,7 +57,10 @@ def generate_number(
 
     Returns ``None`` when no pattern is configured.
     """
-    config = NumberingConfig.query.filter_by(entity_type=entity_type).first()
+    tid = get_current_tenant_id()
+    config = NumberingConfig.query.filter_by(
+        tenant_id=tid, entity_type=entity_type
+    ).first()
     if not config or not config.pattern:
         return None
 
@@ -121,7 +126,7 @@ def generate_number(
     # Resolve counter
     if counter_pos >= 0:
         scope_key = "-".join(scope_parts) if scope_parts else ""
-        seq = _next_sequence(entity_type, scope_key)
+        seq = _next_sequence(entity_type, scope_key, tid)
         result_parts[counter_pos] = str(seq).zfill(counter_digits)
 
     return "".join(p for p in result_parts if p is not None)

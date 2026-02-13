@@ -14,7 +14,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db, limiter
-from models import User
+from models import User, UserTenant
 from services.auth import get_current_user, login_required
 from utils import utc_now
 
@@ -52,6 +52,20 @@ def login():
             flash("Prihlásenie úspešné.", "success")
             if user.must_change_password:
                 return redirect(url_for("auth.change_password"))
+
+            # Auto-select tenant if user has exactly one, or pick default
+            memberships = UserTenant.query.filter_by(user_id=user.id).all()
+            if len(memberships) == 1:
+                session["active_tenant_id"] = memberships[0].tenant_id
+            elif memberships:
+                default = next(
+                    (m for m in memberships if m.is_default), None
+                )
+                if default:
+                    session["active_tenant_id"] = default.tenant_id
+                else:
+                    return redirect(url_for("tenant.select_tenant"))
+
             return redirect(url_for("dashboard.index"))
         flash("Nesprávne prihlasovacie údaje.", "danger")
     return render_template("login.html")
@@ -59,6 +73,12 @@ def login():
 
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
+    from services.audit import log_action
+    user = get_current_user()
+    if user:
+        log_action("logout", "user", user.id, "user logged out")
+        from extensions import db
+        db.session.commit()
     session.clear()
     return redirect(url_for("auth.login"))
 

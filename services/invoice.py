@@ -16,6 +16,7 @@ from models import (
     Partner,
 )
 from services.numbering import generate_number
+from services.tenant import require_tenant, stamp_tenant, tenant_query
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ def _fallback_invoice_number() -> str:
     year = datetime.datetime.now().year
     prefix = f"FV-{year}-"
     last = (
-        Invoice.query.filter(Invoice.invoice_number.like(f"{prefix}%"))
+        tenant_query(Invoice)
+        .filter(Invoice.invoice_number.like(f"{prefix}%"))
         .order_by(Invoice.invoice_number.desc())
         .first()
     )
@@ -52,12 +54,13 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
 
     Raises ``ValueError`` if no unbilled delivery notes exist.
     """
+    tid = require_tenant()
     partner = db.session.get(Partner, partner_id)
-    if not partner:
+    if not partner or partner.tenant_id != tid:
         raise ValueError("Partner neexistuje.")
 
     query = (
-        DeliveryNote.query.join(
+        tenant_query(DeliveryNote).join(
             DeliveryNoteOrder,
             DeliveryNote.id == DeliveryNoteOrder.delivery_note_id,
         )
@@ -81,6 +84,7 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
         invoice_number=invoice_number,
         status="draft",
     )
+    stamp_tenant(invoice)
     db.session.add(invoice)
 
     _Q2 = Decimal("0.01")
@@ -115,18 +119,18 @@ def build_invoice_for_partner(partner_id: int) -> Invoice:
             )
             line_total_with_vat = line_total + vat_amount
 
-            invoice.items.append(
-                InvoiceItem(
-                    source_delivery_id=note.id,
-                    description=description,
-                    quantity=item.quantity,
-                    unit_price=item.unit_price,
-                    total=line_total,
-                    vat_rate=vat_rate,
-                    vat_amount=vat_amount,
-                    total_with_vat=line_total_with_vat,
-                )
+            ii = InvoiceItem(
+                source_delivery_id=note.id,
+                description=description,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total=line_total,
+                vat_rate=vat_rate,
+                vat_amount=vat_amount,
+                total_with_vat=line_total_with_vat,
             )
+            stamp_tenant(ii)
+            invoice.items.append(ii)
             total += line_total
             total_with_vat += line_total_with_vat
         note.invoiced = True

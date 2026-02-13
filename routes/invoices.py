@@ -32,6 +32,7 @@ from services.invoice import generate_invoice_number
 from services.pdf import generate_invoice_pdf
 from superfaktura_client import SuperFakturaClient, SuperFakturaError
 from utils import safe_float, safe_int
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ invoices_bp = Blueprint("invoices", __name__)
 @role_required("manage_invoices")
 def partner_delivery_notes(partner_id: int):
     """Return uninvoiced delivery notes for a partner (respecting group_code)."""
-    partner = db.session.get(Partner, partner_id)
+    partner = tenant_query(Partner).filter_by(id=partner_id).first()
     if not partner:
         return jsonify([])
 
@@ -51,16 +52,16 @@ def partner_delivery_notes(partner_id: int):
     if partner.group_code:
         # Get all partner IDs in the same group
         group_partner_ids = [
-            p.id for p in Partner.query.filter_by(group_code=partner.group_code).all()
+            p.id for p in tenant_query(Partner).filter_by(group_code=partner.group_code).all()
         ]
         # DNs with direct partner_id
-        direct_query = DeliveryNote.query.filter(
+        direct_query = tenant_query(DeliveryNote).filter(
             DeliveryNote.partner_id.in_(group_partner_ids),
             DeliveryNote.invoiced.is_(False),
         )
         # DNs linked via orders (legacy)
         order_query = (
-            DeliveryNote.query
+            tenant_query(DeliveryNote)
             .join(DeliveryNoteOrder, DeliveryNote.id == DeliveryNoteOrder.delivery_note_id)
             .join(Order, DeliveryNoteOrder.order_id == Order.id)
             .join(Partner, Order.partner_id == Partner.id)
@@ -70,12 +71,12 @@ def partner_delivery_notes(partner_id: int):
         )
         unbilled_notes = direct_query.union(order_query).all()
     else:
-        direct_query = DeliveryNote.query.filter(
+        direct_query = tenant_query(DeliveryNote).filter(
             DeliveryNote.partner_id == partner_id,
             DeliveryNote.invoiced.is_(False),
         )
         order_query = (
-            DeliveryNote.query
+            tenant_query(DeliveryNote)
             .join(DeliveryNoteOrder, DeliveryNote.id == DeliveryNoteOrder.delivery_note_id)
             .join(Order, DeliveryNoteOrder.order_id == Order.id)
             .filter(Order.partner_id == partner_id)
@@ -128,16 +129,18 @@ def partner_delivery_notes(partner_id: int):
 @invoices_bp.route("/invoices", methods=["GET", "POST"])
 @role_required("manage_invoices")
 def list_invoices():
-    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
+    partners = tenant_query(Partner).filter_by(is_active=True, is_deleted=False).all()
     if request.method == "POST":
         partner_id = safe_int(request.form.get("partner_id"))
         if not partner_id:
             flash("Partner je povinný.", "danger")
             return redirect(url_for("invoices.list_invoices"))
+        # Verify partner belongs to current tenant
+        tenant_get_or_404(Partner, partner_id)
 
         dn_ids = request.form.getlist("delivery_note_ids")
         selected_dns = (
-            DeliveryNote.query.filter(DeliveryNote.id.in_(dn_ids)).all()
+            tenant_query(DeliveryNote).filter(DeliveryNote.id.in_(dn_ids)).all()
             if dn_ids else []
         )
 
@@ -147,6 +150,7 @@ def list_invoices():
             invoice_number=invoice_number,
             status="draft",
         )
+        stamp_tenant(invoice)
         db.session.add(invoice)
 
         _Q2 = Decimal("0.01")
@@ -181,7 +185,7 @@ def list_invoices():
                 )
                 line_total_with_vat = line_total + vat_amount
 
-                invoice.items.append(InvoiceItem(
+                ii = InvoiceItem(
                     source_delivery_id=source_dn_id,
                     description=description,
                     quantity=qty,
@@ -191,7 +195,9 @@ def list_invoices():
                     vat_amount=vat_amount,
                     total_with_vat=line_total_with_vat,
                     is_manual=is_manual,
-                ))
+                )
+                stamp_tenant(ii)
+                invoice.items.append(ii)
                 total += line_total
                 total_with_vat += line_total_with_vat
             idx += 1
@@ -218,10 +224,10 @@ def list_invoices():
         )
         return redirect(url_for("invoices.list_invoices"))
 
-    query = Invoice.query.order_by(Invoice.created_at.desc())
+    query = tenant_query(Invoice).order_by(Invoice.created_at.desc())
 
     # Calculate stats for dashboard
-    all_invoices = Invoice.query.all()
+    all_invoices = tenant_query(Invoice).all()
     total_revenue = sum(inv.total_with_vat or 0 for inv in all_invoices)
     paid_amount = sum(inv.total_with_vat or 0 for inv in all_invoices if inv.status == "paid")
     unpaid_amount = sum(inv.total_with_vat or 0 for inv in all_invoices if inv.status != "paid")
@@ -253,7 +259,7 @@ def list_invoices():
 @invoices_bp.route("/invoices/<int:invoice_id>/detail", methods=["GET"])
 @role_required("manage_invoices")
 def invoice_detail(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     items = []
     for item in invoice.items:
         items.append({
@@ -284,7 +290,7 @@ def invoice_detail(invoice_id: int):
 @invoices_bp.route("/invoices/<int:invoice_id>/edit", methods=["POST"])
 @role_required("manage_all")
 def edit_invoice(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     if invoice.is_locked:
         flash("Faktúra je uzamknutá.", "danger")
         return redirect(url_for("invoices.list_invoices"))
@@ -323,7 +329,7 @@ def edit_invoice(invoice_id: int):
                     _Q2, rounding=ROUND_HALF_UP
                 )
                 line_total_with_vat = line_total + vat_amount
-                invoice.items.append(InvoiceItem(
+                ii = InvoiceItem(
                     source_delivery_id=source_dn_id,
                     description=description,
                     quantity=qty,
@@ -333,7 +339,9 @@ def edit_invoice(invoice_id: int):
                     vat_amount=vat_amount,
                     total_with_vat=line_total_with_vat,
                     is_manual=is_manual,
-                ))
+                )
+                stamp_tenant(ii)
+                invoice.items.append(ii)
                 total += line_total
                 total_with_vat += line_total_with_vat
             idx += 1
@@ -348,7 +356,7 @@ def edit_invoice(invoice_id: int):
 @invoices_bp.route("/invoices/<int:invoice_id>/delete", methods=["POST"])
 @role_required("manage_all")
 def delete_invoice(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     if invoice.is_locked:
         flash("Faktúra je uzamknutá a nemôže byť vymazaná.", "danger")
         return redirect(url_for("invoices.list_invoices"))
@@ -364,7 +372,7 @@ def delete_invoice(invoice_id: int):
 )
 @role_required("manage_invoices")
 def add_invoice_item(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     description = request.form.get("description", "").strip()
     quantity = safe_int(request.form.get("quantity"), default=1)
     unit_price = safe_float(request.form.get("unit_price"))
@@ -373,18 +381,18 @@ def add_invoice_item(invoice_id: int):
     vat_amount = round(total * vat_rate / 100, 2)
     total_with_vat = round(total + vat_amount, 2)
 
-    invoice.items.append(
-        InvoiceItem(
-            description=description,
-            quantity=quantity,
-            unit_price=unit_price,
-            total=total,
-            vat_rate=vat_rate,
-            vat_amount=vat_amount,
-            total_with_vat=total_with_vat,
-            is_manual=True,
-        )
+    ii = InvoiceItem(
+        description=description,
+        quantity=quantity,
+        unit_price=unit_price,
+        total=total,
+        vat_rate=vat_rate,
+        vat_amount=vat_amount,
+        total_with_vat=total_with_vat,
+        is_manual=True,
     )
+    stamp_tenant(ii)
+    invoice.items.append(ii)
     invoice.total = float(invoice.total or 0) + total
     invoice.total_with_vat = float(invoice.total_with_vat or 0) + total_with_vat
     db.session.commit()
@@ -397,7 +405,7 @@ def add_invoice_item(invoice_id: int):
 @invoices_bp.route("/invoices/<int:invoice_id>/pdf")
 @role_required("manage_invoices")
 def invoice_pdf(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     app_cfg = current_app.config["APP_CONFIG"]
     pdf_path = generate_invoice_pdf(invoice, app_cfg)
     return send_file(pdf_path, as_attachment=True)
@@ -408,7 +416,7 @@ def invoice_pdf(invoice_id: int):
 )
 @role_required("manage_invoices")
 def send_invoice(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     app_cfg = current_app.config["APP_CONFIG"]
     email_cfg = current_app.config["EMAIL_CONFIG"]
     pdf_path = generate_invoice_pdf(invoice, app_cfg)
@@ -443,7 +451,7 @@ def send_invoice(invoice_id: int):
 )
 @role_required("manage_invoices")
 def export_invoice(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     sf_cfg = current_app.config["SF_CONFIG"]
     if not sf_cfg.enabled:
         flash("Superfaktúra API nie je zapnutá.", "warning")

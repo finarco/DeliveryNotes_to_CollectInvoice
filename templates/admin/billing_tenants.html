@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Predplatné organizácií{% endblock %}
+{% block content %}
+<div class="content-area">
+  <div class="page-header">
+    <h1>Predplatné organizácií</h1>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <table class="table">
+    <thead>
+      <tr><th>Organizácia</th><th>Plán</th><th>Stav</th><th>Obdobie do</th><th>Trial do</th><th>Akcie</th></tr>
+    </thead>
+    <tbody>
+    {% for tenant in tenants %}
+    {% set sub = subscriptions.get(tenant.id) %}
+    <tr>
+      <td>{{ tenant.name }}</td>
+      <td>{{ sub.plan.name if sub and sub.plan else '-' }}</td>
+      <td>
+        {% if sub %}
+        <span class="badge {% if sub.status == 'active' %}bg-success{% elif sub.status == 'trial' %}bg-info{% elif sub.status == 'suspended' %}bg-danger{% else %}bg-warning{% endif %}">
+          {{ sub.status }}
+        </span>
+        {% else %}
+        <span class="badge bg-secondary">Žiadne</span>
+        {% endif %}
+      </td>
+      <td>{{ sub.current_period_end.strftime('%d.%m.%Y') if sub and sub.current_period_end else '-' }}</td>
+      <td>{{ sub.trial_ends_at.strftime('%d.%m.%Y') if sub and sub.trial_ends_at else '-' }}</td>
+      <td>
+        {% if sub and sub.status == 'trial' %}
+        <form method="post" action="{{ url_for('billing.admin_extend_trial', tenant_id=tenant.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="number" name="extra_days" value="30" style="width: 60px" class="form-control form-control-sm d-inline-block">
+          <button type="submit" class="btn btn-sm btn-outline-info">Predĺžiť trial</button>
+        </form>
+        <form method="post" action="{{ url_for('billing.admin_reset_trial', tenant_id=tenant.id) }}" class="d-inline ms-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-sm btn-outline-warning">Reset trial</button>
+        </form>
+        {% endif %}
+        <form method="post" action="{{ url_for('billing.admin_record_payment', tenant_id=tenant.id) }}" class="d-inline ms-1">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="number" name="amount" placeholder="Suma" step="0.01" style="width: 80px" class="form-control form-control-sm d-inline-block">
+          <select name="payment_method" class="form-select form-select-sm d-inline-block" style="width: auto">
+            <option value="manual">Manuálne</option>
+            <option value="bank_transfer">Bankový prevod</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-outline-success">Zaznamenať platbu</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

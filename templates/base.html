@@ -72,6 +72,14 @@
 
     {# Content Area #}
     <div class="content-area">
+      {# Billing Warning Banner #}
+      {% if subscription_warning %}
+      <div class="alert alert-warning" style="display: flex; align-items: center; justify-content: space-between;">
+        <span>{{ subscription_warning }}</span>
+        <a href="{{ url_for('billing.status') }}" class="btn btn-sm" style="margin-left: 1rem;">Zobraziť predplatné</a>
+      </div>
+      {% endif %}
+
       {# Flash Messages #}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

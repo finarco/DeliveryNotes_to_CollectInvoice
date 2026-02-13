@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Správa plánov{% endblock %}
+{% block content %}
+<div class="content-area">
+  <div class="page-header">
+    <h1>Správa predplatných plánov</h1>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr><th>Názov</th><th>Slug</th><th>Mesačne</th><th>Ročne</th><th>Používatelia</th><th>Partneri</th><th>Faktúry/mes</th><th>Aktívny</th></tr>
+    </thead>
+    <tbody>
+    {% for plan in plans %}
+    <tr>
+      <td>{{ plan.name }}</td>
+      <td>{{ plan.slug }}</td>
+      <td>{{ plan.price_monthly }} EUR</td>
+      <td>{{ plan.price_yearly }} EUR</td>
+      <td>{{ 'neobm.' if plan.max_users == 0 else plan.max_users }}</td>
+      <td>{{ 'neobm.' if plan.max_partners == 0 else plan.max_partners }}</td>
+      <td>{{ 'neobm.' if plan.max_invoices_per_month == 0 else plan.max_invoices_per_month }}</td>
+      <td>{{ 'Áno' if plan.is_active else 'Nie' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h4>Pridať nový plán</h4>
+  <form method="post" action="{{ url_for('billing.admin_plans') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-2">
+      <div class="col-md-3"><input type="text" name="name" class="form-control" placeholder="Názov" required></div>
+      <div class="col-md-2"><input type="text" name="slug" class="form-control" placeholder="slug" required></div>
+      <div class="col-md-2"><input type="number" name="price_monthly" class="form-control" placeholder="Mesačne EUR" step="0.01"></div>
+      <div class="col-md-2"><input type="number" name="price_yearly" class="form-control" placeholder="Ročne EUR" step="0.01"></div>
+      <div class="col-md-1"><input type="number" name="max_users" class="form-control" placeholder="Max použ." value="0"></div>
+      <div class="col-md-1"><input type="number" name="max_partners" class="form-control" placeholder="Max part." value="0"></div>
+      <div class="col-md-1"><button type="submit" class="btn btn-primary w-100">Pridať</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

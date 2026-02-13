@@ -10,6 +10,7 @@ from services.audit import log_action
 from services.auth import get_current_user, role_required
 from services.numbering import generate_number
 from utils import parse_datetime, safe_int
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 orders_bp = Blueprint("orders", __name__)
 
@@ -17,7 +18,7 @@ orders_bp = Blueprint("orders", __name__)
 @orders_bp.route("/orders/partner-addresses/<int:partner_id>", methods=["GET"])
 @role_required("manage_orders")
 def partner_addresses(partner_id: int):
-    addresses = PartnerAddress.query.filter_by(partner_id=partner_id).all()
+    addresses = tenant_query(PartnerAddress).filter_by(partner_id=partner_id).all()
     return jsonify([
         {
             "id": a.id,
@@ -30,24 +31,31 @@ def partner_addresses(partner_id: int):
 @orders_bp.route("/orders", methods=["GET", "POST"])
 @role_required("manage_orders")
 def list_orders():
-    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
-    products = Product.query.filter_by(is_active=True).all()
-    bundles = Bundle.query.filter_by(is_active=True).all()
+    partners = tenant_query(Partner).filter_by(is_active=True, is_deleted=False).all()
+    products = tenant_query(Product).filter_by(is_active=True).all()
+    bundles = tenant_query(Bundle).filter_by(is_active=True).all()
 
     if request.method == "POST":
         partner_id = safe_int(request.form.get("partner_id"))
         if not partner_id:
             flash("Partner je povinný.", "danger")
             return redirect(url_for("orders.list_orders"))
+        # Verify partner belongs to current tenant
+        tenant_get_or_404(Partner, partner_id)
         show_prices = request.form.get("show_prices") == "on"
-        pickup_address_id = request.form.get("pickup_address_id")
-        delivery_address_id = request.form.get("delivery_address_id")
+        pickup_address_id = safe_int(request.form.get("pickup_address_id")) or None
+        delivery_address_id = safe_int(request.form.get("delivery_address_id")) or None
+        # Verify addresses belong to current tenant
+        if pickup_address_id:
+            tenant_get_or_404(PartnerAddress, pickup_address_id)
+        if delivery_address_id:
+            tenant_get_or_404(PartnerAddress, delivery_address_id)
 
         user = get_current_user()
         order = Order(
             partner_id=partner_id,
-            pickup_address_id=safe_int(pickup_address_id) or None,
-            delivery_address_id=safe_int(delivery_address_id) or None,
+            pickup_address_id=pickup_address_id,
+            delivery_address_id=delivery_address_id,
             created_by_id=user.id,
             pickup_datetime=parse_datetime(
                 request.form.get("pickup_datetime")
@@ -61,6 +69,7 @@ def list_orders():
             payment_terms=request.form.get("payment_terms", ""),
             show_prices=show_prices,
         )
+        stamp_tenant(order)
         db.session.add(order)
         db.session.flush()
         order.order_number = generate_number(
@@ -82,29 +91,28 @@ def list_orders():
                 if item_type == "product":
                     pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                     if pid:
-                        order.items.append(OrderItem(
-                            product_id=pid, quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(product_id=pid, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
                 elif item_type == "bundle":
                     bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                     if bid:
-                        order.items.append(OrderItem(
-                            bundle_id=bid, quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(bundle_id=bid, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
                 elif item_type == "manual":
                     name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                     if name:
-                        order.items.append(OrderItem(
-                            is_manual=True, manual_name=name,
-                            quantity=qty, unit_price=unit_price,
-                        ))
+                        oi = OrderItem(is_manual=True, manual_name=name, quantity=qty, unit_price=unit_price)
+                        stamp_tenant(oi)
+                        order.items.append(oi)
             idx += 1
         log_action("create", "order", order.id, f"partner={partner_id}")
         db.session.commit()
         flash("Objednávka vytvorená.", "success")
         return redirect(url_for("orders.list_orders"))
 
-    query = Order.query.order_by(Order.created_at.desc())
+    query = tenant_query(Order).order_by(Order.created_at.desc())
 
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
@@ -127,7 +135,7 @@ def list_orders():
 @orders_bp.route("/orders/<int:order_id>/detail", methods=["GET"])
 @role_required("manage_orders")
 def order_detail(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     items = []
     for item in order.items:
         if item.product:
@@ -174,7 +182,7 @@ def order_detail(order_id: int):
 @orders_bp.route("/orders/<int:order_id>/edit", methods=["POST"])
 @role_required("manage_orders")
 def edit_order(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     if order.is_locked:
         flash("Objednávka je uzamknutá.", "danger")
         return redirect(url_for("orders.list_orders"))
@@ -205,22 +213,21 @@ def edit_order(order_id: int):
             if item_type == "product":
                 pid = safe_int(request.form.get(f"items[{idx}][product_id]"))
                 if pid:
-                    order.items.append(OrderItem(
-                        product_id=pid, quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(product_id=pid, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
             elif item_type == "bundle":
                 bid = safe_int(request.form.get(f"items[{idx}][bundle_id]"))
                 if bid:
-                    order.items.append(OrderItem(
-                        bundle_id=bid, quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(bundle_id=bid, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
             elif item_type == "manual":
                 name = request.form.get(f"items[{idx}][manual_name]", "").strip()
                 if name:
-                    order.items.append(OrderItem(
-                        is_manual=True, manual_name=name,
-                        quantity=qty, unit_price=unit_price,
-                    ))
+                    oi = OrderItem(is_manual=True, manual_name=name, quantity=qty, unit_price=unit_price)
+                    stamp_tenant(oi)
+                    order.items.append(oi)
         idx += 1
     log_action("edit", "order", order.id, "updated")
     db.session.commit()
@@ -231,14 +238,14 @@ def edit_order(order_id: int):
 @orders_bp.route("/orders/<int:order_id>/delete", methods=["POST"])
 @role_required("manage_orders")
 def delete_order(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     if order.is_locked:
         flash("Objednávka je uzamknutá a nemôže byť vymazaná.", "danger")
         return redirect(url_for("orders.list_orders"))
     if order.delivery_note_links:
         flash("Objednávka má priradený dodací list a nemôže byť vymazaná.", "danger")
         return redirect(url_for("orders.list_orders"))
-    if LogisticsPlan.query.filter_by(order_id=order.id).first():
+    if tenant_query(LogisticsPlan).filter_by(order_id=order.id).first():
         flash("Objednávka má priradený logistický plán a nemôže byť vymazaná.", "danger")
         return redirect(url_for("orders.list_orders"))
     log_action("delete", "order", order.id, f"deleted order #{order.id}")
@@ -253,7 +260,7 @@ def delete_order(order_id: int):
 )
 @role_required("manage_orders")
 def confirm_order(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     order.confirmed = True
     log_action("confirm", "order", order.id, "confirmed")
     db.session.commit()
@@ -266,7 +273,7 @@ def confirm_order(order_id: int):
 )
 @role_required("manage_all")
 def unconfirm_order(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     order.confirmed = False
     log_action("unconfirm", "order", order.id, "unconfirmed")
     db.session.commit()

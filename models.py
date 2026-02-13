@@ -20,6 +20,33 @@ VALID_ROLES = list(ROLE_PERMISSIONS.keys())
 
 
 # ---------------------------------------------------------------------------
+# Tenant
+# ---------------------------------------------------------------------------
+
+class Tenant(db.Model):
+    """A tenant represents an isolated business entity (company/organization)."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    slug = db.Column(db.String(60), unique=True, nullable=False)
+    ico = db.Column(db.String(20))
+    dic = db.Column(db.String(20))
+    ic_dph = db.Column(db.String(20))
+    street = db.Column(db.String(120))
+    city = db.Column(db.String(120))
+    postal_code = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(60))
+    billing_email = db.Column(db.String(120))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    user_memberships = db.relationship(
+        "UserTenant", backref="tenant", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
 # User
 # ---------------------------------------------------------------------------
 
@@ -30,12 +57,32 @@ class User(db.Model):
     role = db.Column(db.String(30), nullable=False, default="operator")
     must_change_password = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_superadmin = db.Column(db.Boolean, default=False)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
     password_changed_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
 
     partner = db.relationship("Partner", foreign_keys=[partner_id])
+    tenant_memberships = db.relationship(
+        "UserTenant", backref="user", cascade="all, delete-orphan"
+    )
+
+
+class UserTenant(db.Model):
+    """Associates users with tenants, optionally overriding the user's global role."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), nullable=False)
+    role_override = db.Column(db.String(30))
+    is_default = db.Column(db.Boolean, default=False)
+
+    # tenant = backref from Tenant.user_memberships
+    # user = backref from User.tenant_memberships
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "tenant_id", name="uq_user_tenant"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +91,7 @@ class User(db.Model):
 
 class Partner(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     name = db.Column(db.String(120), nullable=False)
     note = db.Column(db.String(255))
     street = db.Column(db.String(120))
@@ -79,6 +127,7 @@ class Partner(db.Model):
 
 class PartnerAddress(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     address_type = db.Column(db.String(40), nullable=False)
     related_partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
@@ -92,6 +141,7 @@ class PartnerAddress(db.Model):
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120))
@@ -107,6 +157,7 @@ class Contact(db.Model):
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     product_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     description = db.Column(db.String(255))
@@ -126,6 +177,7 @@ class Product(db.Model):
 
 class ProductPriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
@@ -133,6 +185,7 @@ class ProductPriceHistory(db.Model):
 
 class Bundle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     bundle_number = db.Column(db.String(60))
     name = db.Column(db.String(120), nullable=False)
     bundle_price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
@@ -149,6 +202,7 @@ class Bundle(db.Model):
 
 class BundlePriceHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"), nullable=False)
     price = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
     changed_at = db.Column(db.DateTime, default=utc_now)
@@ -156,6 +210,7 @@ class BundlePriceHistory(db.Model):
 
 class BundleItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
@@ -165,6 +220,7 @@ class BundleItem(db.Model):
 
 class ProductRestriction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
     restricted_with_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
 
@@ -178,6 +234,7 @@ class ProductRestriction(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     order_number = db.Column(db.String(60))
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     pickup_address_id = db.Column(db.Integer, db.ForeignKey("partner_address.id"))
@@ -227,6 +284,7 @@ class Order(db.Model):
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey("product.id"))
     bundle_id = db.Column(db.Integer, db.ForeignKey("bundle.id"))
@@ -252,6 +310,7 @@ class OrderItem(db.Model):
 
 class DeliveryNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     note_number = db.Column(db.String(60))
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"))
     primary_order_id = db.Column(db.Integer, db.ForeignKey("order.id"), index=True)
@@ -293,6 +352,7 @@ class DeliveryNote(db.Model):
 
 class DeliveryNoteOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     delivery_note_id = db.Column(
         db.Integer, db.ForeignKey("delivery_note.id"), nullable=False
     )
@@ -303,6 +363,7 @@ class DeliveryNoteOrder(db.Model):
 
 class DeliveryItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     delivery_note_id = db.Column(
         db.Integer, db.ForeignKey("delivery_note.id"), nullable=False
     )
@@ -330,6 +391,7 @@ class DeliveryItem(db.Model):
 
 class DeliveryItemComponent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     delivery_item_id = db.Column(
         db.Integer, db.ForeignKey("delivery_item.id"), nullable=False
     )
@@ -345,8 +407,9 @@ class DeliveryItemComponent(db.Model):
 
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     name = db.Column(db.String(120), nullable=False)
-    registration_number = db.Column(db.String(20), unique=True)
+    registration_number = db.Column(db.String(20))
     notes = db.Column(db.String(255))
     active = db.Column(db.Boolean, default=True)
 
@@ -354,9 +417,14 @@ class Vehicle(db.Model):
         "VehicleSchedule", backref="vehicle", cascade="all, delete-orphan"
     )
 
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "registration_number", name="uq_vehicle_reg_tenant"),
+    )
+
 
 class VehicleSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     vehicle_id = db.Column(db.Integer, db.ForeignKey("vehicle.id"), nullable=False)
     day_of_week = db.Column(db.Integer, nullable=False)  # 0=Mon
     start_time = db.Column(db.Time, nullable=False)
@@ -365,6 +433,7 @@ class VehicleSchedule(db.Model):
 
 class LogisticsPlan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     order_id = db.Column(db.Integer, db.ForeignKey("order.id"))
     delivery_note_id = db.Column(db.Integer, db.ForeignKey("delivery_note.id"))
     plan_type = db.Column(db.String(40), nullable=False)  # pickup / delivery
@@ -382,6 +451,7 @@ class LogisticsPlan(db.Model):
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
     action = db.Column(db.String(80), nullable=False)
     entity_type = db.Column(db.String(80), nullable=False)
@@ -398,41 +468,48 @@ class AuditLog(db.Model):
 
 
 # ---------------------------------------------------------------------------
-# Invoices
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
 # Application settings
 # ---------------------------------------------------------------------------
 
 class AppSetting(db.Model):
-    """Key-value store for application-wide settings."""
+    """Key-value store for per-tenant settings (tenant_id=NULL for global)."""
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(80), unique=True, nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
+    key = db.Column(db.String(80), nullable=False)
     value = db.Column(db.Text)
+
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "key", name="uq_app_setting_tenant_key"),
+    )
 
 
 class NumberingConfig(db.Model):
-    """Tag-based numbering pattern per entity type.
+    """Tag-based numbering pattern per entity type per tenant.
 
     Pattern example: ``DL[YY][MM]-[CCCC]`` -> ``DL2601-0001``
     Tags: [YYYY] [YY] [MM] [DD] [PARTNER] [TYPE] [C+]
     Counter resets when preceding scope-tags change.
     """
     id = db.Column(db.Integer, primary_key=True)
-    entity_type = db.Column(db.String(40), unique=True, nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
+    entity_type = db.Column(db.String(40), nullable=False)
     pattern = db.Column(db.String(120), default="")
+
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "entity_type", name="uq_numbering_config_tenant"),
+    )
 
 
 class NumberSequence(db.Model):
-    """Sequence counters per entity type and scope."""
+    """Sequence counters per entity type, scope, and tenant."""
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     entity_type = db.Column(db.String(40), nullable=False)
     scope_key = db.Column(db.String(120), default="")
     last_value = db.Column(db.Integer, default=0)
 
     __table_args__ = (
-        db.UniqueConstraint("entity_type", "scope_key", name="uq_number_sequence"),
+        db.UniqueConstraint("tenant_id", "entity_type", "scope_key", name="uq_number_sequence"),
     )
 
 
@@ -445,7 +522,8 @@ VALID_INVOICE_STATUSES = {"draft", "sent", "paid", "error"}
 
 class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    invoice_number = db.Column(db.String(30), unique=True)  # D6: FV-2026-0001
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
+    invoice_number = db.Column(db.String(30))
     partner_id = db.Column(db.Integer, db.ForeignKey("partner.id"), nullable=False)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
@@ -460,11 +538,13 @@ class Invoice(db.Model):
     __table_args__ = (
         db.Index("ix_invoice_status", "status"),
         db.Index("ix_invoice_partner_id", "partner_id"),
+        db.UniqueConstraint("tenant_id", "invoice_number", name="uq_invoice_number_tenant"),
     )
 
 
 class InvoiceItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey("invoice.id"), nullable=False)
     source_delivery_id = db.Column(db.Integer, db.ForeignKey("delivery_note.id"))
     description = db.Column(db.String(255), nullable=False)
@@ -482,8 +562,86 @@ class InvoiceItem(db.Model):
 # ---------------------------------------------------------------------------
 
 class PdfTemplate(db.Model):
-    """Admin-editable HTML/CSS templates for PDF generation."""
+    """Admin-editable HTML/CSS templates for PDF generation, per tenant."""
     id = db.Column(db.Integer, primary_key=True)
-    entity_type = db.Column(db.String(40), unique=True, nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), index=True)
+    entity_type = db.Column(db.String(40), nullable=False)
     html_content = db.Column(db.Text, default="")
     css_content = db.Column(db.Text, default="")
+
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "entity_type", name="uq_pdf_template_tenant"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Subscription billing
+# ---------------------------------------------------------------------------
+
+VALID_SUBSCRIPTION_STATUSES = {"trial", "active", "past_due", "grace_period", "suspended", "cancelled"}
+VALID_BILLING_CYCLES = {"monthly", "yearly"}
+VALID_PAYMENT_METHODS = {"stripe", "bank_transfer", "manual"}
+VALID_PAYMENT_STATUSES = {"pending", "completed", "failed", "refunded"}
+
+
+class SubscriptionPlan(db.Model):
+    """Defines available subscription tiers (e.g., Free, Basic, Pro)."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(60), nullable=False)
+    slug = db.Column(db.String(60), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    price_monthly = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
+    price_yearly = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
+    currency = db.Column(db.String(10), default="EUR")
+    max_users = db.Column(db.Integer, default=0)  # 0 = unlimited
+    max_partners = db.Column(db.Integer, default=0)
+    max_invoices_per_month = db.Column(db.Integer, default=0)
+    features = db.Column(db.Text)  # JSON string for feature flags
+    is_active = db.Column(db.Boolean, default=True)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+
+class TenantSubscription(db.Model):
+    """Links a tenant to its active subscription plan."""
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), unique=True, nullable=False)
+    plan_id = db.Column(db.Integer, db.ForeignKey("subscription_plan.id"), nullable=False)
+    status = db.Column(db.String(30), default="trial")
+    billing_cycle = db.Column(db.String(20), default="monthly")
+    current_period_start = db.Column(db.DateTime)
+    current_period_end = db.Column(db.DateTime)
+    trial_ends_at = db.Column(db.DateTime)
+    trial_extended_by_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    trial_extended_at = db.Column(db.DateTime)
+    original_trial_days = db.Column(db.Integer, default=30)
+    grace_period_ends_at = db.Column(db.DateTime)
+    cancelled_at = db.Column(db.DateTime)
+    stripe_customer_id = db.Column(db.String(120))
+    stripe_subscription_id = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime, default=utc_now)
+    updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    tenant = db.relationship("Tenant", backref=db.backref("subscription", uselist=False))
+    plan = db.relationship("SubscriptionPlan")
+    trial_extended_by = db.relationship("User", foreign_keys=[trial_extended_by_id])
+
+
+class Payment(db.Model):
+    """Tracks every payment event for a tenant subscription."""
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenant.id"), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey("tenant_subscription.id"))
+    amount = db.Column(db.Numeric(10, 2, asdecimal=True), nullable=False)
+    currency = db.Column(db.String(10), default="EUR")
+    payment_method = db.Column(db.String(30), nullable=False)
+    status = db.Column(db.String(30), default="pending")
+    stripe_payment_intent_id = db.Column(db.String(120))
+    bank_reference = db.Column(db.String(120))
+    invoice_url = db.Column(db.String(255))
+    paid_at = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=utc_now)
+
+    tenant = db.relationship("Tenant")
+    subscription = db.relationship("TenantSubscription")
