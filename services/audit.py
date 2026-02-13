@@ -7,6 +7,7 @@ from typing import Optional
 from extensions import db
 from models import AuditLog
 from services.auth import get_current_user
+from services.tenant import get_current_tenant_id
 
 
 def log_action(
@@ -23,6 +24,7 @@ def log_action(
     user = get_current_user()
     db.session.add(
         AuditLog(
+            tenant_id=get_current_tenant_id(),
             user_id=user.id if user else None,
             action=action,
             entity_type=entity_type,

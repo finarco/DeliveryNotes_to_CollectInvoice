@@ -33,6 +33,7 @@ from services.auth import get_current_user, role_required
 from services.numbering import generate_number
 from services.pdf import generate_delivery_pdf
 from utils import parse_datetime, safe_int, utc_now
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 delivery_bp = Blueprint("delivery", __name__)
 
@@ -47,7 +48,7 @@ def partner_orders(partner_id: int):
 
     # Build query for confirmed orders without delivery notes
     query = (
-        Order.query
+        tenant_query(Order)
         .join(Partner, Order.partner_id == Partner.id)
         .filter(Order.confirmed.is_(True))
         .outerjoin(DeliveryNoteOrder, Order.id == DeliveryNoteOrder.order_id)
@@ -95,9 +96,9 @@ def partner_orders(partner_id: int):
 @delivery_bp.route("/delivery-notes", methods=["GET", "POST"])
 @role_required("manage_delivery")
 def list_delivery_notes():
-    partners = Partner.query.filter_by(is_active=True, is_deleted=False).all()
-    products = Product.query.filter_by(is_active=True).all()
-    bundles = Bundle.query.filter_by(is_active=True).all()
+    partners = tenant_query(Partner).filter_by(is_active=True, is_deleted=False).all()
+    products = tenant_query(Product).filter_by(is_active=True).all()
+    bundles = tenant_query(Bundle).filter_by(is_active=True).all()
 
     if request.method == "POST":
         partner_id = safe_int(request.form.get("partner_id"))
@@ -108,7 +109,7 @@ def list_delivery_notes():
         user = get_current_user()
         order_ids = request.form.getlist("order_ids")
         selected_orders = (
-            Order.query.filter(Order.id.in_(order_ids)).all() if order_ids else []
+            tenant_query(Order).filter(Order.id.in_(order_ids)).all() if order_ids else []
         )
 
         delivery = DeliveryNote(
@@ -120,6 +121,7 @@ def list_delivery_notes():
                 request.form.get("planned_delivery_datetime")
             ),
         )
+        stamp_tenant(delivery)
         db.session.add(delivery)
         db.session.flush()
         delivery.note_number = generate_number(
@@ -218,7 +220,7 @@ def list_delivery_notes():
         flash("Dodací list vytvorený.", "success")
         return redirect(url_for("delivery.list_delivery_notes"))
 
-    query = DeliveryNote.query.order_by(DeliveryNote.created_at.desc())
+    query = tenant_query(DeliveryNote).order_by(DeliveryNote.created_at.desc())
 
     page = max(1, safe_int(request.args.get("page"), default=1))
     per_page = 20
@@ -256,7 +258,7 @@ def list_delivery_notes():
 @delivery_bp.route("/delivery-notes/<int:delivery_id>/detail", methods=["GET"])
 @role_required("manage_delivery")
 def delivery_detail(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     items = []
     for item in delivery.items:
         if item.product:
@@ -310,7 +312,7 @@ def delivery_detail(delivery_id: int):
 @delivery_bp.route("/delivery-notes/<int:delivery_id>/edit", methods=["POST"])
 @role_required("manage_delivery")
 def edit_delivery(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     if delivery.is_locked:
         flash("Dodací list je uzamknutý.", "danger")
         return redirect(url_for("delivery.list_delivery_notes"))
@@ -412,7 +414,7 @@ def edit_delivery(delivery_id: int):
 @delivery_bp.route("/delivery-notes/<int:delivery_id>/delete", methods=["POST"])
 @role_required("manage_delivery")
 def delete_delivery(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     if delivery.is_locked:
         flash("Dodací list je uzamknutý a nemôže byť vymazaný.", "danger")
         return redirect(url_for("delivery.list_delivery_notes"))
@@ -431,7 +433,7 @@ def delete_delivery(delivery_id: int):
 )
 @role_required("manage_delivery")
 def confirm_delivery(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     delivery.confirmed = True
     delivery.actual_delivery_datetime = utc_now()
     log_action("confirm", "delivery_note", delivery.id, "confirmed")
@@ -445,7 +447,7 @@ def confirm_delivery(delivery_id: int):
 )
 @role_required("manage_all")
 def unconfirm_delivery(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     delivery.confirmed = False
     log_action("unconfirm", "delivery_note", delivery.id, "unconfirmed")
     db.session.commit()
@@ -456,7 +458,7 @@ def unconfirm_delivery(delivery_id: int):
 @delivery_bp.route("/delivery-notes/<int:delivery_id>/pdf")
 @role_required("manage_delivery")
 def delivery_pdf(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     app_cfg = current_app.config["APP_CONFIG"]
     pdf_path = generate_delivery_pdf(delivery, app_cfg)
     return send_file(pdf_path, as_attachment=True)

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Výber plánu{% endblock %}
+{% block content %}
+<div class="content-area">
+  <div class="page-header">
+    <h1>Výber plánu</h1>
+  </div>
+  <div class="row g-4">
+    {% for plan in plans %}
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <h4>{{ plan.name }}</h4>
+          <p>{{ plan.description }}</p>
+          <h2>{{ plan.price_monthly }} EUR<small class="text-muted">/mesiac</small></h2>
+          <form method="post" action="{{ url_for('billing.subscribe') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plan_id" value="{{ plan.id }}">
+            <input type="hidden" name="billing_cycle" value="monthly">
+            <button type="submit" class="btn btn-primary mt-3">Vybrať</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -17,6 +17,7 @@ from services.audit import log_action
 from services.auth import role_required
 from services.numbering import generate_number
 from utils import safe_float, safe_int
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 products_bp = Blueprint("products", __name__)
 
@@ -35,6 +36,7 @@ def list_products():
             is_service=request.form.get("is_service") == "on",
             discount_excluded=request.form.get("discount_excluded") == "on",
         )
+        stamp_tenant(product)
         db.session.add(product)
         db.session.flush()
         product.product_number = generate_number(
@@ -44,13 +46,13 @@ def list_products():
         db.session.commit()
         flash("Produkt uložený.", "success")
         return redirect(url_for("products.list_products"))
-    return render_template("products.html", products=Product.query.all())
+    return render_template("products.html", products=tenant_query(Product).all())
 
 
 @products_bp.route("/products/<int:product_id>/toggle", methods=["POST"])
 @role_required("manage_orders")
 def toggle_product(product_id: int):
-    product = db.get_or_404(Product, product_id)
+    product = tenant_get_or_404(Product, product_id)
     product.is_active = not product.is_active
     action = "activate" if product.is_active else "deactivate"
     log_action(action, "product", product.id, f"is_active={product.is_active}")
@@ -63,7 +65,7 @@ def toggle_product(product_id: int):
 @products_bp.route("/products/<int:product_id>/edit", methods=["POST"])
 @role_required("manage_orders")
 def edit_product(product_id: int):
-    product = db.get_or_404(Product, product_id)
+    product = tenant_get_or_404(Product, product_id)
     product.name = request.form.get("name", "").strip() or product.name
     product.description = request.form.get("description", "")
     product.long_text = request.form.get("long_text", "")
@@ -83,11 +85,11 @@ def edit_product(product_id: int):
 @products_bp.route("/products/<int:product_id>/delete", methods=["POST"])
 @role_required("manage_orders")
 def delete_product(product_id: int):
-    product = db.get_or_404(Product, product_id)
+    product = tenant_get_or_404(Product, product_id)
     # Block deletion if the product is referenced in orders, deliveries, or bundles
-    in_orders = OrderItem.query.filter_by(product_id=product.id).first()
-    in_deliveries = DeliveryItem.query.filter_by(product_id=product.id).first()
-    in_bundles = BundleItem.query.filter_by(product_id=product.id).first()
+    in_orders = tenant_query(OrderItem).filter_by(product_id=product.id).first()
+    in_deliveries = tenant_query(DeliveryItem).filter_by(product_id=product.id).first()
+    in_bundles = tenant_query(BundleItem).filter_by(product_id=product.id).first()
     if in_orders or in_deliveries or in_bundles:
         refs = []
         if in_orders:
@@ -104,7 +106,7 @@ def delete_product(product_id: int):
         return redirect(url_for("products.list_products"))
     name = product.name
     # Clean up restrictions referencing this product
-    ProductRestriction.query.filter(
+    tenant_query(ProductRestriction).filter(
         (ProductRestriction.product_id == product.id)
         | (ProductRestriction.restricted_with_id == product.id)
     ).delete(synchronize_session="fetch")
@@ -118,7 +120,7 @@ def delete_product(product_id: int):
 @products_bp.route("/bundles", methods=["GET", "POST"])
 @role_required("manage_orders")
 def list_bundles():
-    all_products = Product.query.all()
+    all_products = tenant_query(Product).all()
     if request.method == "POST":
         bundle_price = safe_float(request.form.get("bundle_price"))
         bundle = Bundle(
@@ -126,6 +128,7 @@ def list_bundles():
             bundle_price=bundle_price,
             discount_excluded=request.form.get("discount_excluded") == "on",
         )
+        stamp_tenant(bundle)
         db.session.add(bundle)
         db.session.flush()
         bundle.bundle_number = generate_number("bundle")
@@ -141,7 +144,7 @@ def list_bundles():
         return redirect(url_for("products.list_bundles"))
     return render_template(
         "bundles.html",
-        bundles=Bundle.query.order_by(Bundle.id.desc()).all(),
+        bundles=tenant_query(Bundle).order_by(Bundle.id.desc()).all(),
         products=all_products,
     )
 
@@ -149,7 +152,7 @@ def list_bundles():
 @products_bp.route("/bundles/<int:bundle_id>/toggle", methods=["POST"])
 @role_required("manage_orders")
 def toggle_bundle(bundle_id: int):
-    bundle = db.get_or_404(Bundle, bundle_id)
+    bundle = tenant_get_or_404(Bundle, bundle_id)
     bundle.is_active = not bundle.is_active
     action = "activate" if bundle.is_active else "deactivate"
     log_action(action, "bundle", bundle.id, f"is_active={bundle.is_active}")
@@ -162,7 +165,7 @@ def toggle_bundle(bundle_id: int):
 @products_bp.route("/bundles/<int:bundle_id>/edit", methods=["POST"])
 @role_required("manage_orders")
 def edit_bundle(bundle_id: int):
-    bundle = db.get_or_404(Bundle, bundle_id)
+    bundle = tenant_get_or_404(Bundle, bundle_id)
     bundle.name = request.form.get("name", "").strip() or bundle.name
     new_price = safe_float(request.form.get("bundle_price"))
     if new_price != bundle.bundle_price:
@@ -178,9 +181,9 @@ def edit_bundle(bundle_id: int):
 @products_bp.route("/bundles/<int:bundle_id>/delete", methods=["POST"])
 @role_required("manage_orders")
 def delete_bundle(bundle_id: int):
-    bundle = db.get_or_404(Bundle, bundle_id)
+    bundle = tenant_get_or_404(Bundle, bundle_id)
     # Block deletion if the bundle is referenced in deliveries
-    in_deliveries = DeliveryItem.query.filter_by(bundle_id=bundle.id).first()
+    in_deliveries = tenant_query(DeliveryItem).filter_by(bundle_id=bundle.id).first()
     if in_deliveries:
         flash(
             f"Kombinácia '{bundle.name}' nie je možné vymazať — je použitá v dodacích listoch. "

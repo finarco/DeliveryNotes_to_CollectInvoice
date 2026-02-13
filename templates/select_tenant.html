@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Výber organizácie{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+      <div class="text-center mb-4">
+        <h2>Výber organizácie</h2>
+        <p class="text-muted">Vyberte organizáciu, s ktorou chcete pracovať</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% if tenants %}
+        <div class="row g-3">
+          {% for tenant in tenants %}
+          <div class="col-12">
+            <form method="post" action="{{ url_for('tenant.switch_tenant') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+              <button type="submit" class="card w-100 text-start border-hover p-3" style="cursor: pointer; border: 1px solid #dee2e6; background: white;">
+                <div class="d-flex align-items-center">
+                  <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 48px; height: 48px; min-width: 48px; font-size: 1.2rem;">
+                    {{ tenant.name[0].upper() }}
+                  </div>
+                  <div class="ms-3">
+                    <h5 class="mb-0">{{ tenant.name }}</h5>
+                    {% if tenant.ico %}
+                    <small class="text-muted">IČO: {{ tenant.ico }}</small>
+                    {% endif %}
+                    {% if tenant.city %}
+                    <small class="text-muted d-block">{{ tenant.city }}</small>
+                    {% endif %}
+                  </div>
+                  <div class="ms-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                  </div>
+                </div>
+              </button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-4">
+          <p class="text-muted">Zatiaľ nemáte pridelené žiadne organizácie.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

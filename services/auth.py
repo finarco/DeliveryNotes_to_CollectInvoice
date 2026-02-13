@@ -11,7 +11,7 @@ from flask import flash, g, redirect, session, url_for
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import ROLE_PERMISSIONS, User
+from models import ROLE_PERMISSIONS, Tenant, User, UserTenant
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,10 @@ def login_required(f):
 
 
 def role_required(permission: str):
-    """Decorator that checks user has *permission* (or ``manage_all``)."""
+    """Decorator that checks user has *permission* (or ``manage_all``).
+
+    Uses ``UserTenant.role_override`` for the active tenant when available.
+    """
 
     def decorator(f):
         @wraps(f)
@@ -42,7 +45,18 @@ def role_required(permission: str):
             user = get_current_user()
             if not user:
                 return redirect(url_for("auth.login"))
-            permissions = ROLE_PERMISSIONS.get(user.role, set())
+            # Use role_override from current tenant membership if available
+            effective_role = user.role
+            active_tid = session.get("active_tenant_id")
+            if active_tid:
+                membership = UserTenant.query.filter_by(
+                    user_id=user.id, tenant_id=active_tid
+                ).first()
+                if membership and membership.role_override:
+                    effective_role = membership.role_override
+            permissions = ROLE_PERMISSIONS.get(effective_role, set())
+            if user.is_superadmin:
+                permissions = permissions | {"manage_all"}
             if permission not in permissions and "manage_all" not in permissions:
                 flash("Nemáte oprávnenie na tento krok.", "danger")
                 return redirect(url_for("dashboard.index"))
@@ -54,7 +68,10 @@ def role_required(permission: str):
 
 
 def ensure_admin_user():
-    """Create a default admin user if the users table is empty."""
+    """Create a default admin user if the users table is empty.
+
+    Also assigns the admin to the default tenant and sets ``is_superadmin``.
+    """
     if User.query.count() == 0:
         password = secrets.token_urlsafe(12)
         admin = User(
@@ -62,8 +79,21 @@ def ensure_admin_user():
             password_hash=generate_password_hash(password),
             role="admin",
             must_change_password=True,
+            is_superadmin=True,
         )
         db.session.add(admin)
+        db.session.flush()
+
+        # Link to default tenant
+        default_tenant = Tenant.query.filter_by(slug="default").first()
+        if default_tenant:
+            ut = UserTenant(
+                user_id=admin.id,
+                tenant_id=default_tenant.id,
+                is_default=True,
+            )
+            db.session.add(ut)
+
         db.session.commit()
         # Print to stdout only — never log credentials to persistent log files
         print(

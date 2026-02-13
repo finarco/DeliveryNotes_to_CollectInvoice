@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}História platieb{% endblock %}
+{% block content %}
+<div class="content-area">
+  <div class="page-header">
+    <h1>História platieb</h1>
+    <a href="{{ url_for('billing.status') }}" class="btn btn-outline-secondary btn-sm">Späť na predplatné</a>
+  </div>
+  <table class="table">
+    <thead>
+      <tr><th>Dátum</th><th>Suma</th><th>Mena</th><th>Metóda</th><th>Stav</th><th>Referencia</th><th>Poznámka</th></tr>
+    </thead>
+    <tbody>
+    {% for pay in payments %}
+    <tr>
+      <td>{{ pay.paid_at.strftime('%d.%m.%Y %H:%M') if pay.paid_at else pay.created_at.strftime('%d.%m.%Y %H:%M') if pay.created_at else '-' }}</td>
+      <td>{{ pay.amount }}</td>
+      <td>{{ pay.currency }}</td>
+      <td>{{ pay.payment_method }}</td>
+      <td>
+        <span class="badge {% if pay.status == 'completed' %}bg-success{% elif pay.status == 'failed' %}bg-danger{% else %}bg-warning{% endif %}">
+          {{ pay.status }}
+        </span>
+      </td>
+      <td>{{ pay.bank_reference or '-' }}</td>
+      <td>{{ pay.notes or '-' }}</td>
+    </tr>
+    {% endfor %}
+    {% if not payments %}
+    <tr><td colspan="7" class="text-center text-muted">Žiadne platby.</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

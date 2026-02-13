@@ -7,6 +7,29 @@
       <div class="logo-text">DeliveryNotes</div>
     </div>
 
+    {# Tenant Switcher #}
+    {% if current_tenant %}
+    <div class="tenant-switcher" style="padding: 0.5rem 1rem; margin-bottom: 0.5rem;">
+      {% if user_tenants and user_tenants|length > 1 %}
+      <form method="post" action="{{ url_for('tenant.switch_tenant') }}" style="margin: 0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <select name="tenant_id" onchange="this.form.submit()"
+                style="width: 100%; padding: 0.35rem 0.5rem; border-radius: 6px; border: 1px solid var(--border-color, #ddd); font-size: 0.85rem; background: var(--bg-secondary, #f8f9fa);">
+          {% for ut in user_tenants %}
+          <option value="{{ ut.tenant_id }}" {% if ut.tenant_id == current_tenant.id %}selected{% endif %}>
+            {{ ut.tenant.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      {% else %}
+      <div style="font-size: 0.8rem; color: var(--text-secondary, #666); padding: 0.25rem 0;">
+        {{ current_tenant.name }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     {# Navigation #}
     <nav>
       <ul class="sidebar-nav">

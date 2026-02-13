@@ -9,6 +9,7 @@ from models import LogisticsPlan, Vehicle, VehicleSchedule
 from services.audit import log_action
 from services.auth import role_required
 from utils import parse_time, safe_int
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 vehicles_bp = Blueprint("vehicles", __name__)
 
@@ -23,19 +24,20 @@ def list_vehicles():
             notes=request.form.get("notes", ""),
             active=request.form.get("active") == "on",
         )
+        stamp_tenant(vehicle)
         db.session.add(vehicle)
         db.session.flush()
         log_action("create", "vehicle", vehicle.id, "vehicle created")
         db.session.commit()
         flash("Vozidlo uložené.", "success")
         return redirect(url_for("vehicles.list_vehicles"))
-    return render_template("vehicles.html", vehicles=Vehicle.query.all())
+    return render_template("vehicles.html", vehicles=tenant_query(Vehicle).all())
 
 
 @vehicles_bp.route("/vehicles/<int:vehicle_id>/toggle", methods=["POST"])
 @role_required("manage_delivery")
 def toggle_vehicle(vehicle_id: int):
-    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    vehicle = tenant_get_or_404(Vehicle, vehicle_id)
     vehicle.active = not vehicle.active
     action = "activate" if vehicle.active else "deactivate"
     log_action(action, "vehicle", vehicle.id, f"active={vehicle.active}")
@@ -48,7 +50,7 @@ def toggle_vehicle(vehicle_id: int):
 @vehicles_bp.route("/vehicles/<int:vehicle_id>/edit", methods=["POST"])
 @role_required("manage_delivery")
 def edit_vehicle(vehicle_id: int):
-    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    vehicle = tenant_get_or_404(Vehicle, vehicle_id)
     vehicle.name = request.form.get("name", "").strip() or vehicle.name
     vehicle.registration_number = request.form.get("registration_number", "").strip() or None
     vehicle.notes = request.form.get("notes", "")
@@ -62,8 +64,8 @@ def edit_vehicle(vehicle_id: int):
 @vehicles_bp.route("/vehicles/<int:vehicle_id>/delete", methods=["POST"])
 @role_required("manage_delivery")
 def delete_vehicle(vehicle_id: int):
-    vehicle = db.get_or_404(Vehicle, vehicle_id)
-    if LogisticsPlan.query.filter_by(vehicle_id=vehicle.id).first():
+    vehicle = tenant_get_or_404(Vehicle, vehicle_id)
+    if tenant_query(LogisticsPlan).filter_by(vehicle_id=vehicle.id).first():
         flash(
             f"Vozidlo '{vehicle.name}' nie je možné vymazať — je priradené k logistickému plánu. "
             f"Použite deaktiváciu.",
@@ -83,7 +85,7 @@ def delete_vehicle(vehicle_id: int):
 )
 @role_required("manage_delivery")
 def add_vehicle_schedule(vehicle_id: int):
-    vehicle = db.get_or_404(Vehicle, vehicle_id)
+    vehicle = tenant_get_or_404(Vehicle, vehicle_id)
     start_time = (
         parse_time(request.form.get("start_time")) or datetime.time(8, 0)
     )
@@ -102,7 +104,7 @@ def add_vehicle_schedule(vehicle_id: int):
         end_time=end_time,
     )
 
-    overlaps = VehicleSchedule.query.filter_by(
+    overlaps = tenant_query(VehicleSchedule).filter_by(
         vehicle_id=vehicle.id, day_of_week=day_of_week
     ).all()
     for existing in overlaps:
@@ -113,6 +115,7 @@ def add_vehicle_schedule(vehicle_id: int):
             flash("Čas sa prekrýva s existujúcim harmonogramom.", "danger")
             return redirect(url_for("vehicles.list_vehicles"))
 
+    stamp_tenant(schedule)
     db.session.add(schedule)
     log_action(
         "create",

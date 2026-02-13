@@ -9,6 +9,7 @@ from models import DeliveryNote, LogisticsPlan, Order, Vehicle
 from services.audit import log_action
 from services.auth import role_required
 from utils import parse_datetime, safe_int, utc_now
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 logistics_bp = Blueprint("logistics", __name__)
 
@@ -35,7 +36,7 @@ def dashboard():
         end = start + timedelta(days=7)
 
     plans_query = (
-        LogisticsPlan.query.filter(
+        tenant_query(LogisticsPlan).filter(
             LogisticsPlan.planned_datetime >= start,
             LogisticsPlan.planned_datetime < end,
         )
@@ -49,11 +50,11 @@ def dashboard():
         plans_query.offset((page - 1) * per_page).limit(per_page).all()
     )
 
-    all_orders = Order.query.order_by(Order.created_at.desc()).all()
-    all_delivery_notes = DeliveryNote.query.order_by(
+    all_orders = tenant_query(Order).order_by(Order.created_at.desc()).all()
+    all_delivery_notes = tenant_query(DeliveryNote).order_by(
         DeliveryNote.created_at.desc()
     ).all()
-    vehicles = Vehicle.query.filter_by(active=True).all()
+    vehicles = tenant_query(Vehicle).filter_by(active=True).all()
 
     if request.method == "POST":
         plan = LogisticsPlan(
@@ -67,6 +68,7 @@ def dashboard():
             or utc_now(),
             vehicle_id=safe_int(request.form.get("vehicle_id")) or None,
         )
+        stamp_tenant(plan)
         db.session.add(plan)
         log_action(
             "create", "logistics_plan", plan.id, plan.plan_type
@@ -93,7 +95,7 @@ def dashboard():
 @logistics_bp.route("/logistics/<int:plan_id>/edit", methods=["POST"])
 @role_required("manage_delivery")
 def edit_plan(plan_id: int):
-    plan = db.get_or_404(LogisticsPlan, plan_id)
+    plan = tenant_get_or_404(LogisticsPlan, plan_id)
     plan.plan_type = request.form.get("plan_type", plan.plan_type)
     plan.order_id = safe_int(request.form.get("order_id")) or None
     plan.delivery_note_id = safe_int(request.form.get("delivery_note_id")) or None
@@ -110,7 +112,7 @@ def edit_plan(plan_id: int):
 @logistics_bp.route("/logistics/<int:plan_id>/delete", methods=["POST"])
 @role_required("manage_delivery")
 def delete_plan(plan_id: int):
-    plan = db.get_or_404(LogisticsPlan, plan_id)
+    plan = tenant_get_or_404(LogisticsPlan, plan_id)
     log_action("delete", "logistics_plan", plan.id, f"deleted plan #{plan.id}")
     db.session.delete(plan)
     db.session.commit()

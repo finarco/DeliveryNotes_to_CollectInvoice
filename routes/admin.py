@@ -25,12 +25,14 @@ from models import (
     NumberingConfig,
     Order,
     PdfTemplate,
+    UserTenant,
     VALID_ROLES,
     User,
 )
 from services.pdf import get_default_css, get_default_html
 from services.audit import log_action
 from services.auth import role_required
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 _ENTITY_TYPES = ["product", "bundle", "order", "delivery_note", "invoice"]
 
@@ -66,6 +68,12 @@ def users():
         )
         db.session.add(user)
         db.session.flush()
+        # Link new user to the current tenant
+        from services.tenant import get_current_tenant_id
+        tid = get_current_tenant_id()
+        if tid:
+            ut = UserTenant(user_id=user.id, tenant_id=tid)
+            db.session.add(ut)
         log_action("create", "user", user.id, f"role={role}")
         db.session.commit()
         flash(f"Používateľ '{username}' vytvorený.", "success")
@@ -122,7 +130,7 @@ def reset_password(user_id: int):
 @admin_bp.route("/unlock/order/<int:order_id>", methods=["POST"])
 @role_required("manage_all")
 def unlock_order(order_id: int):
-    order = db.get_or_404(Order, order_id)
+    order = tenant_get_or_404(Order, order_id)
     order.is_locked = False
     log_action("unlock", "order", order.id, "unlocked by admin")
     db.session.commit()
@@ -133,7 +141,7 @@ def unlock_order(order_id: int):
 @admin_bp.route("/unlock/delivery/<int:delivery_id>", methods=["POST"])
 @role_required("manage_all")
 def unlock_delivery(delivery_id: int):
-    delivery = db.get_or_404(DeliveryNote, delivery_id)
+    delivery = tenant_get_or_404(DeliveryNote, delivery_id)
     delivery.is_locked = False
     log_action("unlock", "delivery_note", delivery.id, "unlocked by admin")
     db.session.commit()
@@ -144,7 +152,7 @@ def unlock_delivery(delivery_id: int):
 @admin_bp.route("/unlock/invoice/<int:invoice_id>", methods=["POST"])
 @role_required("manage_all")
 def unlock_invoice(invoice_id: int):
-    invoice = db.get_or_404(Invoice, invoice_id)
+    invoice = tenant_get_or_404(Invoice, invoice_id)
     invoice.is_locked = False
     log_action("unlock", "invoice", invoice.id, "unlocked by admin")
     db.session.commit()
@@ -157,14 +165,15 @@ def unlock_invoice(invoice_id: int):
 # ------------------------------------------------------------------
 
 def _get_setting(key: str, default: str = "") -> str:
-    row = AppSetting.query.filter_by(key=key).first()
+    row = tenant_query(AppSetting).filter_by(key=key).first()
     return row.value if row and row.value else default
 
 
 def _set_setting(key: str, value: str):
-    row = AppSetting.query.filter_by(key=key).first()
+    row = tenant_query(AppSetting).filter_by(key=key).first()
     if not row:
         row = AppSetting(key=key, value=value)
+        stamp_tenant(row)
         db.session.add(row)
     else:
         row.value = value
@@ -189,9 +198,10 @@ def settings():
 
         # Numbering configs (tag-based patterns)
         for etype in _ENTITY_TYPES:
-            config = NumberingConfig.query.filter_by(entity_type=etype).first()
+            config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
             if not config:
                 config = NumberingConfig(entity_type=etype)
+                stamp_tenant(config)
                 db.session.add(config)
             config.pattern = request.form.get(f"num_{etype}_pattern", "").strip()
 
@@ -203,7 +213,7 @@ def settings():
     # GET — load current values
     numbering = {}
     for etype in _ENTITY_TYPES:
-        config = NumberingConfig.query.filter_by(entity_type=etype).first()
+        config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
         numbering[etype] = config
 
     return render_template(
@@ -245,9 +255,10 @@ _PDF_LABELS = {"delivery_note": "Dodací list", "invoice": "Faktúra"}
 def pdf_templates():
     if request.method == "POST":
         for etype in _PDF_ENTITY_TYPES:
-            tmpl = PdfTemplate.query.filter_by(entity_type=etype).first()
+            tmpl = tenant_query(PdfTemplate).filter_by(entity_type=etype).first()
             if not tmpl:
                 tmpl = PdfTemplate(entity_type=etype)
+                stamp_tenant(tmpl)
                 db.session.add(tmpl)
             tmpl.html_content = request.form.get(f"html_{etype}", "")
             tmpl.css_content = request.form.get(f"css_{etype}", "")
@@ -258,7 +269,7 @@ def pdf_templates():
 
     templates = {}
     for etype in _PDF_ENTITY_TYPES:
-        tmpl = PdfTemplate.query.filter_by(entity_type=etype).first()
+        tmpl = tenant_query(PdfTemplate).filter_by(entity_type=etype).first()
         templates[etype] = {
             "html": tmpl.html_content if tmpl and tmpl.html_content else get_default_html(etype),
             "css": tmpl.css_content if tmpl and tmpl.css_content else get_default_css(),

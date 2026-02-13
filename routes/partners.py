@@ -9,6 +9,7 @@ from models import Contact, DeliveryNote, DeliveryNoteOrder, Invoice, Order, Par
 from services.audit import log_action
 from services.auth import role_required
 from utils import safe_float, safe_int
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 partners_bp = Blueprint("partners", __name__)
 
@@ -39,6 +40,7 @@ def list_partners():
                 request.form.get("discount_percent")
             ),
         )
+        stamp_tenant(partner)
         db.session.add(partner)
         db.session.flush()
         partner.addresses.append(
@@ -54,7 +56,7 @@ def list_partners():
         db.session.commit()
         flash("Partner uložený.", "success")
         return redirect(url_for("partners.list_partners"))
-    partners = Partner.query.filter_by(is_deleted=False).all()
+    partners = tenant_query(Partner).filter_by(is_deleted=False).all()
     # Build safe JSON for partner contacts to avoid XSS via innerHTML
     contacts_map = {}
     for p in partners:
@@ -80,7 +82,7 @@ def list_partners():
 @partners_bp.route("/partners/<int:partner_id>/toggle", methods=["POST"])
 @role_required("manage_partners")
 def toggle_partner(partner_id: int):
-    partner = db.get_or_404(Partner, partner_id)
+    partner = tenant_get_or_404(Partner, partner_id)
     partner.is_active = not partner.is_active
     action = "activate" if partner.is_active else "deactivate"
     log_action(action, "partner", partner.id, f"is_active={partner.is_active}")
@@ -93,7 +95,7 @@ def toggle_partner(partner_id: int):
 @partners_bp.route("/partners/<int:partner_id>/edit", methods=["POST"])
 @role_required("manage_partners")
 def edit_partner(partner_id: int):
-    partner = db.get_or_404(Partner, partner_id)
+    partner = tenant_get_or_404(Partner, partner_id)
     partner.name = request.form.get("name", "").strip() or partner.name
     partner.note = request.form.get("note", "")
     partner.street = request.form.get("street", "")
@@ -117,29 +119,29 @@ def edit_partner(partner_id: int):
 @partners_bp.route("/partners/<int:partner_id>/delete", methods=["POST"])
 @role_required("manage_partners")
 def delete_partner(partner_id: int):
-    partner = db.get_or_404(Partner, partner_id)
+    partner = tenant_get_or_404(Partner, partner_id)
     partner.is_deleted = True
     partner.is_active = False
 
     # Lock all associated orders
-    orders = Order.query.filter_by(partner_id=partner.id).all()
+    orders = tenant_query(Order).filter_by(partner_id=partner.id).all()
     for order in orders:
         order.is_locked = True
 
     # Lock all associated invoices
-    invoices = Invoice.query.filter_by(partner_id=partner.id).all()
+    invoices = tenant_query(Invoice).filter_by(partner_id=partner.id).all()
     for inv in invoices:
         inv.is_locked = True
 
     # Lock all delivery notes linked to partner's orders
     order_ids = [o.id for o in orders]
     if order_ids:
-        dn_links = DeliveryNoteOrder.query.filter(
+        dn_links = tenant_query(DeliveryNoteOrder).filter(
             DeliveryNoteOrder.order_id.in_(order_ids)
         ).all()
         dn_ids = {link.delivery_note_id for link in dn_links}
         if dn_ids:
-            DeliveryNote.query.filter(DeliveryNote.id.in_(dn_ids)).update(
+            tenant_query(DeliveryNote).filter(DeliveryNote.id.in_(dn_ids)).update(
                 {"is_locked": True}, synchronize_session="fetch"
             )
 
@@ -157,7 +159,7 @@ def delete_partner(partner_id: int):
 )
 @role_required("manage_partners")
 def add_contact(partner_id: int):
-    partner = db.get_or_404(Partner, partner_id)
+    partner = tenant_get_or_404(Partner, partner_id)
     contact = Contact(
         partner_id=partner.id,
         name=request.form.get("name", "").strip(),
@@ -167,6 +169,7 @@ def add_contact(partner_id: int):
         can_order=request.form.get("can_order") == "on",
         can_receive=request.form.get("can_receive") == "on",
     )
+    stamp_tenant(contact)
     db.session.add(contact)
     db.session.commit()
     flash("Kontakt uložený.", "success")
@@ -179,8 +182,8 @@ def add_contact(partner_id: int):
 )
 @role_required("manage_partners")
 def edit_contact(partner_id: int, contact_id: int):
-    db.get_or_404(Partner, partner_id)
-    contact = db.get_or_404(Contact, contact_id)
+    tenant_get_or_404(Partner, partner_id)
+    contact = tenant_get_or_404(Contact, contact_id)
     if contact.partner_id != partner_id:
         flash("Kontakt nepatrí k tomuto partnerovi.", "danger")
         return redirect(url_for("partners.list_partners"))
@@ -202,8 +205,8 @@ def edit_contact(partner_id: int, contact_id: int):
 )
 @role_required("manage_all")
 def delete_contact(partner_id: int, contact_id: int):
-    db.get_or_404(Partner, partner_id)
-    contact = db.get_or_404(Contact, contact_id)
+    tenant_get_or_404(Partner, partner_id)
+    contact = tenant_get_or_404(Contact, contact_id)
     if contact.partner_id != partner_id:
         flash("Kontakt nepatrí k tomuto partnerovi.", "danger")
         return redirect(url_for("partners.list_partners"))
@@ -219,7 +222,7 @@ def delete_contact(partner_id: int, contact_id: int):
 )
 @role_required("manage_partners")
 def add_address(partner_id: int):
-    partner = db.get_or_404(Partner, partner_id)
+    partner = tenant_get_or_404(Partner, partner_id)
     related_partner_id = (
         safe_int(request.form.get("related_partner_id")) or None
     )
@@ -232,6 +235,7 @@ def add_address(partner_id: int):
         postal_code=request.form.get("postal_code", ""),
         city=request.form.get("city", ""),
     )
+    stamp_tenant(address)
     db.session.add(address)
     db.session.commit()
     flash("Adresa uložená.", "success")

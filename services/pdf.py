@@ -14,6 +14,7 @@ import os
 from jinja2.sandbox import SandboxedEnvironment
 
 from models import PdfTemplate
+from services.tenant import get_current_tenant_id
 
 # Try HTML-to-PDF converters (optional dependencies)
 try:
@@ -141,7 +142,10 @@ def get_default_css() -> str:
 def _get_template(entity_type: str) -> tuple[str, str]:
     """Return ``(html, css)`` from DB or built-in defaults."""
     try:
-        tmpl = PdfTemplate.query.filter_by(entity_type=entity_type).first()
+        tid = get_current_tenant_id()
+        tmpl = PdfTemplate.query.filter_by(
+            tenant_id=tid, entity_type=entity_type
+        ).first()
         if tmpl and tmpl.html_content:
             return tmpl.html_content, tmpl.css_content or _DEFAULT_CSS
     except Exception:

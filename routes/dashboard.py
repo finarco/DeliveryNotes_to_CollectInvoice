@@ -6,6 +6,7 @@ from flask import Blueprint, render_template
 
 from models import DeliveryNote, Invoice, Order, Partner
 from services.auth import login_required
+from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -14,7 +15,7 @@ dashboard_bp = Blueprint("dashboard", __name__)
 @login_required
 def index():
     # Get recent activity (last 5 orders)
-    recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
+    recent_orders = tenant_query(Order).order_by(Order.created_at.desc()).limit(5).all()
     recent_activity = []
 
     for order in recent_orders:
@@ -41,7 +42,7 @@ def index():
     recent_changes = []
 
     # Add recent invoices
-    recent_invoices = Invoice.query.order_by(Invoice.created_at.desc()).limit(3).all()
+    recent_invoices = tenant_query(Invoice).order_by(Invoice.created_at.desc()).limit(3).all()
     for invoice in recent_invoices:
         is_paid = invoice.status == "paid"
         status = "ZAPLATENÉ" if is_paid else "NEUHRADENÉ"
@@ -57,7 +58,7 @@ def index():
         })
 
     # Add recent delivery notes
-    recent_deliveries = DeliveryNote.query.order_by(
+    recent_deliveries = tenant_query(DeliveryNote).order_by(
         DeliveryNote.created_at.desc()
     ).limit(2).all()
     for delivery in recent_deliveries:
@@ -75,10 +76,10 @@ def index():
 
     return render_template(
         "index.html",
-        partner_count=Partner.query.count(),
-        order_count=Order.query.count(),
-        delivery_count=DeliveryNote.query.count(),
-        invoice_count=Invoice.query.count(),
+        partner_count=tenant_query(Partner).count(),
+        order_count=tenant_query(Order).count(),
+        delivery_count=tenant_query(DeliveryNote).count(),
+        invoice_count=tenant_query(Invoice).count(),
         recent_activity=recent_activity if recent_activity else [],
         recent_changes=recent_changes if recent_changes else [],
         today=today,
