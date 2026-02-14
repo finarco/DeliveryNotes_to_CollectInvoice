@@ -231,6 +231,17 @@ def settings():
             request.form.get("password_expiry_unit", "days").strip(),
         )
 
+        # Payment gateway (stored as global setting with tenant_id=NULL)
+        gateway_val = request.form.get("payment_gateway", "gopay").strip()
+        if gateway_val in ("gopay", "stripe", "manual"):
+            from models import AppSetting as _AS
+            gw_row = _AS.query.filter_by(tenant_id=None, key="payment_gateway").first()
+            if not gw_row:
+                gw_row = _AS(tenant_id=None, key="payment_gateway", value=gateway_val)
+                db.session.add(gw_row)
+            else:
+                gw_row.value = gateway_val
+
         # Numbering configs (tag-based patterns)
         for etype in _ENTITY_TYPES:
             config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
@@ -251,6 +262,11 @@ def settings():
         config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
         numbering[etype] = config
 
+    # Load global payment gateway setting
+    from models import AppSetting as _AS
+    gw_row = _AS.query.filter_by(tenant_id=None, key="payment_gateway").first()
+    payment_gateway = gw_row.value if gw_row and gw_row.value else "gopay"
+
     return render_template(
         "admin/settings.html",
         site_name=_get_setting("site_name", "ObDoFa"),
@@ -258,6 +274,7 @@ def settings():
         password_expiry_unit=_get_setting("password_expiry_unit", "days"),
         numbering=numbering,
         entity_types=_ENTITY_TYPES,
+        payment_gateway=payment_gateway,
     )
 
 

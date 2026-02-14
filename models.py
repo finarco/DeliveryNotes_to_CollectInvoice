@@ -578,9 +578,9 @@ class PdfTemplate(db.Model):
 # Subscription billing
 # ---------------------------------------------------------------------------
 
-VALID_SUBSCRIPTION_STATUSES = {"trial", "active", "past_due", "grace_period", "suspended", "cancelled"}
+VALID_SUBSCRIPTION_STATUSES = {"trial", "active", "past_due", "grace_period", "suspended", "cancelled", "pending_payment"}
 VALID_BILLING_CYCLES = {"monthly", "yearly"}
-VALID_PAYMENT_METHODS = {"stripe", "bank_transfer", "manual"}
+VALID_PAYMENT_METHODS = {"stripe", "bank_transfer", "manual", "gopay"}
 VALID_PAYMENT_STATUSES = {"pending", "completed", "failed", "refunded"}
 
 
@@ -637,6 +637,7 @@ class Payment(db.Model):
     payment_method = db.Column(db.String(30), nullable=False)
     status = db.Column(db.String(30), default="pending")
     stripe_payment_intent_id = db.Column(db.String(120))
+    gopay_payment_id = db.Column(db.String(120))
     bank_reference = db.Column(db.String(120))
     invoice_url = db.Column(db.String(255))
     paid_at = db.Column(db.DateTime)

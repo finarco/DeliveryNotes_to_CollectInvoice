@@ -36,6 +36,22 @@
     </div>
   </div>
 
+  {# ── Payment Gateway ────────────────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Platobna brana</strong></div>
+    <div class="card-body row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Aktivna platobna brana</label>
+        <select class="form-select" name="payment_gateway">
+          <option value="gopay"{% if payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
+          <option value="stripe"{% if payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
+          <option value="manual"{% if payment_gateway == 'manual' %} selected{% endif %}>Manualna (bankovy prevod)</option>
+        </select>
+        <small class="text-muted">Urcuje, cez ktoru branu sa budu spracovavat platby za predplatne.</small>
+      </div>
+    </div>
+  </div>
+
   {# ── Numbering (tag-based) ─────────────────────────────── #}
   <div class="card mb-4">
     <div class="card-header"><strong>Číslovanie dokladov</strong></div>

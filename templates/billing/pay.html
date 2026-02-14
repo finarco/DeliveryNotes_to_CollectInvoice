@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block page_title %}Platba{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-body text-center">
+    <h3 class="mb-3">{{ plan.name if plan else 'Predplatne' }}</h3>
+    <p class="text-muted mb-1">
+      {{ 'Mesacne' if billing_cycle == 'monthly' else 'Rocne' }} predplatne
+    </p>
+    <h2 class="mb-4">{{ amount }} EUR</h2>
+
+    <hr>
+
+    {# Inline GoPay payment form #}
+    <div id="gopay-payment-container" class="mt-4">
+      <form action="{{ gw_url }}" method="post" id="gopay-payment-button">
+        <button name="pay" type="submit" class="btn btn-primary btn-lg">
+          <i data-lucide="credit-card"></i> Zaplatit {{ amount }} EUR
+        </button>
+        <script src="{{ gopay_embed_js }}"></script>
+      </form>
+    </div>
+
+    <p class="text-muted small mt-4">
+      Po kliknuti na tlacidlo budete presmerovani na bezpecnu platobnu branu GoPay.
+    </p>
+
+    <a href="{{ url_for('billing.status') }}" class="btn btn-outline-secondary btn-sm mt-2">
+      <i data-lucide="arrow-left"></i> Spat na predplatne
+    </a>
+  </div>
+</div>
+{% endblock %}
