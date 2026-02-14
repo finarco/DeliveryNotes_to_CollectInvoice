@@ -14,12 +14,14 @@ def _get_gopay_client():
     """Create and return a configured GoPay payments client.
 
     Returns None if gopay is not installed or not enabled.
+    Uses gopay SDK v2.x API with Pydantic config model.
     """
     cfg = current_app.config.get("GOPAY_CONFIG")
     if not cfg or not cfg.enabled:
         return None
     try:
         import gopay
+        from gopay.enums import Language
     except ImportError:
         logger.warning("gopay package not installed — GoPay features disabled")
         return None
@@ -27,13 +29,13 @@ def _get_gopay_client():
         logger.warning("GoPay credentials not configured")
         return None
 
-    is_production = "gate.gopay.cz" in cfg.gateway_url
     return gopay.payments(
         {
-            "goid": cfg.goid,
-            "clientId": cfg.client_id,
-            "clientSecret": cfg.client_secret,
-            "isProductionMode": is_production,
+            "goid": int(cfg.goid),
+            "client_id": cfg.client_id,
+            "client_secret": cfg.client_secret,
+            "gateway_url": cfg.gateway_url,
+            "language": Language.SLOVAK,
         }
     )
 
@@ -63,24 +65,24 @@ def create_gopay_payment(
 
     if billing_cycle == "yearly":
         amount = int(plan.price_yearly * 100)
-        description = f"{plan.name} — ročné predplatné"
+        description = f"{plan.name} — rocne predplatne"
     else:
         amount = int(plan.price_monthly * 100)
-        description = f"{plan.name} — mesačné predplatné"
+        description = f"{plan.name} — mesacne predplatne"
 
     try:
-        import gopay
+        from gopay.enums import Currency, Language, PaymentInstrument
 
         response = client.create_payment(
             {
                 "payer": {
-                    "default_payment_instrument": gopay.enums.PaymentInstrument.PAYMENT_CARD,
+                    "default_payment_instrument": PaymentInstrument.PAYMENT_CARD,
                     "allowed_payment_instruments": [
-                        gopay.enums.PaymentInstrument.PAYMENT_CARD,
-                        gopay.enums.PaymentInstrument.BANK_ACCOUNT,
-                        gopay.enums.PaymentInstrument.APPLE_PAY,
-                        gopay.enums.PaymentInstrument.GPAY,
-                        gopay.enums.PaymentInstrument.PAYPAL,
+                        PaymentInstrument.PAYMENT_CARD,
+                        PaymentInstrument.BANK_ACCOUNT,
+                        PaymentInstrument.APPLE_PAY,
+                        PaymentInstrument.GPAY,
+                        PaymentInstrument.PAYPAL,
                     ],
                     "allowed_swifts": [
                         "TATRSKBX",
@@ -93,7 +95,7 @@ def create_gopay_payment(
                     },
                 },
                 "amount": amount,
-                "currency": gopay.enums.Currency.EUR,
+                "currency": Currency.EUROS,
                 "order_number": f"T{tenant.id}-{plan.slug}-{billing_cycle}",
                 "order_description": description,
                 "items": [
@@ -108,11 +110,11 @@ def create_gopay_payment(
                     "return_url": return_url,
                     "notification_url": notify_url,
                 },
-                "lang": gopay.enums.Language.SLOVAK,
+                "lang": Language.SLOVAK,
             }
         )
 
-        if response.has_succeed():
+        if response.success:
             gw_url = response.json.get("gw_url", "")
             payment_id = response.json.get("id")
             logger.info(
@@ -146,7 +148,7 @@ def get_gopay_payment_status(gopay_payment_id) -> Optional[dict]:
         return None
     try:
         response = client.get_status(int(gopay_payment_id))
-        if response.has_succeed():
+        if response.success:
             return response.json
         logger.error("GoPay get_status failed for %s: %s", gopay_payment_id, response.json)
         return None
@@ -166,7 +168,7 @@ def handle_gopay_notification(gopay_payment_id) -> bool:
     """
     from extensions import db
     from models import Payment
-    from services.billing import reactivate_after_payment, record_payment
+    from services.billing import reactivate_after_payment
 
     status_data = get_gopay_payment_status(gopay_payment_id)
     if not status_data:
