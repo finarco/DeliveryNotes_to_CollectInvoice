@@ -48,7 +48,7 @@
     <nav>
       <ul class="sidebar-nav">
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('dashboard.index') }}" class="sidebar-nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+          <a href="{{ url_for('dashboard.index') }}" class="sidebar-nav-link {% if request.endpoint and request.endpoint == 'dashboard.index' %}active{% endif %}">
             <i data-lucide="layout-dashboard" class="sidebar-nav-icon"></i>
             <span>Prehľad</span>
           </a>
@@ -56,7 +56,7 @@
 
         {% if "manage_all" in user_permissions or "manage_partners" in user_permissions %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('partners.list_partners') }}" class="sidebar-nav-link {% if 'partners' in request.endpoint %}active{% endif %}">
+          <a href="{{ url_for('partners.list_partners') }}" class="sidebar-nav-link {% if request.endpoint and 'partners' in request.endpoint %}active{% endif %}">
             <i data-lucide="users" class="sidebar-nav-icon"></i>
             <span>Partneri</span>
           </a>
@@ -65,21 +65,21 @@
 
         {% if "manage_all" in user_permissions or "manage_orders" in user_permissions %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('orders.list_orders') }}" class="sidebar-nav-link {% if 'orders' in request.endpoint %}active{% endif %}">
+          <a href="{{ url_for('orders.list_orders') }}" class="sidebar-nav-link {% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}">
             <i data-lucide="file-text" class="sidebar-nav-icon"></i>
             <span>Objednávky</span>
           </a>
         </li>
 
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('products.list_products') }}" class="sidebar-nav-link {% if request.endpoint == 'products.list_products' %}active{% endif %}">
+          <a href="{{ url_for('products.list_products') }}" class="sidebar-nav-link {% if request.endpoint and request.endpoint == 'products.list_products' %}active{% endif %}">
             <i data-lucide="package" class="sidebar-nav-icon"></i>
             <span>Produkty</span>
           </a>
         </li>
 
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('products.list_bundles') }}" class="sidebar-nav-link {% if request.endpoint == 'products.list_bundles' %}active{% endif %}">
+          <a href="{{ url_for('products.list_bundles') }}" class="sidebar-nav-link {% if request.endpoint and request.endpoint == 'products.list_bundles' %}active{% endif %}">
             <i data-lucide="layers" class="sidebar-nav-icon"></i>
             <span>Kombinácie</span>
           </a>
@@ -88,7 +88,7 @@
 
         {% if "manage_all" in user_permissions or "manage_delivery" in user_permissions %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('delivery.list_delivery_notes') }}" class="sidebar-nav-link {% if 'delivery' in request.endpoint %}active{% endif %}">
+          <a href="{{ url_for('delivery.list_delivery_notes') }}" class="sidebar-nav-link {% if request.endpoint and 'delivery' in request.endpoint %}active{% endif %}">
             <i data-lucide="truck" class="sidebar-nav-icon"></i>
             <span>Dodacie listy</span>
           </a>
@@ -97,7 +97,7 @@
 
         {% if "manage_all" in user_permissions or "manage_invoices" in user_permissions %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('invoices.list_invoices') }}" class="sidebar-nav-link {% if 'invoices' in request.endpoint %}active{% endif %}">
+          <a href="{{ url_for('invoices.list_invoices') }}" class="sidebar-nav-link {% if request.endpoint and 'invoices' in request.endpoint %}active{% endif %}">
             <i data-lucide="receipt" class="sidebar-nav-icon"></i>
             <span>Faktúry</span>
           </a>
@@ -106,14 +106,14 @@
 
         {% if "manage_all" in user_permissions %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('db_tools.index') }}" class="sidebar-nav-link {% if 'db_tools' in request.endpoint %}active{% endif %}">
+          <a href="{{ url_for('db_tools.index') }}" class="sidebar-nav-link {% if request.endpoint and 'db_tools' in request.endpoint %}active{% endif %}">
             <i data-lucide="database" class="sidebar-nav-icon"></i>
             <span>DB Tools</span>
           </a>
         </li>
 
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link {% if 'admin' in request.endpoint and request.endpoint != 'admin.superadmin_dashboard' %}active{% endif %}">
+          <a href="{{ url_for('admin.users') }}" class="sidebar-nav-link {% if request.endpoint and 'admin' in request.endpoint and request.endpoint != 'admin.superadmin_dashboard' %}active{% endif %}">
             <i data-lucide="settings" class="sidebar-nav-icon"></i>
             <span>Administrácia</span>
           </a>
@@ -122,7 +122,7 @@
 
         {% if current_user and current_user.is_superadmin %}
         <li class="sidebar-nav-item">
-          <a href="{{ url_for('admin.superadmin_dashboard') }}" class="sidebar-nav-link {% if request.endpoint == 'admin.superadmin_dashboard' %}active{% endif %}">
+          <a href="{{ url_for('admin.superadmin_dashboard') }}" class="sidebar-nav-link {% if request.endpoint and request.endpoint == 'admin.superadmin_dashboard' %}active{% endif %}">
             <i data-lucide="shield" class="sidebar-nav-icon"></i>
             <span>Superadmin</span>
           </a>
