@@ -26,7 +26,10 @@ from models import (
     Invoice,
     NumberingConfig,
     Order,
+    Payment,
     PdfTemplate,
+    Tenant,
+    TenantSubscription,
     UserTenant,
     VALID_ROLES,
     User,
@@ -311,4 +314,78 @@ def pdf_templates():
         templates=templates,
         entity_types=_PDF_ENTITY_TYPES,
         labels=_PDF_LABELS,
+    )
+
+
+# ------------------------------------------------------------------
+# Superadmin Dashboard
+# ------------------------------------------------------------------
+
+@admin_bp.route("/superadmin")
+@role_required("manage_all")
+def superadmin_dashboard():
+    """Global dashboard visible only to superadmins."""
+    caller = get_current_user()
+    if not caller or not caller.is_superadmin:
+        abort(403)
+
+    from sqlalchemy import func
+
+    # Tenant metrics
+    total_tenants = Tenant.query.count()
+    active_tenants = Tenant.query.filter_by(is_active=True).count()
+
+    # User metrics
+    total_users = User.query.count()
+    active_users = User.query.filter_by(is_active=True).count()
+
+    # Subscription metrics
+    active_subscriptions = TenantSubscription.query.filter_by(status="active").count()
+    trial_subscriptions = TenantSubscription.query.filter_by(status="trial").count()
+
+    # Payment metrics
+    total_payments = Payment.query.filter_by(status="completed").count()
+    monthly_revenue_row = (
+        db.session.query(func.coalesce(func.sum(Payment.amount), 0))
+        .filter_by(status="completed")
+        .scalar()
+    )
+    monthly_revenue = float(monthly_revenue_row or 0)
+
+    # Tenant list with enriched data
+    tenants_raw = Tenant.query.order_by(Tenant.created_at.desc()).all()
+    tenants = []
+    for t in tenants_raw:
+        user_count = UserTenant.query.filter_by(tenant_id=t.id).count()
+        sub = TenantSubscription.query.filter_by(tenant_id=t.id).first()
+        plan_name = sub.plan.name if sub and sub.plan else None
+        sub_status = sub.status if sub else None
+        tenants.append({
+            "name": t.name,
+            "slug": t.slug,
+            "ico": t.ico,
+            "city": t.city,
+            "created_at": t.created_at,
+            "user_count": user_count,
+            "plan_name": plan_name,
+            "sub_status": sub_status,
+        })
+
+    # Recent payments
+    recent_payments = (
+        Payment.query.order_by(Payment.created_at.desc()).limit(10).all()
+    )
+
+    return render_template(
+        "admin/superadmin.html",
+        total_tenants=total_tenants,
+        active_tenants=active_tenants,
+        total_users=total_users,
+        active_users=active_users,
+        active_subscriptions=active_subscriptions,
+        trial_subscriptions=trial_subscriptions,
+        monthly_revenue=monthly_revenue,
+        total_payments=total_payments,
+        tenants=tenants,
+        recent_payments=recent_payments,
     )

@@ -1,14 +1,23 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Plán zvozov a dodávok</h4>
-  <div>
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='daily') }}">Denný</a>
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='weekly') }}">Týždenný</a>
-    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='monthly') }}">Mesačný</a>
-    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPlanModal">+ Pridať plán</button>
-  </div>
+
+{% block page_title %}Logistika{% endblock %}
+
+{% block page_subtitle %}
+<div class="page-subtitle">Plán zvozov a dodávok</div>
+{% endblock %}
+
+{% block page_actions %}
+<div style="display: flex; gap: 8px; align-items: center;">
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='daily') }}">Denný</a>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='weekly') }}">Týždenný</a>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('logistics.dashboard', interval='monthly') }}">Mesačný</a>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+    <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Nový plán
+  </button>
 </div>
+{% endblock %}
+
+{% block content %}
 <div class="modal fade" id="addPlanModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">

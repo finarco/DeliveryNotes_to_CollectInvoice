@@ -1,9 +1,14 @@
 {% extends "base.html" %}
+
+{% block page_title %}Vozidlá{% endblock %}
+
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVehicleModal">
+  <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Nové vozidlo
+</button>
+{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="mb-0">Vozidlá</h4>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addVehicleModal">+ Pridať vozidlo</button>
-</div>
 <div class="modal fade" id="addVehicleModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">

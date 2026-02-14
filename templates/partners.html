@@ -6,24 +6,17 @@
 <div style="display: flex; gap: 12px; align-items: center;">
   <div class="view-toggle">
     <button type="button" class="view-toggle-btn active" data-view="table">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
+      <i data-lucide="list" style="width: 16px; height: 16px;"></i>
       Tabuľka
     </button>
     <button type="button" class="view-toggle-btn" data-view="grid">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="3" width="7" height="7"></rect>
-        <rect x="14" y="3" width="7" height="7"></rect>
-        <rect x="14" y="14" width="7" height="7"></rect>
-        <rect x="3" y="14" width="7" height="7"></rect>
-      </svg>
+      <i data-lucide="layout-grid" style="width: 16px; height: 16px;"></i>
       Karty
     </button>
   </div>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPartnerModal">Pridať partnera</button>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPartnerModal">
+    <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Pridať partnera
+  </button>
 </div>
 {% endblock %}
 

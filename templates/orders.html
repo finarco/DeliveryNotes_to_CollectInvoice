@@ -245,19 +245,13 @@
           <div class="order-card-dates">
             {% if order.pickup_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 11 12 14 22 4"></polyline>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
+              <i data-lucide="calendar-check" class="order-card-date-icon"></i>
               <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}
             {% if order.delivery_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              </svg>
+              <i data-lucide="truck" class="order-card-date-icon"></i>
               <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}
@@ -293,19 +287,13 @@
           <div class="order-card-dates">
             {% if order.pickup_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 11 12 14 22 4"></polyline>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
+              <i data-lucide="calendar-check" class="order-card-date-icon"></i>
               <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}
             {% if order.delivery_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              </svg>
+              <i data-lucide="truck" class="order-card-date-icon"></i>
               <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}
@@ -341,19 +329,13 @@
           <div class="order-card-dates">
             {% if order.pickup_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="9 11 12 14 22 4"></polyline>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
+              <i data-lucide="calendar-check" class="order-card-date-icon"></i>
               <span>Zvoz: {{ order.pickup_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}
             {% if order.delivery_datetime %}
             <div class="order-card-date-row">
-              <svg class="order-card-date-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="1" y="3" width="15" height="13"></rect>
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-              </svg>
+              <i data-lucide="truck" class="order-card-date-icon"></i>
               <span>Dodanie: {{ order.delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
             </div>
             {% endif %}

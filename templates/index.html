@@ -10,7 +10,11 @@
 <div style="display: flex; gap: 12px; align-items: center;">
   <div style="position: relative;">
     <input type="text" class="form-control" placeholder="Hľadať..." style="width: 200px; padding-right: 32px;">
+    <i data-lucide="search" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--color-text-muted);"></i>
   </div>
+  <button type="button" class="btn btn-outline" onclick="window.print()">
+    <i data-lucide="download" style="width: 16px; height: 16px;"></i> Export
+  </button>
   <a href="{{ url_for('orders.list_orders') }}" class="btn btn-primary">Nová objednávka</a>
 </div>
 {% endblock %}
@@ -56,28 +60,15 @@
   <h3 class="card-title" style="margin-bottom: 16px;">Rýchle akcie</h3>
   <div class="quick-actions-grid">
     <a href="{{ url_for('orders.list_orders') }}" class="quick-action-btn">
-      <svg class="quick-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-        <polyline points="14 2 14 8 20 8"></polyline>
-        <line x1="12" y1="18" x2="12" y2="12"></line>
-        <line x1="9" y1="15" x2="15" y2="15"></line>
-      </svg>
+      <i data-lucide="file-plus" class="quick-action-icon"></i>
       Nová objednávka
     </a>
     <a href="{{ url_for('partners.list_partners') }}" class="quick-action-btn">
-      <svg class="quick-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="8.5" cy="7" r="4"></circle>
-        <line x1="20" y1="8" x2="20" y2="14"></line>
-        <line x1="23" y1="11" x2="17" y2="11"></line>
-      </svg>
+      <i data-lucide="user-plus" class="quick-action-icon"></i>
       Pridať partnera
     </a>
     <a href="{{ url_for('invoices.list_invoices') }}" class="quick-action-btn">
-      <svg class="quick-action-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path>
-        <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path>
-      </svg>
+      <i data-lucide="receipt" class="quick-action-icon"></i>
       Vytvoriť faktúru
     </a>
   </div>

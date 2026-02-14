@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block page_title %}Superadmin Dashboard{% endblock %}
+
+{% block page_subtitle %}
+<div class="page-subtitle">Globálny prehľad všetkých organizácií</div>
+{% endblock %}
+
+{% block content %}
+{# Metric Cards #}
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-title">Organizácie</div>
+      <div class="card-value">{{ total_tenants }}</div>
+      <div class="card-change positive">
+        <i data-lucide="building-2" style="width: 14px; height: 14px;"></i>
+        <span>{{ active_tenants }} aktívnych</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-title">Používatelia</div>
+      <div class="card-value">{{ total_users }}</div>
+      <div class="card-change positive">
+        <i data-lucide="users" style="width: 14px; height: 14px;"></i>
+        <span>{{ active_users }} aktívnych</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-title">Predplatné</div>
+      <div class="card-value">{{ active_subscriptions }}</div>
+      <div class="card-change positive">
+        <i data-lucide="credit-card" style="width: 14px; height: 14px;"></i>
+        <span>{{ trial_subscriptions }} v skúšobnom období</span>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-title">Mesačný príjem</div>
+      <div class="card-value">{{ "%.2f"|format(monthly_revenue) }} EUR</div>
+      <div class="card-change positive">
+        <i data-lucide="trending-up" style="width: 14px; height: 14px;"></i>
+        <span>{{ total_payments }} platieb</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Tenant Table #}
+<div class="card mb-4">
+  <div style="padding: 20px 24px 12px;">
+    <h5 style="margin: 0; font-family: var(--font-heading); font-weight: var(--font-weight-semibold);">Organizácie</h5>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th>Názov</th>
+          <th>IČO</th>
+          <th>Mesto</th>
+          <th>Používatelia</th>
+          <th>Plán</th>
+          <th>Stav</th>
+          <th>Vytvorené</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tenants %}
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">
+                {{ t['name'][0].upper() if t['name'] else '?' }}
+              </div>
+              <div>
+                <div style="font-weight: 500;">{{ t['name'] }}</div>
+                <div style="font-size: 12px; color: var(--color-text-secondary);">{{ t['slug'] }}</div>
+              </div>
+            </div>
+          </td>
+          <td>{{ t['ico'] or '-' }}</td>
+          <td>{{ t['city'] or '-' }}</td>
+          <td>{{ t['user_count'] }}</td>
+          <td>{{ t['plan_name'] or 'Žiadny' }}</td>
+          <td>
+            {% if t['sub_status'] == 'active' %}
+              <span class="badge badge-success">Aktívne</span>
+            {% elif t['sub_status'] == 'trial' %}
+              <span class="badge badge-info">Skúšobné</span>
+            {% elif t['sub_status'] == 'suspended' %}
+              <span class="badge badge-danger">Pozastavené</span>
+            {% elif t['sub_status'] == 'cancelled' %}
+              <span class="badge" style="background: var(--color-text-secondary); color: white;">Zrušené</span>
+            {% elif t['sub_status'] %}
+              <span class="badge badge-warning">{{ t['sub_status'] }}</span>
+            {% else %}
+              <span class="badge" style="background: var(--color-text-secondary); color: white;">Bez predplatného</span>
+            {% endif %}
+          </td>
+          <td>{{ t['created_at'].strftime('%d.%m.%Y') if t['created_at'] else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# Recent Payments #}
+{% if recent_payments %}
+<div class="card">
+  <div style="padding: 20px 24px 12px;">
+    <h5 style="margin: 0; font-family: var(--font-heading); font-weight: var(--font-weight-semibold);">Posledné platby</h5>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="table" style="margin-bottom: 0;">
+      <thead>
+        <tr>
+          <th>Organizácia</th>
+          <th>Suma</th>
+          <th>Metóda</th>
+          <th>Stav</th>
+          <th>Dátum</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pay in recent_payments %}
+        <tr>
+          <td>{{ pay.tenant.name if pay.tenant else '-' }}</td>
+          <td>{{ "%.2f"|format(pay.amount) }} {{ pay.currency }}</td>
+          <td>{{ pay.payment_method }}</td>
+          <td>
+            {% if pay.status == 'completed' %}
+              <span class="badge badge-success">Dokončená</span>
+            {% elif pay.status == 'failed' %}
+              <span class="badge badge-danger">Zlyhala</span>
+            {% elif pay.status == 'pending' %}
+              <span class="badge badge-warning">Čaká</span>
+            {% else %}
+              <span class="badge">{{ pay.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ pay.created_at.strftime('%d.%m.%Y %H:%M') if pay.created_at else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
