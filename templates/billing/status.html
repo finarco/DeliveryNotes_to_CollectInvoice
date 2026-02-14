@@ -1,22 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Predplatné{% endblock %}
+
+{% block page_title %}Predplatné{% endblock %}
+
 {% block content %}
-<div class="content-area">
-  <div class="page-header">
-    <h1>Predplatné</h1>
-  </div>
-
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="alert alert-{{ category }} alert-dismissible fade show">
-          {{ message }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
   {% if subscription %}
   <div class="card mb-4">
     <div class="card-body">
@@ -97,5 +83,4 @@
     </tbody>
   </table>
   {% endif %}
-</div>
 {% endblock %}

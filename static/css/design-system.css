@@ -12,6 +12,7 @@
   --color-info: #5C7C8A;
   --color-warning: #D4A56A;
   --color-danger: #C05A3C;
+  --color-danger-dark: #B54A4A;
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #555555;
   --color-text-muted: #888888;
@@ -29,6 +30,7 @@
   --font-size-xl: 24px;
   --font-size-2xl: 32px;
   --font-size-3xl: 48px;
+  --font-size-4xl: 56px;
   --color-inactive: #888888;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -121,6 +123,14 @@ a:hover {
 .fw-bold { font-weight: var(--font-weight-bold); }
 
 .text-uppercase { text-transform: uppercase; letter-spacing: 1px; }
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
 
 /* === Animations === */
 @keyframes fadeIn {

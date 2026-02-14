@@ -6,22 +6,17 @@
 <div style="display: flex; gap: 12px; align-items: center;">
   <div class="view-toggle">
     <button type="button" class="view-toggle-btn active" data-view="table">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
+      <i data-lucide="list" style="width: 16px; height: 16px;"></i>
       Tabuľka
     </button>
     <button type="button" class="view-toggle-btn" data-view="timeline">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
+      <i data-lucide="clock" style="width: 16px; height: 16px;"></i>
       Timeline
     </button>
   </div>
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeliveryModal">Vytvoriť dodací list</button>
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeliveryModal">
+    <i data-lucide="plus" style="width: 16px; height: 16px;"></i> Vytvoriť dodací list
+  </button>
 </div>
 {% endblock %}
 
@@ -209,10 +204,7 @@
         <div class="timeline-card-header">
           <h3 class="timeline-card-title">Dodací list #{{ note.delivery_number }}</h3>
           <div class="timeline-card-time">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
+            <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
             <span>{{ note.created_at.strftime('%H:%M') if note.created_at else '--:--' }}</span>
           </div>
         </div>
@@ -220,30 +212,21 @@
         <div class="timeline-card-info">
           {% if note.partner %}
           <div class="timeline-card-info-row">
-            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-            </svg>
+            <i data-lucide="user" class="timeline-card-info-icon"></i>
             <span>{{ note.partner.name }}</span>
           </div>
           {% endif %}
 
           {% if note.planned_delivery_datetime %}
           <div class="timeline-card-info-row">
-            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="1" y="3" width="15" height="13"></rect>
-              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
-            </svg>
+            <i data-lucide="truck" class="timeline-card-info-icon"></i>
             <span>Plánované dodanie: {{ note.planned_delivery_datetime.strftime('%d.%m.%Y %H:%M') }}</span>
           </div>
           {% endif %}
 
           {% if note.orders %}
           <div class="timeline-card-info-row">
-            <svg class="timeline-card-info-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
+            <i data-lucide="file-text" class="timeline-card-info-icon"></i>
             <span>Objednávky: {% for order in note.orders %}#{{ order.id }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
           </div>
           {% endif %}

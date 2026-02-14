@@ -1,10 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Výber plánu{% endblock %}
+
+{% block page_title %}Výber plánu{% endblock %}
+
 {% block content %}
-<div class="content-area">
-  <div class="page-header">
-    <h1>Výber plánu</h1>
-  </div>
   <div class="row g-4">
     {% for plan in plans %}
     <div class="col-md-4">
@@ -24,5 +22,4 @@
     </div>
     {% endfor %}
   </div>
-</div>
 {% endblock %}
