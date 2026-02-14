@@ -282,6 +282,9 @@ def _migrate_schema():
         "pdf_template": [
             ("tenant_id", "INTEGER REFERENCES tenant(id)"),
         ],
+        "payment": [
+            ("gopay_payment_id", "VARCHAR(120)"),
+        ],
     }
 
     insp = inspect(db.engine)
@@ -589,7 +592,7 @@ def _seed_subscription_plans():
 
 def create_app():
     """Create and configure the Flask application."""
-    app_cfg, email_cfg, sf_cfg, db_uri = load_config()
+    app_cfg, email_cfg, sf_cfg, gopay_cfg, db_uri = load_config()
 
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
@@ -598,6 +601,7 @@ def create_app():
     app.config["APP_CONFIG"] = app_cfg
     app.config["EMAIL_CONFIG"] = email_cfg
     app.config["SF_CONFIG"] = sf_cfg
+    app.config["GOPAY_CONFIG"] = gopay_cfg
 
     # Session security
     app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -641,7 +645,8 @@ def create_app():
     _TENANT_EXEMPT = {
         "auth.login", "auth.logout", "auth.change_password",
         "tenant.select_tenant", "tenant.switch_tenant",
-        "billing.webhook_stripe",
+        "billing.webhook_stripe", "billing.notify_gopay",
+        "billing.payment_return",
         "static",
     }
 
@@ -785,7 +790,7 @@ def create_app():
         sub = TenantSubscription.query.filter_by(tenant_id=tenant.id).first()
         if not sub:
             return None  # No subscription — allow access (will be set up later)
-        if sub.status in ("trial", "active"):
+        if sub.status in ("trial", "active", "pending_payment"):
             return None
         if sub.status == "past_due":
             from flask import flash
@@ -915,11 +920,12 @@ def create_app():
         )
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com https://gw.sandbox.gopay.com https://gate.gopay.cz; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
+            "frame-src https://gw.sandbox.gopay.com https://gate.gopay.cz; "
             "frame-ancestors 'none'"
         )
         if os.environ.get("FLASK_ENV") == "production":

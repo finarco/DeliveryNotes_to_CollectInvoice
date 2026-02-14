@@ -8,7 +8,7 @@ import secrets
 
 import yaml
 
-from config_models import AppConfig, EmailConfig, SuperfakturaConfig
+from config_models import AppConfig, EmailConfig, GopayConfig, SuperfakturaConfig
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ def load_config():
     """Load configuration from *config.yaml* with env-var overrides.
 
     Environment variables take precedence over config.yaml values.
-    Returns (AppConfig, EmailConfig, SuperfakturaConfig, database_uri).
+    Returns (AppConfig, EmailConfig, SuperfakturaConfig, GopayConfig, database_uri).
     """
     config_path = os.environ.get("CONFIG_PATH", "config.yaml")
     raw: dict = {}
@@ -28,6 +28,7 @@ def load_config():
     app_cfg = raw.get("app", {})
     email_cfg = raw.get("email", {})
     sf_cfg = raw.get("superfaktura", {})
+    gopay_cfg = raw.get("gopay", {})
     db_cfg = raw.get("database", {})
 
     secret_key = os.environ.get("APP_SECRET_KEY", app_cfg.get("secret_key", ""))
@@ -70,6 +71,19 @@ def load_config():
             base_url=os.environ.get(
                 "SUPERFAKTURA_BASE_URL",
                 sf_cfg.get("base_url", "https://api.superfaktura.sk"),
+            ),
+        ),
+        GopayConfig(
+            enabled=os.environ.get(
+                "GOPAY_ENABLED", str(gopay_cfg.get("enabled", False))
+            ).lower()
+            in ("true", "1", "yes"),
+            goid=os.environ.get("GOPAY_GOID", gopay_cfg.get("goid", "")),
+            client_id=os.environ.get("GOPAY_CLIENT_ID", gopay_cfg.get("client_id", "")),
+            client_secret=os.environ.get("GOPAY_CLIENT_SECRET", gopay_cfg.get("client_secret", "")),
+            gateway_url=os.environ.get(
+                "GOPAY_GATEWAY_URL",
+                gopay_cfg.get("gateway_url", "https://gw.sandbox.gopay.com/api"),
             ),
         ),
         os.environ.get("DATABASE_URI", db_cfg.get("uri", "sqlite:///delivery_notes.db")),

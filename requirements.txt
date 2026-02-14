@@ -12,6 +12,8 @@ requests==2.32.3
 pytest==8.3.4
 # Stripe billing (optional — Stripe features disabled if not installed)
 stripe>=7.0.0
+# GoPay payment gateway (optional — GoPay features disabled if not installed)
+gopay>=1.4.0
 # DB Tools dependencies
 openpyxl==3.1.2
 tabulate==0.9.0

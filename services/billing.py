@@ -199,6 +199,8 @@ def record_payment(
     bank_reference: str = "",
     notes: str = "",
     stripe_payment_intent_id: str = "",
+    gopay_payment_id: str = "",
+    status: str = "completed",
 ) -> Payment:
     """Record a payment for a tenant."""
     from decimal import Decimal
@@ -209,15 +211,16 @@ def record_payment(
         subscription_id=sub.id if sub else None,
         amount=Decimal(str(amount)),
         payment_method=payment_method,
-        status="completed",
+        status=status,
         bank_reference=bank_reference or None,
         notes=notes or None,
         stripe_payment_intent_id=stripe_payment_intent_id or None,
-        paid_at=now,
+        gopay_payment_id=gopay_payment_id or None,
+        paid_at=now if status == "completed" else None,
     )
     db.session.add(payment)
     db.session.commit()
-    logger.info("Recorded payment of %s for tenant %s", amount, tenant_id)
+    logger.info("Recorded payment of %s for tenant %s (status=%s)", amount, tenant_id, status)
     return payment
 
 
@@ -226,7 +229,7 @@ def reactivate_after_payment(tenant_id: int) -> None:
     sub = get_tenant_subscription(tenant_id)
     if not sub:
         return
-    if sub.status in ("suspended", "past_due", "grace_period", "cancelled"):
+    if sub.status in ("suspended", "past_due", "grace_period", "cancelled", "pending_payment"):
         now = datetime.now(timezone.utc)
         if sub.billing_cycle == "yearly":
             period_end = now + timedelta(days=365)

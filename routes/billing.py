@@ -1,14 +1,22 @@
 """Billing and subscription management routes."""
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+import json
+
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
 from extensions import csrf, db
-from models import Payment, SubscriptionPlan, Tenant, TenantSubscription, UserTenant
+from models import AppSetting, Payment, SubscriptionPlan, Tenant, TenantSubscription, UserTenant
 from services.auth import get_current_user, login_required, role_required
 from services.tenant import get_current_tenant, get_current_tenant_id, require_tenant
 from utils import safe_int
 
 billing_bp = Blueprint("billing", __name__)
+
+
+def _get_active_gateway() -> str:
+    """Return the active payment gateway from global settings."""
+    row = AppSetting.query.filter_by(tenant_id=None, key="payment_gateway").first()
+    return row.value if row and row.value else "gopay"
 
 
 # ---------------------------------------------------------------------------
@@ -29,31 +37,203 @@ def status():
         .all()
     )
     plans = SubscriptionPlan.query.filter_by(is_active=True).order_by(SubscriptionPlan.sort_order).all()
+    # Find any pending payment for the current subscription
+    pending_payment = None
+    if sub:
+        pending_payment = (
+            Payment.query.filter_by(tenant_id=tid, status="pending")
+            .filter(Payment.gopay_payment_id.isnot(None))
+            .order_by(Payment.created_at.desc())
+            .first()
+        )
     return render_template(
         "billing/status.html",
         subscription=sub,
         plan=plan,
         payments=payments,
         plans=plans,
+        pending_payment=pending_payment,
     )
 
 
 @billing_bp.route("/billing/subscribe", methods=["POST"])
 @login_required
 def subscribe():
-    """Choose a plan (for now, just record the selection)."""
+    """Choose a plan and initiate payment if needed."""
     tid = require_tenant()
     plan_id = safe_int(request.form.get("plan_id"))
     billing_cycle = request.form.get("billing_cycle", "monthly")
     plan = db.session.get(SubscriptionPlan, plan_id)
     if not plan or not plan.is_active:
-        flash("Neplatný plán.", "danger")
+        flash("Neplatny plan.", "danger")
         return redirect(url_for("billing.status"))
 
-    from services.billing import create_subscription
-    create_subscription(tid, plan_id, billing_cycle)
-    flash(f"Plán '{plan.name}' bol aktivovaný.", "success")
-    return redirect(url_for("billing.status"))
+    # Determine price
+    price = plan.price_monthly if billing_cycle == "monthly" else plan.price_yearly
+
+    # Free plans — activate immediately
+    if price == 0:
+        from services.billing import create_subscription
+        create_subscription(tid, plan_id, billing_cycle)
+        flash(f"Plan '{plan.name}' bol aktivovany.", "success")
+        return redirect(url_for("billing.status"))
+
+    # Paid plan — route through selected payment gateway
+    gateway = _get_active_gateway()
+
+    if gateway == "gopay":
+        return _subscribe_gopay(tid, plan, billing_cycle, price)
+    elif gateway == "stripe":
+        # Existing Stripe flow
+        from services.billing import create_subscription
+        create_subscription(tid, plan_id, billing_cycle)
+        flash(f"Plan '{plan.name}' bol aktivovany.", "success")
+        return redirect(url_for("billing.status"))
+    else:
+        # Manual gateway — admin handles payment offline
+        from services.billing import create_subscription
+        create_subscription(tid, plan_id, billing_cycle)
+        flash(f"Plan '{plan.name}' aktivovany. Platbu realizujte bankovym prevodom.", "info")
+        return redirect(url_for("billing.status"))
+
+
+def _subscribe_gopay(tid, plan, billing_cycle, price):
+    """Create a GoPay payment and redirect to the payment page."""
+    from services.billing import get_tenant_subscription, record_payment
+    from services.gopay_billing import create_gopay_payment
+
+    tenant = db.session.get(Tenant, tid)
+    if not tenant:
+        flash("Tenant neexistuje.", "danger")
+        return redirect(url_for("billing.status"))
+
+    # Create or update subscription with pending_payment status
+    sub = get_tenant_subscription(tid)
+    if sub:
+        sub.plan_id = plan.id
+        sub.billing_cycle = billing_cycle
+        if sub.status not in ("active", "trial"):
+            sub.status = "pending_payment"
+    else:
+        from datetime import datetime, timezone
+        sub = TenantSubscription(
+            tenant_id=tid,
+            plan_id=plan.id,
+            status="pending_payment",
+            billing_cycle=billing_cycle,
+            current_period_start=datetime.now(timezone.utc),
+        )
+        db.session.add(sub)
+    db.session.commit()
+
+    # Build callback URLs
+    return_url = url_for("billing.payment_return", _external=True)
+    notify_url = url_for("billing.notify_gopay", _external=True)
+
+    gopay_id, gw_url = create_gopay_payment(
+        tenant, plan, billing_cycle, return_url, notify_url
+    )
+    if not gopay_id or not gw_url:
+        flash("Nepodarilo sa vytvorit platbu cez GoPay. Skuste to znova.", "danger")
+        return redirect(url_for("billing.status"))
+
+    # Record pending payment
+    payment = record_payment(
+        tid,
+        price,
+        "gopay",
+        gopay_payment_id=str(gopay_id),
+        status="pending",
+    )
+
+    return redirect(url_for("billing.payment_page", payment_id=payment.id))
+
+
+@billing_bp.route("/billing/pay/<int:payment_id>")
+@login_required
+def payment_page(payment_id):
+    """Display the GoPay inline payment form."""
+    tid = require_tenant()
+    payment = Payment.query.filter_by(id=payment_id, tenant_id=tid).first()
+    if not payment or not payment.gopay_payment_id:
+        flash("Platba nenajdena.", "danger")
+        return redirect(url_for("billing.status"))
+
+    # Get the GoPay gateway URL for this payment
+    from services.gopay_billing import get_gopay_payment_status, _get_embed_js_url
+
+    status_data = get_gopay_payment_status(payment.gopay_payment_id)
+    if not status_data:
+        flash("Nepodarilo sa nacitat platbu z GoPay.", "danger")
+        return redirect(url_for("billing.status"))
+
+    gw_url = status_data.get("gw_url", "")
+    state = status_data.get("state", "")
+
+    if state == "PAID":
+        flash("Platba uz bola uhradena.", "success")
+        return redirect(url_for("billing.status"))
+
+    # Get plan info for display
+    sub = TenantSubscription.query.filter_by(tenant_id=tid).first()
+    plan = sub.plan if sub else None
+    billing_cycle = sub.billing_cycle if sub else "monthly"
+
+    return render_template(
+        "billing/pay.html",
+        payment=payment,
+        plan=plan,
+        billing_cycle=billing_cycle,
+        amount=payment.amount,
+        gw_url=gw_url,
+        gopay_embed_js=_get_embed_js_url(),
+    )
+
+
+@billing_bp.route("/billing/return")
+def payment_return():
+    """Handle return from GoPay after payment attempt."""
+    gopay_id = request.args.get("id", "")
+    if not gopay_id:
+        flash("Neplatna platobna odpoved.", "danger")
+        return redirect(url_for("billing.status"))
+
+    from services.gopay_billing import get_gopay_payment_status
+
+    status_data = get_gopay_payment_status(gopay_id)
+    state = status_data.get("state", "UNKNOWN") if status_data else "UNKNOWN"
+
+    # Find our payment record
+    payment = Payment.query.filter_by(gopay_payment_id=str(gopay_id)).first()
+
+    if state == "PAID" and payment:
+        if payment.status != "completed":
+            from datetime import datetime, timezone
+            from services.billing import reactivate_after_payment
+            payment.status = "completed"
+            payment.paid_at = datetime.now(timezone.utc)
+            db.session.commit()
+            reactivate_after_payment(payment.tenant_id)
+
+    return render_template(
+        "billing/return.html",
+        state=state,
+        payment=payment,
+        gopay_id=gopay_id,
+    )
+
+
+@billing_bp.route("/billing/notify/gopay")
+@csrf.exempt
+def notify_gopay():
+    """GoPay notification endpoint (server-to-server callback)."""
+    gopay_id = request.args.get("id", "")
+    if not gopay_id:
+        return json.dumps({"status": "error", "message": "missing id"}), 400
+
+    from services.gopay_billing import handle_gopay_notification
+    handle_gopay_notification(gopay_id)
+    return json.dumps({"status": "ok"}), 200
 
 
 @billing_bp.route("/billing/cancel", methods=["POST"])
@@ -63,7 +243,7 @@ def cancel():
     tid = require_tenant()
     from services.billing import cancel_subscription
     cancel_subscription(tid)
-    flash("Predplatné bude zrušené na konci fakturačného obdobia.", "warning")
+    flash("Predplatne bude zrusene na konci fakturacneho obdobia.", "warning")
     return redirect(url_for("billing.status"))
 
 
@@ -90,7 +270,7 @@ def admin_plans():
     """List/manage subscription plans."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     plans = SubscriptionPlan.query.order_by(SubscriptionPlan.sort_order).all()
     return render_template("admin/billing_plans.html", plans=plans)
@@ -102,7 +282,7 @@ def admin_create_plan():
     """Create a new subscription plan."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     from decimal import Decimal
     plan = SubscriptionPlan(
@@ -118,7 +298,7 @@ def admin_create_plan():
     )
     db.session.add(plan)
     db.session.commit()
-    flash(f"Plán '{plan.name}' vytvorený.", "success")
+    flash(f"Plan '{plan.name}' vytvoreny.", "success")
     return redirect(url_for("billing.admin_plans"))
 
 
@@ -128,7 +308,7 @@ def admin_tenants():
     """Overview of all tenant subscriptions."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     tenants = Tenant.query.order_by(Tenant.name).all()
     subscriptions = {
@@ -148,7 +328,7 @@ def admin_record_payment(tenant_id):
     """Record a manual/bank transfer payment for a tenant."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     from decimal import Decimal
     from services.billing import record_payment, reactivate_after_payment
@@ -161,7 +341,7 @@ def admin_record_payment(tenant_id):
         bank_reference=bank_reference, notes=notes,
     )
     reactivate_after_payment(tenant_id)
-    flash("Platba zaznamenaná.", "success")
+    flash("Platba zaznamenana.", "success")
     return redirect(url_for("billing.admin_tenants"))
 
 
@@ -171,15 +351,15 @@ def admin_extend_trial(tenant_id):
     """Extend a tenant's trial period."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     extra_days = safe_int(request.form.get("extra_days")) or 0
     if extra_days <= 0:
-        flash("Zadajte platný počet dní.", "danger")
+        flash("Zadajte platny pocet dni.", "danger")
         return redirect(url_for("billing.admin_tenants"))
     from services.billing import extend_trial
     extend_trial(tenant_id, extra_days, user.id)
-    flash(f"Skúšobné obdobie predĺžené o {extra_days} dní.", "success")
+    flash(f"Skusobne obdobie predlzene o {extra_days} dni.", "success")
     return redirect(url_for("billing.admin_tenants"))
 
 
@@ -189,11 +369,11 @@ def admin_reset_trial(tenant_id):
     """Reset a tenant's trial period to full duration."""
     user = get_current_user()
     if not user.is_superadmin:
-        flash("Prístup zamietnutý.", "danger")
+        flash("Pristup zamietnuty.", "danger")
         return redirect(url_for("dashboard.index"))
     from services.billing import reset_trial
     reset_trial(tenant_id, user.id)
-    flash("Skúšobné obdobie obnovené.", "success")
+    flash("Skusobne obdobie obnovene.", "success")
     return redirect(url_for("billing.admin_tenants"))
 
 
@@ -206,7 +386,6 @@ def admin_reset_trial(tenant_id):
 def webhook_stripe():
     """Handle Stripe webhook events."""
     from services.stripe_billing import handle_webhook
-    import json
     payload = request.get_data(as_text=True)
     sig_header = request.headers.get("Stripe-Signature", "")
     result = handle_webhook(payload, sig_header)

@@ -27,3 +27,12 @@ class SuperfakturaConfig:
     api_key: str
     company_id: str
     base_url: str
+
+
+@dataclass
+class GopayConfig:
+    enabled: bool
+    goid: str
+    client_id: str
+    client_secret: str
+    gateway_url: str

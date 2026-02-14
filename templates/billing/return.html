@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block page_title %}Vysledok platby{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+  <div class="card-body text-center">
+
+    {% if state == 'PAID' %}
+      <div class="mb-3">
+        <span class="badge bg-success" style="font-size: 1.2rem; padding: 0.5rem 1rem;">
+          <i data-lucide="check-circle"></i> Uhradene
+        </span>
+      </div>
+      <h4>Predplatne aktivovane</h4>
+      <p class="text-muted">Vasa platba bola uspesne spracovana.</p>
+      {% if payment %}
+        <p>Suma: <strong>{{ payment.amount }} {{ payment.currency }}</strong></p>
+      {% endif %}
+      <a href="{{ url_for('billing.status') }}" class="btn btn-primary mt-3">
+        <i data-lucide="arrow-left"></i> Spat na predplatne
+      </a>
+
+    {% elif state == 'CANCELED' %}
+      <div class="mb-3">
+        <span class="badge bg-warning text-dark" style="font-size: 1.2rem; padding: 0.5rem 1rem;">
+          <i data-lucide="x-circle"></i> Zrusena
+        </span>
+      </div>
+      <h4>Platba bola zrusena</h4>
+      <p class="text-muted">Platba nebola dokoncena. Mozete to skusit znova.</p>
+      {% if payment %}
+      <a href="{{ url_for('billing.payment_page', payment_id=payment.id) }}" class="btn btn-primary mt-3">
+        <i data-lucide="refresh-cw"></i> Skusit znova
+      </a>
+      {% endif %}
+      <a href="{{ url_for('billing.status') }}" class="btn btn-outline-secondary mt-3">
+        Spat na predplatne
+      </a>
+
+    {% elif state == 'TIMEOUTED' %}
+      <div class="mb-3">
+        <span class="badge bg-warning text-dark" style="font-size: 1.2rem; padding: 0.5rem 1rem;">
+          <i data-lucide="clock"></i> Vyprsal cas
+        </span>
+      </div>
+      <h4>Platba vyprsala</h4>
+      <p class="text-muted">Cas na dokoncenie platby vyprsal. Skuste to znova.</p>
+      <a href="{{ url_for('billing.status') }}" class="btn btn-primary mt-3">
+        <i data-lucide="refresh-cw"></i> Nova platba
+      </a>
+
+    {% elif state == 'CREATED' or state == 'PAYMENT_METHOD_CHOSEN' %}
+      <div class="mb-3">
+        <span class="badge bg-info" style="font-size: 1.2rem; padding: 0.5rem 1rem;">
+          <i data-lucide="loader"></i> Spracovava sa
+        </span>
+      </div>
+      <h4>Platba sa spracovava</h4>
+      <p class="text-muted">Vasa platba sa este spracovava. Stranka sa automaticky obnovi.</p>
+      {% if payment %}
+        <p>Suma: <strong>{{ payment.amount }} {{ payment.currency }}</strong></p>
+      {% endif %}
+      <a href="{{ url_for('billing.status') }}" class="btn btn-outline-secondary mt-3">
+        Spat na predplatne
+      </a>
+      <meta http-equiv="refresh" content="5">
+
+    {% else %}
+      <div class="mb-3">
+        <span class="badge bg-secondary" style="font-size: 1.2rem; padding: 0.5rem 1rem;">
+          <i data-lucide="help-circle"></i> Neznamy stav
+        </span>
+      </div>
+      <h4>Stav platby: {{ state }}</h4>
+      <p class="text-muted">Nepodarilo sa overit stav platby. Skontrolujte predplatne neskor.</p>
+      <a href="{{ url_for('billing.status') }}" class="btn btn-primary mt-3">
+        Spat na predplatne
+      </a>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
