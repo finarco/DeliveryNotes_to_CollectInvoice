@@ -363,7 +363,9 @@ def _rebuild_unique_constraints():
         ddl = db.session.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='numbering_config'")
         ).scalar() or ""
-        if "UNIQUE" in ddl and "tenant_id" not in ddl:
+        # Detect old schema: has UNIQUE but NOT the composite UNIQUE(tenant_id, entity_type)
+        needs_rebuild = "UNIQUE" in ddl and "UNIQUE(tenant_id, entity_type)" not in ddl.replace(" ", "")
+        if needs_rebuild:
             logger.info("Rebuilding numbering_config for composite unique constraint")
             db.session.execute(text('ALTER TABLE "numbering_config" RENAME TO "_numbering_config_old"'))
             db.session.execute(text("""
@@ -387,7 +389,9 @@ def _rebuild_unique_constraints():
         ddl = db.session.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='pdf_template'")
         ).scalar() or ""
-        if "UNIQUE" in ddl and "tenant_id" not in ddl:
+        # Detect old schema: has UNIQUE but NOT the composite UNIQUE(tenant_id, entity_type)
+        needs_rebuild = "UNIQUE" in ddl and "UNIQUE(tenant_id,entity_type)" not in ddl.replace(" ", "")
+        if needs_rebuild:
             logger.info("Rebuilding pdf_template for composite unique constraint")
             db.session.execute(text('ALTER TABLE "pdf_template" RENAME TO "_pdf_template_old"'))
             db.session.execute(text("""
@@ -397,12 +401,14 @@ def _rebuild_unique_constraints():
                     entity_type VARCHAR(40) NOT NULL,
                     html_content TEXT DEFAULT '',
                     css_content TEXT DEFAULT '',
+                    layout_config TEXT,
                     UNIQUE(tenant_id, entity_type)
                 )
             """))
             db.session.execute(text("""
-                INSERT INTO "pdf_template" (id, tenant_id, entity_type, html_content, css_content)
-                SELECT id, tenant_id, entity_type, html_content, css_content FROM "_pdf_template_old"
+                INSERT INTO "pdf_template" (id, tenant_id, entity_type, html_content, css_content, layout_config)
+                SELECT id, tenant_id, entity_type, html_content, css_content, layout_config
+                FROM "_pdf_template_old"
             """))
             db.session.execute(text('DROP TABLE "_pdf_template_old"'))
             logger.info("Rebuilt pdf_template table successfully")
@@ -412,7 +418,8 @@ def _rebuild_unique_constraints():
         ddl = db.session.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='number_sequence'")
         ).scalar() or ""
-        if "UNIQUE" in ddl and "tenant_id" not in ddl:
+        needs_rebuild = "UNIQUE" in ddl and "UNIQUE(tenant_id,entity_type,scope_key)" not in ddl.replace(" ", "")
+        if needs_rebuild:
             logger.info("Rebuilding number_sequence for composite unique constraint")
             db.session.execute(text('ALTER TABLE "number_sequence" RENAME TO "_number_sequence_old"'))
             db.session.execute(text("""
@@ -445,7 +452,8 @@ def _rebuild_unique_constraints():
         ddl = db.session.execute(
             text("SELECT sql FROM sqlite_master WHERE type='table' AND name='vehicle'")
         ).scalar() or ""
-        if "UNIQUE" in ddl and "tenant_id" not in ddl and "registration_number" in ddl:
+        needs_rebuild = "UNIQUE" in ddl and "registration_number" in ddl and "UNIQUE(tenant_id,registration_number)" not in ddl.replace(" ", "")
+        if needs_rebuild:
             logger.info("Rebuilding vehicle for composite unique constraint")
             db.session.execute(text('ALTER TABLE "vehicle" RENAME TO "_vehicle_old"'))
             db.session.execute(text("""
