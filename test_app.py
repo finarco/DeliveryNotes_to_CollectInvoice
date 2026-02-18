@@ -9,6 +9,7 @@ import os
 import tempfile
 
 import pytest
+from flask import g
 
 os.environ["DATABASE_URI"] = "sqlite://"  # In-memory database for tests
 os.environ["APP_SECRET_KEY"] = "test-secret-key"
@@ -35,6 +36,8 @@ from models import (
     Product,
     ProductPriceHistory,
     ProductRestriction,
+    Tenant,
+    UserTenant,
     User,
     Vehicle,
     VehicleSchedule,
@@ -59,6 +62,14 @@ def app():
         if admin:
             admin.password_hash = generate_password_hash(TEST_PASSWORD)
             admin.must_change_password = False
+            # Create a test tenant and link admin to it
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            if not tenant:
+                tenant = Tenant(name="Test Tenant", slug="test-tenant")
+                db.session.add(tenant)
+                db.session.flush()
+                ut = UserTenant(user_id=admin.id, tenant_id=tenant.id, is_default=True)
+                db.session.add(ut)
             db.session.commit()
     yield application
 
@@ -74,8 +85,10 @@ def logged_in_client(client, app):
     """Create test client with logged-in admin session."""
     with app.app_context():
         user = User.query.filter_by(username="admin").first()
+        tenant = Tenant.query.filter_by(slug="test-tenant").first()
         with client.session_transaction() as sess:
             sess["user_id"] = user.id
+            sess["active_tenant_id"] = tenant.id
     return client
 
 
@@ -83,6 +96,9 @@ def logged_in_client(client, app):
 def sample_data(app):
     """Create sample data for tests. Returns dict of IDs to avoid detached instance errors."""
     with app.app_context():
+        tenant = Tenant.query.filter_by(slug="test-tenant").first()
+        tid = tenant.id
+
         partner = Partner(
             name="Test Partner",
             email="partner@test.sk",
@@ -97,6 +113,7 @@ def sample_data(app):
             group_code="GRP1",
             price_level="standard",
             discount_percent=5.0,
+            tenant_id=tid,
         )
         db.session.add(partner)
         db.session.flush()
@@ -108,6 +125,7 @@ def sample_data(app):
             street_number="1",
             postal_code="01001",
             city="Zilina",
+            tenant_id=tid,
         )
         db.session.add(address)
 
@@ -116,6 +134,7 @@ def sample_data(app):
             description="Test Description",
             price=15.50,
             is_service=True,
+            tenant_id=tid,
         )
         db.session.add(product)
         db.session.flush()
@@ -126,6 +145,7 @@ def sample_data(app):
             price=25.00,
             is_service=False,
             discount_excluded=True,
+            tenant_id=tid,
         )
         db.session.add(product2)
         db.session.flush()
@@ -140,6 +160,7 @@ def sample_data(app):
             delivery_method="rozvoz",
             payment_method="prevod",
             payment_terms="14 dni",
+            tenant_id=tid,
         )
         db.session.add(order)
         db.session.flush()
@@ -149,6 +170,7 @@ def sample_data(app):
             product_id=product.id,
             quantity=3,
             unit_price=product.price,
+            tenant_id=tid,
         )
         db.session.add(order_item)
         db.session.flush()
@@ -164,6 +186,7 @@ def sample_data(app):
             "order_id": order.id,
             "order_item_id": order_item.id,
             "user_id": user.id,
+            "tenant_id": tid,
         }
 
 
@@ -647,11 +670,13 @@ class TestDeliveryNoteRoutes:
 
     def test_create_delivery_note_with_bundle(self, logged_in_client, sample_data, app):
         with app.app_context():
-            bundle = Bundle(name="Test Bundle", bundle_price=40.00)
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            bundle = Bundle(name="Test Bundle", bundle_price=40.00, tenant_id=tid)
             db.session.add(bundle)
             db.session.flush()
             bundle.items.append(
-                BundleItem(product_id=sample_data["product_id"], quantity=2)
+                BundleItem(product_id=sample_data["product_id"], quantity=2, tenant_id=tid)
             )
             db.session.commit()
             bundle_id = bundle.id
@@ -686,9 +711,12 @@ class TestDeliveryNoteRoutes:
 
     def test_confirm_delivery(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.commit()
@@ -702,10 +730,13 @@ class TestDeliveryNoteRoutes:
 
     def test_unconfirm_delivery(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
                 confirmed=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.commit()
@@ -719,10 +750,13 @@ class TestDeliveryNoteRoutes:
 
     def test_delivery_pdf(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
                 show_prices=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -732,6 +766,7 @@ class TestDeliveryNoteRoutes:
                     quantity=2,
                     unit_price=15.50,
                     line_total=31.00,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -766,7 +801,9 @@ class TestVehicleRoutes:
 
     def test_add_vehicle_schedule(self, logged_in_client, app):
         with app.app_context():
-            vehicle = Vehicle(name="Schedule Vehicle", active=True)
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            vehicle = Vehicle(name="Schedule Vehicle", active=True, tenant_id=tid)
             db.session.add(vehicle)
             db.session.commit()
             vehicle_id = vehicle.id
@@ -785,7 +822,9 @@ class TestVehicleRoutes:
     def test_add_schedule_missing_time(self, logged_in_client, app):
         """Test schedule with missing time uses defaults."""
         with app.app_context():
-            vehicle = Vehicle(name="Default Time Vehicle", active=True)
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            vehicle = Vehicle(name="Default Time Vehicle", active=True, tenant_id=tid)
             db.session.add(vehicle)
             db.session.commit()
             vehicle_id = vehicle.id
@@ -875,20 +914,24 @@ class TestInvoiceRoutes:
 
     def test_create_invoice_with_delivery(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 partner_id=sample_data["partner_id"],
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
-            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"]))
+            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"], tenant_id=tid))
             delivery.items.append(
                 DeliveryItem(
                     product_id=sample_data["product_id"],
                     quantity=3,
                     unit_price=15.50,
                     line_total=46.50,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -912,8 +955,11 @@ class TestInvoiceRoutes:
 
     def test_add_manual_invoice_item(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=0.0
+                partner_id=sample_data["partner_id"], status="draft", total=0.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.commit()
@@ -932,8 +978,11 @@ class TestInvoiceRoutes:
 
     def test_invoice_pdf(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=100.0
+                partner_id=sample_data["partner_id"], status="draft", total=100.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -943,6 +992,7 @@ class TestInvoiceRoutes:
                     quantity=2,
                     unit_price=50.0,
                     total=100.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -954,8 +1004,11 @@ class TestInvoiceRoutes:
 
     def test_send_invoice_email_disabled(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=50.0
+                partner_id=sample_data["partner_id"], status="draft", total=50.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -965,6 +1018,7 @@ class TestInvoiceRoutes:
                     quantity=1,
                     unit_price=50.0,
                     total=50.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -978,8 +1032,11 @@ class TestInvoiceRoutes:
 
     def test_export_invoice_disabled(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=50.0
+                partner_id=sample_data["partner_id"], status="draft", total=50.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.commit()
@@ -1015,19 +1072,24 @@ class TestErrorHandlers:
 class TestBusinessLogic:
     def test_build_invoice_for_partner(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            g.current_tenant = tenant
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
-            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"]))
+            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"], tenant_id=tid))
             delivery.items.append(
                 DeliveryItem(
                     product_id=sample_data["product_id"],
                     quantity=3,
                     unit_price=15.50,
                     line_total=46.50,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1040,24 +1102,31 @@ class TestBusinessLogic:
 
     def test_build_invoice_no_unbilled(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            g.current_tenant = tenant
             with pytest.raises(ValueError, match="nevyfakturovan"):
                 build_invoice_for_partner(sample_data["partner_id"])
 
     def test_build_invoice_marks_invoiced(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            g.current_tenant = tenant
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
-            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"]))
+            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"], tenant_id=tid))
             delivery.items.append(
                 DeliveryItem(
                     product_id=sample_data["product_id"],
                     quantity=1,
                     unit_price=10.0,
                     line_total=10.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1070,8 +1139,12 @@ class TestBusinessLogic:
     def test_build_invoice_group_code(self, app, sample_data):
         """Test invoice generation for partners sharing a group code."""
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            g.current_tenant = tenant
             partner2 = Partner(
-                name="Partner 2", group_code="GRP1", discount_percent=0
+                name="Partner 2", group_code="GRP1", discount_percent=0,
+                tenant_id=tid,
             )
             db.session.add(partner2)
             db.session.flush()
@@ -1079,27 +1152,30 @@ class TestBusinessLogic:
             order2 = Order(
                 partner_id=partner2.id,
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(order2)
             db.session.flush()
 
             order2.items.append(
-                OrderItem(product_id=sample_data["product_id"], quantity=1, unit_price=15.50)
+                OrderItem(product_id=sample_data["product_id"], quantity=1, unit_price=15.50, tenant_id=tid)
             )
 
             delivery = DeliveryNote(
                 primary_order_id=order2.id,
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
-            delivery.orders.append(DeliveryNoteOrder(order_id=order2.id))
+            delivery.orders.append(DeliveryNoteOrder(order_id=order2.id, tenant_id=tid))
             delivery.items.append(
                 DeliveryItem(
                     product_id=sample_data["product_id"],
                     quantity=1,
                     unit_price=15.50,
                     line_total=15.50,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1117,10 +1193,13 @@ class TestBusinessLogic:
 class TestPDFGeneration:
     def test_generate_delivery_pdf(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
                 show_prices=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1130,6 +1209,7 @@ class TestPDFGeneration:
                     quantity=2,
                     unit_price=15.50,
                     line_total=31.00,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1142,10 +1222,13 @@ class TestPDFGeneration:
 
     def test_generate_delivery_pdf_no_prices(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
                 show_prices=False,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1155,6 +1238,7 @@ class TestPDFGeneration:
                     quantity=1,
                     unit_price=15.50,
                     line_total=15.50,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1166,7 +1250,9 @@ class TestPDFGeneration:
 
     def test_generate_delivery_pdf_with_bundle_components(self, app, sample_data):
         with app.app_context():
-            bundle = Bundle(name="Test Bundle", bundle_price=40.00)
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            bundle = Bundle(name="Test Bundle", bundle_price=40.00, tenant_id=tid)
             db.session.add(bundle)
             db.session.flush()
 
@@ -1174,6 +1260,7 @@ class TestPDFGeneration:
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
                 show_prices=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1183,11 +1270,13 @@ class TestPDFGeneration:
                 quantity=1,
                 unit_price=40.00,
                 line_total=40.00,
+                tenant_id=tid,
             )
             delivery_item.components.append(
                 DeliveryItemComponent(
                     product_id=sample_data["product_id"],
                     quantity=2,
+                    tenant_id=tid,
                 )
             )
             delivery.items.append(delivery_item)
@@ -1200,8 +1289,11 @@ class TestPDFGeneration:
 
     def test_generate_invoice_pdf(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=100.0
+                partner_id=sample_data["partner_id"], status="draft", total=100.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -1211,6 +1303,7 @@ class TestPDFGeneration:
                     quantity=2,
                     unit_price=50.0,
                     total=100.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1230,30 +1323,40 @@ class TestPDFGeneration:
 class TestRolePermissions:
     def test_operator_can_access_partners(self, client, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             operator = User(
                 username="operator1",
                 password_hash="pbkdf2:sha256:unused",
                 role="operator",
             )
             db.session.add(operator)
+            db.session.flush()
+            db.session.add(UserTenant(user_id=operator.id, tenant_id=tid, is_default=True))
             db.session.commit()
             with client.session_transaction() as sess:
                 sess["user_id"] = operator.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get("/partners")
         assert resp.status_code == 200
 
     def test_collector_cannot_access_partners(self, client, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             collector = User(
                 username="collector1",
                 password_hash="pbkdf2:sha256:unused",
                 role="collector",
             )
             db.session.add(collector)
+            db.session.flush()
+            db.session.add(UserTenant(user_id=collector.id, tenant_id=tid, is_default=True))
             db.session.commit()
             with client.session_transaction() as sess:
                 sess["user_id"] = collector.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get("/partners", follow_redirects=True)
         assert resp.status_code == 200
@@ -1261,30 +1364,40 @@ class TestRolePermissions:
 
     def test_collector_can_access_delivery(self, client, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             collector = User(
                 username="collector2",
                 password_hash="pbkdf2:sha256:unused",
                 role="collector",
             )
             db.session.add(collector)
+            db.session.flush()
+            db.session.add(UserTenant(user_id=collector.id, tenant_id=tid, is_default=True))
             db.session.commit()
             with client.session_transaction() as sess:
                 sess["user_id"] = collector.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get("/delivery-notes")
         assert resp.status_code == 200
 
     def test_customer_limited_access(self, client, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             customer = User(
                 username="customer1",
                 password_hash="pbkdf2:sha256:unused",
                 role="customer",
             )
             db.session.add(customer)
+            db.session.flush()
+            db.session.add(UserTenant(user_id=customer.id, tenant_id=tid, is_default=True))
             db.session.commit()
             with client.session_transaction() as sess:
                 sess["user_id"] = customer.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get("/partners", follow_redirects=True)
         assert resp.status_code == 200
@@ -1340,11 +1453,14 @@ class TestEdgeCases:
     def test_delivery_note_with_no_primary_order(self, app, sample_data):
         """DeliveryNote.primary_order is nullable - test PDF handles None."""
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             user = User.query.filter_by(username="admin").first()
             delivery = DeliveryNote(
                 primary_order_id=None,
                 created_by_id=user.id,
                 show_prices=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1354,6 +1470,7 @@ class TestEdgeCases:
                     quantity=1,
                     unit_price=10.0,
                     line_total=10.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1366,19 +1483,24 @@ class TestEdgeCases:
     def test_invoice_item_without_line_total(self, app, sample_data):
         """Test invoice build handles items where line_total is 0/None."""
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            g.current_tenant = tenant
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
-            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"]))
+            delivery.orders.append(DeliveryNoteOrder(order_id=sample_data["order_id"], tenant_id=tid))
             delivery.items.append(
                 DeliveryItem(
                     product_id=sample_data["product_id"],
                     quantity=2,
                     unit_price=15.50,
                     line_total=0.0,  # line_total is 0, should fallback
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1389,15 +1511,19 @@ class TestEdgeCases:
 
     def test_multiple_delivery_notes_in_invoice(self, app, sample_data):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
+            g.current_tenant = tenant
             for i in range(3):
                 delivery = DeliveryNote(
                     primary_order_id=sample_data["order_id"],
                     created_by_id=sample_data["user_id"],
+                    tenant_id=tid,
                 )
                 db.session.add(delivery)
                 db.session.flush()
                 delivery.orders.append(
-                    DeliveryNoteOrder(order_id=sample_data["order_id"])
+                    DeliveryNoteOrder(order_id=sample_data["order_id"], tenant_id=tid)
                 )
                 delivery.items.append(
                     DeliveryItem(
@@ -1405,6 +1531,7 @@ class TestEdgeCases:
                         quantity=1,
                         unit_price=10.0,
                         line_total=10.0,
+                        tenant_id=tid,
                     )
                 )
             db.session.commit()
@@ -1553,10 +1680,12 @@ class TestPasswordChange:
         """User with must_change_password=True is redirected to change-password."""
         with app.app_context():
             admin = User.query.filter_by(username="admin").first()
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
             admin.must_change_password = True
             db.session.commit()
             with client.session_transaction() as sess:
                 sess["user_id"] = admin.id
+                sess["active_tenant_id"] = tenant.id
 
         resp = client.get("/")
         assert resp.status_code == 302
@@ -1630,10 +1759,13 @@ class TestOrderDetail:
 class TestDeliveryNoteDetail:
     def test_delivery_detail_returns_json(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 partner_id=sample_data["partner_id"],
                 created_by_id=sample_data["user_id"],
                 show_prices=True,
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1643,6 +1775,7 @@ class TestDeliveryNoteDetail:
                     quantity=5,
                     unit_price=15.50,
                     line_total=77.50,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1661,9 +1794,12 @@ class TestDeliveryNoteDetail:
 
     def test_edit_delivery_with_items(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             delivery = DeliveryNote(
                 partner_id=sample_data["partner_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.flush()
@@ -1673,6 +1809,7 @@ class TestDeliveryNoteDetail:
                     quantity=1,
                     unit_price=10.00,
                     line_total=10.00,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1701,11 +1838,14 @@ class TestDeliveryNoteDetail:
 class TestInvoiceDetail:
     def test_invoice_detail_returns_json(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
                 partner_id=sample_data["partner_id"],
                 status="draft",
                 total=100.0,
                 total_with_vat=120.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -1718,6 +1858,7 @@ class TestInvoiceDetail:
                     vat_rate=20.0,
                     vat_amount=20.0,
                     total_with_vat=120.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1736,11 +1877,14 @@ class TestInvoiceDetail:
 
     def test_edit_invoice_with_items(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
                 partner_id=sample_data["partner_id"],
                 status="draft",
                 total=50.0,
                 total_with_vat=60.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.flush()
@@ -1753,6 +1897,7 @@ class TestInvoiceDetail:
                     vat_rate=20.0,
                     vat_amount=10.0,
                     total_with_vat=60.0,
+                    tenant_id=tid,
                 )
             )
             db.session.commit()
@@ -1782,11 +1927,14 @@ class TestInvoiceDetail:
 
     def test_edit_locked_invoice_rejected(self, logged_in_client, sample_data, app):
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             invoice = Invoice(
                 partner_id=sample_data["partner_id"],
                 status="draft",
                 total=0.0,
                 is_locked=True,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.commit()
@@ -1805,6 +1953,8 @@ class TestPDFAccessControl:
     def test_collector_cannot_access_invoice_pdf(self, client, app, sample_data):
         """Collector role should not access invoice PDFs (requires manage_invoices)."""
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             collector = User(
                 username="collector_pdf_test",
                 password_hash="pbkdf2:sha256:unused",
@@ -1812,9 +1962,11 @@ class TestPDFAccessControl:
             )
             db.session.add(collector)
             db.session.flush()
+            db.session.add(UserTenant(user_id=collector.id, tenant_id=tid, is_default=True))
 
             invoice = Invoice(
-                partner_id=sample_data["partner_id"], status="draft", total=50.0
+                partner_id=sample_data["partner_id"], status="draft", total=50.0,
+                tenant_id=tid,
             )
             db.session.add(invoice)
             db.session.commit()
@@ -1822,6 +1974,7 @@ class TestPDFAccessControl:
 
             with client.session_transaction() as sess:
                 sess["user_id"] = collector.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get(f"/invoices/{invoice_id}/pdf", follow_redirects=True)
         assert resp.status_code == 200
@@ -1830,6 +1983,8 @@ class TestPDFAccessControl:
     def test_customer_cannot_access_delivery_pdf(self, client, app, sample_data):
         """Customer role should not access delivery PDFs (requires manage_delivery)."""
         with app.app_context():
+            tenant = Tenant.query.filter_by(slug="test-tenant").first()
+            tid = tenant.id
             customer = User(
                 username="customer_pdf_test",
                 password_hash="pbkdf2:sha256:unused",
@@ -1837,10 +1992,12 @@ class TestPDFAccessControl:
             )
             db.session.add(customer)
             db.session.flush()
+            db.session.add(UserTenant(user_id=customer.id, tenant_id=tid, is_default=True))
 
             delivery = DeliveryNote(
                 primary_order_id=sample_data["order_id"],
                 created_by_id=sample_data["user_id"],
+                tenant_id=tid,
             )
             db.session.add(delivery)
             db.session.commit()
@@ -1848,6 +2005,7 @@ class TestPDFAccessControl:
 
             with client.session_transaction() as sess:
                 sess["user_id"] = customer.id
+                sess["active_tenant_id"] = tid
 
         resp = client.get(
             f"/delivery-notes/{delivery_id}/pdf", follow_redirects=True
