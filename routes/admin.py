@@ -3,7 +3,7 @@
 import json
 from urllib.parse import urlparse
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
 from werkzeug.security import generate_password_hash
 
 from utils import utc_now
@@ -649,10 +649,19 @@ def superadmin_create_tenant():
                is_active=True)
     db.session.add(t)
     db.session.flush()
+    # Temporarily switch tenant context so the flush guard allows
+    # writing TenantSubscription for the NEW tenant.
+    prev_tenant_id = getattr(g, "_tenant_id", None)
+    prev_tenant = getattr(g, "current_tenant", None)
+    g._tenant_id = t.id
+    g.current_tenant = t
     from services.billing import create_trial_subscription
     create_trial_subscription(t.id)
     log_action("create", "tenant", t.id, f"name={name}")
     db.session.commit()
+    # Restore previous tenant context
+    g._tenant_id = prev_tenant_id
+    g.current_tenant = prev_tenant
     flash(f"Organizácia '{name}' vytvorená.", "success")
     return redirect(url_for("admin.superadmin_dashboard"))
 
