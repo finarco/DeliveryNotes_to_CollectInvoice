@@ -22,13 +22,20 @@ def _get_fs_api_key() -> Optional[str]:
 
     Checks (in order):
     1. Environment variable ``FS_OPENDATA_API_KEY``
-    2. Global AppSetting ``fs_opendata_api_key`` (tenant_id=NULL)
+    2. Tenant-specific AppSetting ``fs_opendata_api_key``
+    3. Global AppSetting ``fs_opendata_api_key`` (tenant_id=NULL)
     """
     key = os.environ.get("FS_OPENDATA_API_KEY")
     if key:
         return key
     try:
         from models import AppSetting
+        from services.tenant import tenant_query
+        # Tenant-specific key first
+        row = tenant_query(AppSetting).filter_by(key="fs_opendata_api_key").first()
+        if row and row.value:
+            return row.value
+        # Fall back to global key
         row = AppSetting.query.filter_by(tenant_id=None, key="fs_opendata_api_key").first()
         if row and row.value:
             return row.value
