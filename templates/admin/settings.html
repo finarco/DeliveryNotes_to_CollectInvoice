@@ -3,6 +3,8 @@
 {% block page_title %}Nastavenia{% endblock %}
 
 {% block content %}
+{% include 'components/admin_nav.html' %}
+
 <form method="post" enctype="multipart/form-data" id="settingsForm">
   <input type="hidden" name="_active_tab" id="activeTabInput" value="{{ active_tab }}">
 

@@ -1,0 +1,17 @@
+{# Admin sub-navigation — included on admin pages #}
+<ul class="nav nav-tabs admin-nav mb-4">
+  <li class="nav-item">
+    <a class="nav-link{% if request.endpoint == 'admin.users' %} active{% endif %}"
+       href="{{ url_for('admin.users') }}">
+      <i data-lucide="users" style="width:16px;height:16px;"></i>
+      Pouzivatelia
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link{% if request.endpoint == 'admin.settings' %} active{% endif %}"
+       href="{{ url_for('admin.settings') }}">
+      <i data-lucide="settings" style="width:16px;height:16px;"></i>
+      Nastavenia
+    </a>
+  </li>
+</ul>
