@@ -83,6 +83,68 @@ def logout():
     return redirect(url_for("auth.login"))
 
 
+@auth_bp.route("/register", methods=["GET", "POST"])
+@limiter.limit("5 per minute")
+def register():
+    if request.method == "POST":
+        company_name = request.form.get("company_name", "").strip()
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+
+        if not company_name:
+            flash("Názov firmy je povinný.", "danger")
+            return render_template("register.html")
+        if not username:
+            flash("Používateľské meno je povinné.", "danger")
+            return render_template("register.html")
+        pw_error = _validate_password(password)
+        if pw_error:
+            flash(pw_error, "danger")
+            return render_template("register.html")
+        if password != confirm:
+            flash("Heslá sa nezhodujú.", "danger")
+            return render_template("register.html")
+        if User.query.filter_by(username=username).first():
+            flash("Používateľ s týmto menom už existuje.", "danger")
+            return render_template("register.html")
+
+        from models import Tenant
+        from services.billing import create_trial_subscription
+
+        slug = re.sub(r"[^a-z0-9]+", "-", company_name.lower()).strip("-")
+        if Tenant.query.filter_by(slug=slug).first():
+            slug = f"{slug}-{Tenant.query.count() + 1}"
+
+        tenant = Tenant(name=company_name, slug=slug, is_active=True)
+        db.session.add(tenant)
+        db.session.flush()
+
+        user = User(
+            username=username,
+            password_hash=generate_password_hash(password),
+            role="admin",
+            is_active=True,
+        )
+        db.session.add(user)
+        db.session.flush()
+
+        ut = UserTenant(user_id=user.id, tenant_id=tenant.id, is_default=True)
+        db.session.add(ut)
+
+        create_trial_subscription(tenant.id)
+        db.session.commit()
+
+        session.clear()
+        session["user_id"] = user.id
+        session["active_tenant_id"] = tenant.id
+        session.permanent = True
+        flash("Registrácia úspešná. Vitajte!", "success")
+        return redirect(url_for("dashboard.index"))
+
+    return render_template("register.html")
+
+
 @auth_bp.route("/change-password", methods=["GET", "POST"])
 @login_required
 @limiter.limit("10 per minute")

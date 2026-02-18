@@ -151,188 +151,6 @@
 {# Table View #}
 <div class="partner-table-view">
 
-<div class="modal fade" id="addPartnerModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form method="post">
-        <div class="modal-header">
-          <h5 class="modal-title">Nový partner</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Názov partnera</label>
-              <input class="form-control" name="name" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Email</label>
-              <input class="form-control" name="email">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Telefón</label>
-              <input class="form-control" name="phone">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Ulica</label>
-              <input class="form-control" name="street">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Číslo</label>
-              <input class="form-control" name="street_number">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">PSČ</label>
-              <input class="form-control" name="postal_code">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Mesto</label>
-              <input class="form-control" name="city">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">IČO</label>
-              <input class="form-control" name="ico">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">DIČ</label>
-              <input class="form-control" name="dic">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">IČ DPH</label>
-              <input class="form-control" name="ic_dph">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Skupina</label>
-              <input class="form-control" name="group_code">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Cenová hladina</label>
-              <input class="form-control" name="price_level">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Zľava %</label>
-              <input class="form-control" name="discount_percent" type="number" step="0.1">
-            </div>
-            <div class="col-md-8">
-              <label class="form-label">Poznámka</label>
-              <input class="form-control" name="note">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
-          <button type="submit" class="btn btn-primary">Uložiť partnera</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-<div class="modal fade" id="editPartnerModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <form id="editPartnerForm" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title">Upraviť partnera</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Názov partnera</label>
-              <input class="form-control" name="name" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Email</label>
-              <input class="form-control" name="email">
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Telefón</label>
-              <input class="form-control" name="phone">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Ulica</label>
-              <input class="form-control" name="street">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Číslo</label>
-              <input class="form-control" name="street_number">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">PSČ</label>
-              <input class="form-control" name="postal_code">
-            </div>
-            <div class="col-md-3">
-              <label class="form-label">Mesto</label>
-              <input class="form-control" name="city">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">IČO</label>
-              <input class="form-control" name="ico">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">DIČ</label>
-              <input class="form-control" name="dic">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">IČ DPH</label>
-              <input class="form-control" name="ic_dph">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Skupina</label>
-              <input class="form-control" name="group_code">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Cenová hladina</label>
-              <input class="form-control" name="price_level">
-            </div>
-            <div class="col-md-2">
-              <label class="form-label">Zľava %</label>
-              <input class="form-control" name="discount_percent" type="number" step="0.1">
-            </div>
-            <div class="col-md-8">
-              <label class="form-label">Poznámka</label>
-              <input class="form-control" name="note">
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
-          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-<div class="modal fade" id="viewPartnerModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Detail partnera</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <dl class="row mb-0">
-          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewPartnerName"></dd>
-          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewPartnerNote"></dd>
-          <dt class="col-sm-4">Email</dt><dd class="col-sm-8" id="viewPartnerEmail"></dd>
-          <dt class="col-sm-4">Telefón</dt><dd class="col-sm-8" id="viewPartnerPhone"></dd>
-          <dt class="col-sm-4">Ulica</dt><dd class="col-sm-8" id="viewPartnerStreet"></dd>
-          <dt class="col-sm-4">PSČ / Mesto</dt><dd class="col-sm-8" id="viewPartnerCity"></dd>
-          <dt class="col-sm-4">IČO</dt><dd class="col-sm-8" id="viewPartnerIco"></dd>
-          <dt class="col-sm-4">DIČ</dt><dd class="col-sm-8" id="viewPartnerDic"></dd>
-          <dt class="col-sm-4">IČ DPH</dt><dd class="col-sm-8" id="viewPartnerIcDph"></dd>
-          <dt class="col-sm-4">Skupina</dt><dd class="col-sm-8" id="viewPartnerGroupCode"></dd>
-          <dt class="col-sm-4">Cenová hladina</dt><dd class="col-sm-8" id="viewPartnerPriceLevel"></dd>
-          <dt class="col-sm-4">Zľava %</dt><dd class="col-sm-8" id="viewPartnerDiscount"></dd>
-          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewPartnerStatus"></dd>
-        </dl>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
-      </div>
-    </div>
-  </div>
-</div>
 <table class="table table-striped bg-white shadow-sm">
   <thead>
     <tr class="table-filter">
@@ -791,5 +609,228 @@ if (savedView === 'grid') {
 </script>
 
 </div>{# End partner-table-view #}
+
+{# Modals — placed outside both view containers so they remain visible regardless of view toggle #}
+<div class="modal fade" id="addPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Nový partner</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov partnera</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Číslo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico" id="addPartnerIco">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČ DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skupina</label>
+              <input class="form-control" name="group_code">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cenová hladina</label>
+              <input class="form-control" name="price_level">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Zľava %</label>
+              <input class="form-control" name="discount_percent" type="number" step="0.1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline btn-sm" id="addPartnerLookupBtn">Vyhľadať podľa IČO</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť partnera</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="editPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editPartnerForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title">Upraviť partnera</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Názov partnera</label>
+              <input class="form-control" name="name" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Číslo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico" id="editPartnerIco">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">IČ DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Skupina</label>
+              <input class="form-control" name="group_code">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cenová hladina</label>
+              <input class="form-control" name="price_level">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Zľava %</label>
+              <input class="form-control" name="discount_percent" type="number" step="0.1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Poznámka</label>
+              <input class="form-control" name="note">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline btn-sm" id="editPartnerLookupBtn">Vyhľadať podľa IČO</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="viewPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detail partnera</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Názov</dt><dd class="col-sm-8" id="viewPartnerName"></dd>
+          <dt class="col-sm-4">Poznámka</dt><dd class="col-sm-8" id="viewPartnerNote"></dd>
+          <dt class="col-sm-4">Email</dt><dd class="col-sm-8" id="viewPartnerEmail"></dd>
+          <dt class="col-sm-4">Telefón</dt><dd class="col-sm-8" id="viewPartnerPhone"></dd>
+          <dt class="col-sm-4">Ulica</dt><dd class="col-sm-8" id="viewPartnerStreet"></dd>
+          <dt class="col-sm-4">PSČ / Mesto</dt><dd class="col-sm-8" id="viewPartnerCity"></dd>
+          <dt class="col-sm-4">IČO</dt><dd class="col-sm-8" id="viewPartnerIco"></dd>
+          <dt class="col-sm-4">DIČ</dt><dd class="col-sm-8" id="viewPartnerDic"></dd>
+          <dt class="col-sm-4">IČ DPH</dt><dd class="col-sm-8" id="viewPartnerIcDph"></dd>
+          <dt class="col-sm-4">Skupina</dt><dd class="col-sm-8" id="viewPartnerGroupCode"></dd>
+          <dt class="col-sm-4">Cenová hladina</dt><dd class="col-sm-8" id="viewPartnerPriceLevel"></dd>
+          <dt class="col-sm-4">Zľava %</dt><dd class="col-sm-8" id="viewPartnerDiscount"></dd>
+          <dt class="col-sm-4">Stav</dt><dd class="col-sm-8" id="viewPartnerStatus"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  function wireIcoLookup(btnId, icoInputId, formId) {
+    var btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+      var ico = document.getElementById(icoInputId).value.trim();
+      if (!ico) { alert('Zadajte IČO.'); return; }
+      btn.disabled = true;
+      btn.textContent = 'Hľadám...';
+      fetch('/partners/lookup?ico=' + encodeURIComponent(ico))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Vyhľadať podľa IČO';
+          if (data.error) { alert(data.error); return; }
+          var form = document.getElementById(formId);
+          if (data.name) { var el = form.querySelector('[name="name"]'); if (el) el.value = data.name; }
+          if (data.dic) { var el = form.querySelector('[name="dic"]'); if (el) el.value = data.dic; }
+          if (data.ic_dph) { var el = form.querySelector('[name="ic_dph"]'); if (el) el.value = data.ic_dph; }
+          if (data.street) { var el = form.querySelector('[name="street"]'); if (el) el.value = data.street; }
+          if (data.street_number) { var el = form.querySelector('[name="street_number"]'); if (el) el.value = data.street_number; }
+          if (data.city) { var el = form.querySelector('[name="city"]'); if (el) el.value = data.city; }
+          if (data.postal_code) { var el = form.querySelector('[name="postal_code"]'); if (el) el.value = data.postal_code; }
+        })
+        .catch(function() {
+          btn.disabled = false;
+          btn.textContent = 'Vyhľadať podľa IČO';
+          alert('Chyba pri vyhľadávaní.');
+        });
+    });
+  }
+  wireIcoLookup('addPartnerLookupBtn', 'addPartnerIco', 'addPartnerModal');
+  wireIcoLookup('editPartnerLookupBtn', 'editPartnerIco', 'editPartnerForm');
+})();
+</script>
 
 {% endblock %}

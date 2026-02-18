@@ -46,3 +46,36 @@ def switch_tenant():
     session["active_tenant_id"] = tenant_id
     flash(f"Prepnuté na organizáciu '{tenant.name}'.", "success")
     return redirect(url_for("dashboard.index"))
+
+
+@tenant_bp.route("/create-tenant", methods=["POST"])
+@login_required
+def create_tenant():
+    """Create a new tenant for a logged-in user."""
+    from services.auth import get_current_user
+    from services.billing import create_trial_subscription
+    import re
+
+    user = get_current_user()
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Názov organizácie je povinný.", "danger")
+        return redirect(url_for("dashboard.index"))
+
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if Tenant.query.filter_by(slug=slug).first():
+        slug = f"{slug}-{Tenant.query.count() + 1}"
+
+    tenant = Tenant(name=name, slug=slug, is_active=True)
+    db.session.add(tenant)
+    db.session.flush()
+
+    ut = UserTenant(user_id=user.id, tenant_id=tenant.id, is_default=False)
+    db.session.add(ut)
+
+    create_trial_subscription(tenant.id)
+    db.session.commit()
+
+    session["active_tenant_id"] = tenant.id
+    flash(f"Organizácia '{name}' vytvorená.", "success")
+    return redirect(url_for("dashboard.index"))

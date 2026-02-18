@@ -17,3 +17,6 @@ gopay>=1.4.0
 # DB Tools dependencies
 openpyxl==3.1.2
 tabulate==0.9.0
+# PayBySquare QR code for Slovak invoices (optional)
+pay-by-square>=1.0.0
+qrcode[pil]>=7.0

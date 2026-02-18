@@ -15,7 +15,7 @@ from flask import (
 )
 from flask import current_app
 
-from extensions import db
+from extensions import csrf, db
 from mailer import MailerError, send_document_email
 from models import (
     DeliveryNote,
@@ -472,3 +472,93 @@ def export_invoice(invoice_id: int):
         db.session.commit()
         flash(f"Chyba pri exporte do Superfaktúry: {e}", "danger")
     return redirect(url_for("invoices.list_invoices"))
+
+
+# ------------------------------------------------------------------
+# Invoice Payment
+# ------------------------------------------------------------------
+
+@invoices_bp.route("/invoices/<int:invoice_id>/initiate-payment", methods=["POST"])
+@role_required("manage_invoices")
+def initiate_payment(invoice_id: int):
+    invoice = tenant_get_or_404(Invoice, invoice_id)
+    from services.invoice_payment import initiate_payment as _initiate
+    redirect_url = _initiate(invoice)
+    if redirect_url:
+        return redirect(redirect_url)
+    flash("Platobný odkaz vygenerovaný (bankový prevod).", "info")
+    return redirect(url_for("invoices.list_invoices"))
+
+
+@invoices_bp.route("/invoices/payment-return")
+def payment_return():
+    invoice_id = safe_int(request.args.get("invoice_id"))
+    if invoice_id:
+        invoice = db.session.get(Invoice, invoice_id)
+        if invoice:
+            flash(f"Platba za faktúru {invoice.invoice_number or invoice.id} spracovaná.", "success")
+    return redirect(url_for("invoices.list_invoices"))
+
+
+@invoices_bp.route("/invoices/payment-notify/<gateway>", methods=["POST"])
+@csrf.exempt
+def payment_notify(gateway: str):
+    """Webhook handler for payment gateway notifications."""
+    from services.invoice_payment import record_invoice_payment
+    if gateway == "gopay":
+        data = request.json or {}
+        payment_id = str(data.get("id", ""))
+        if payment_id:
+            invoice = Invoice.query.filter_by(gateway_payment_id=payment_id).first()
+            if invoice and data.get("state") == "PAID":
+                record_invoice_payment(invoice, method="gopay")
+    return "", 200
+
+
+@invoices_bp.route("/invoices/<int:invoice_id>/record-payment", methods=["POST"])
+@role_required("manage_all")
+def record_payment(invoice_id: int):
+    invoice = tenant_get_or_404(Invoice, invoice_id)
+    from services.invoice_payment import record_invoice_payment
+    from decimal import Decimal as _Dec
+    amount_str = request.form.get("amount", "")
+    method = request.form.get("method", "cash")
+    try:
+        amount = _Dec(amount_str) if amount_str else None
+    except Exception:
+        amount = None
+    record_invoice_payment(invoice, amount=amount, method=method)
+    flash(f"Platba pre faktúru {invoice.invoice_number or invoice.id} zaznamenaná.", "success")
+    return redirect(url_for("invoices.list_invoices"))
+
+
+@invoices_bp.route("/invoices/<int:invoice_id>/qr")
+@role_required("manage_invoices")
+def invoice_qr(invoice_id: int):
+    """Return a PayBySquare QR code image for an invoice."""
+    from flask import g
+    from io import BytesIO as _BytesIO
+    invoice = tenant_get_or_404(Invoice, invoice_id)
+    tenant = getattr(g, "current_tenant", None)
+    if not tenant:
+        return "No tenant", 400
+    from services.qr_payment import generate_pay_by_square_qr
+    from models import AppSetting
+    iban_row = AppSetting.query.filter_by(tenant_id=tenant.id, key="invoice_bank_iban").first()
+    swift_row = AppSetting.query.filter_by(tenant_id=tenant.id, key="invoice_bank_swift").first()
+    iban = iban_row.value if iban_row and iban_row.value else ""
+    swift = swift_row.value if swift_row and swift_row.value else ""
+    if not iban:
+        return "IBAN nie je nastavený", 400
+    vs = invoice.variable_symbol or ""
+    if not vs and invoice.invoice_number:
+        vs = "".join(c for c in invoice.invoice_number if c.isdigit())[-10:]
+    png_bytes = generate_pay_by_square_qr(
+        amount=float(invoice.total_with_vat or 0),
+        iban=iban, swift=swift, variable_symbol=vs,
+        beneficiary_name=tenant.name or "",
+        note=f"Faktura {invoice.invoice_number or invoice.id}",
+    )
+    if not png_bytes:
+        return "QR generovanie zlyhalo", 500
+    return send_file(_BytesIO(png_bytes), mimetype="image/png")

@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+
+{% block page_title %}Editor rozlozenia PDF{% endblock %}
+
+{% block extra_css %}
+<style>
+  .editor-layout {
+    display: grid;
+    grid-template-columns: 60% 40%;
+    gap: var(--spacing-lg);
+    align-items: start;
+  }
+
+  @media (max-width: 1024px) {
+    .editor-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .editor-panel {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    padding: var(--spacing-lg);
+  }
+
+  .editor-section {
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-xl);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .editor-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .editor-section-title {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-check-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .form-check {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    cursor: pointer;
+  }
+
+  .form-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+  }
+
+  .form-check-label {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  .margins-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .color-row label {
+    min-width: 120px;
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+  }
+
+  .color-row input[type="color"] {
+    width: 40px;
+    height: 32px;
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    padding: 2px;
+    background: var(--color-card);
+  }
+
+  .color-row input[type="text"] {
+    width: 100px;
+    font-family: monospace;
+    font-size: var(--font-size-sm);
+  }
+
+  .preview-panel {
+    position: sticky;
+    top: var(--spacing-lg);
+  }
+
+  .preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .preview-title {
+    font-family: var(--font-heading);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+  }
+
+  .preview-frame {
+    width: 100%;
+    height: 600px;
+    border: 1px solid var(--color-border);
+    background: #ffffff;
+  }
+
+  .preview-placeholder {
+    width: 100%;
+    height: 600px;
+    border: 1px solid var(--color-border);
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    color: var(--color-text-muted);
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .entity-selector {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xl);
+  }
+
+  .entity-btn {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border: 1px solid var(--color-border);
+    background: transparent;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
+  }
+
+  .entity-btn.active,
+  .entity-btn:hover {
+    background: var(--color-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-primary);
+  }
+
+  .form-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .form-row label {
+    min-width: 140px;
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+  }
+
+  .form-row select,
+  .form-row input[type="number"] {
+    flex: 1;
+  }
+
+  .preview-loading {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-sm);
+  }
+
+  .preview-loading.visible {
+    display: flex;
+  }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# Entity type selector #}
+<div class="entity-selector">
+  <button type="button" class="entity-btn active" data-entity="delivery_note" onclick="switchEntity('delivery_note', this)">
+    Dodaci list
+  </button>
+  <button type="button" class="entity-btn" data-entity="invoice" onclick="switchEntity('invoice', this)">
+    Faktura
+  </button>
+</div>
+
+<div class="editor-layout">
+
+  {# Settings panel (left 60%) #}
+  <div class="editor-panel">
+
+    {# Header section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Hlavicka</div>
+      <div class="form-check-group">
+        <label class="form-check">
+          <input type="checkbox" id="show_logo" checked>
+          <span class="form-check-label">Zobrazit logo</span>
+        </label>
+        <div class="form-row" style="margin-top: var(--spacing-sm);">
+          <label for="logo_position">Pozicia loga</label>
+          <select class="form-control" id="logo_position">
+            <option value="left">Vlavo</option>
+            <option value="center">Stred</option>
+            <option value="right">Vpravo</option>
+          </select>
+        </div>
+        <label class="form-check" style="margin-top: var(--spacing-xs);">
+          <input type="checkbox" id="show_company_info" checked>
+          <span class="form-check-label">Zobrazit udaje firmy</span>
+        </label>
+      </div>
+    </div>
+
+    {# Table columns section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Stlpce tabulky</div>
+      <div class="form-check-group">
+        <label class="form-check">
+          <input type="checkbox" id="col_item_name" value="item_name" checked>
+          <span class="form-check-label">Nazov polozky</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="col_quantity" value="quantity" checked>
+          <span class="form-check-label">Mnozstvo</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="col_unit_price" value="unit_price" checked>
+          <span class="form-check-label">Jednotkova cena</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="col_vat_rate" value="vat_rate">
+          <span class="form-check-label">Sadzba DPH</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="col_total" value="total" checked>
+          <span class="form-check-label">Celkova cena</span>
+        </label>
+      </div>
+    </div>
+
+    {# Footer section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Paticka</div>
+      <div class="form-check-group">
+        <label class="form-check">
+          <input type="checkbox" id="show_qr_code" checked>
+          <span class="form-check-label">QR kod platby</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="show_bank_details" checked>
+          <span class="form-check-label">Bankove udaje</span>
+        </label>
+        <label class="form-check">
+          <input type="checkbox" id="show_notes" checked>
+          <span class="form-check-label">Poznamky</span>
+        </label>
+      </div>
+    </div>
+
+    {# Typography section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Typografia</div>
+      <div class="form-row">
+        <label for="font_heading">Pismo nadpisov</label>
+        <select class="form-control" id="font_heading">
+          <option value="Space Grotesk" selected>Space Grotesk</option>
+          <option value="Arial">Arial</option>
+          <option value="Helvetica">Helvetica</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="DejaVu Sans">DejaVu Sans</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="font_body">Pismo textu</label>
+        <select class="form-control" id="font_body">
+          <option value="Inter" selected>Inter</option>
+          <option value="Arial">Arial</option>
+          <option value="Helvetica">Helvetica</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="DejaVu Sans">DejaVu Sans</option>
+        </select>
+      </div>
+    </div>
+
+    {# Colors section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Farby</div>
+      <div class="color-row">
+        <label for="color_primary">Primarna farba</label>
+        <input type="color" id="color_primary_picker" value="#1a1a2e" oninput="syncColor('primary', this.value)">
+        <input type="text" class="form-control" id="color_primary" value="#1a1a2e" oninput="syncColorPicker('primary', this.value)" maxlength="7">
+      </div>
+      <div class="color-row">
+        <label for="color_accent">Akcentova farba</label>
+        <input type="color" id="color_accent_picker" value="#e94560" oninput="syncColor('accent', this.value)">
+        <input type="text" class="form-control" id="color_accent" value="#e94560" oninput="syncColorPicker('accent', this.value)" maxlength="7">
+      </div>
+    </div>
+
+    {# Margins section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Okraje (mm)</div>
+      <div class="margins-grid">
+        <div>
+          <label class="form-label" for="margin_top">Zhora</label>
+          <input type="number" class="form-control" id="margin_top" value="20" min="0" max="50">
+        </div>
+        <div>
+          <label class="form-label" for="margin_bottom">Zdola</label>
+          <input type="number" class="form-control" id="margin_bottom" value="20" min="0" max="50">
+        </div>
+        <div>
+          <label class="form-label" for="margin_left">Zlava</label>
+          <input type="number" class="form-control" id="margin_left" value="15" min="0" max="50">
+        </div>
+        <div>
+          <label class="form-label" for="margin_right">Zprava</label>
+          <input type="number" class="form-control" id="margin_right" value="15" min="0" max="50">
+        </div>
+      </div>
+    </div>
+
+    {# Paper size section #}
+    <div class="editor-section">
+      <div class="editor-section-title">Format papiera</div>
+      <div class="form-row">
+        <label for="paper_size">Velkost</label>
+        <select class="form-control" id="paper_size">
+          <option value="A4" selected>A4</option>
+        </select>
+      </div>
+    </div>
+
+    {# Action buttons #}
+    <div class="editor-actions">
+      <button type="button" class="btn btn-secondary" onclick="previewLayout()">
+        <i data-lucide="eye" style="width:14px;height:14px;margin-right:4px;"></i>
+        Nahled
+      </button>
+      <button type="button" class="btn btn-primary" onclick="saveLayout()">
+        <i data-lucide="save" style="width:14px;height:14px;margin-right:4px;"></i>
+        Ulozit
+      </button>
+      <div class="preview-loading" id="save_loading">
+        <div class="spinner"></div>
+        <span>Uklada sa...</span>
+      </div>
+    </div>
+
+  </div>{# end editor-panel #}
+
+  {# Preview panel (right 40%) #}
+  <div class="preview-panel editor-panel">
+    <div class="preview-header">
+      <span class="preview-title">Nahled dokumentu</span>
+      <div class="preview-loading" id="preview_loading">
+        <div class="spinner"></div>
+        <span>Nacitava sa...</span>
+      </div>
+    </div>
+
+    <div id="preview_placeholder" class="preview-placeholder">
+      <i data-lucide="file-text" style="width:48px;height:48px;opacity:0.3;"></i>
+      <span>Kliknite "Nahled" pre zobrazenie nahladu</span>
+    </div>
+    <iframe id="preview_frame" class="preview-frame" style="display:none;" title="Nahled PDF"></iframe>
+  </div>
+
+</div>{# end editor-layout #}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Current entity type being edited
+  var currentEntity = 'delivery_note';
+
+  // Config loaded from server for each entity type
+  var savedConfigs = {
+    'delivery_note': {{ configs.delivery_note | tojson }},
+    'invoice': {{ configs.invoice | tojson }}
+  };
+
+  // Default config structure
+  var defaultConfig = {
+    header: { show_logo: true, logo_position: 'left', show_company_info: true },
+    columns: ['item_name', 'quantity', 'unit_price', 'total'],
+    footer: { show_qr_code: true, show_bank_details: true, show_notes: true },
+    fonts: { heading: 'Space Grotesk', body: 'Inter' },
+    colors: { primary: '#1a1a2e', accent: '#e94560' },
+    margins: { top: 20, bottom: 20, left: 15, right: 15 },
+    paper: 'A4'
+  };
+
+  // Switch between entity types
+  function switchEntity(entity, btn) {
+    // Save current form state to savedConfigs before switching
+    savedConfigs[currentEntity] = buildConfig();
+
+    currentEntity = entity;
+
+    // Update active button styling
+    document.querySelectorAll('.entity-btn').forEach(function(b) {
+      b.classList.remove('active');
+    });
+    btn.classList.add('active');
+
+    // Load config for the selected entity
+    var cfg = savedConfigs[entity] || defaultConfig;
+    applyConfig(cfg);
+
+    // Reset preview
+    document.getElementById('preview_placeholder').style.display = 'flex';
+    document.getElementById('preview_frame').style.display = 'none';
+  }
+
+  // Build JSON config object from current form values
+  function buildConfig() {
+    var columns = [];
+    ['item_name', 'quantity', 'unit_price', 'vat_rate', 'total'].forEach(function(col) {
+      var cb = document.getElementById('col_' + col);
+      if (cb && cb.checked) columns.push(col);
+    });
+
+    return {
+      header: {
+        show_logo: document.getElementById('show_logo').checked,
+        logo_position: document.getElementById('logo_position').value,
+        show_company_info: document.getElementById('show_company_info').checked
+      },
+      columns: columns,
+      footer: {
+        show_qr_code: document.getElementById('show_qr_code').checked,
+        show_bank_details: document.getElementById('show_bank_details').checked,
+        show_notes: document.getElementById('show_notes').checked
+      },
+      fonts: {
+        heading: document.getElementById('font_heading').value,
+        body: document.getElementById('font_body').value
+      },
+      colors: {
+        primary: document.getElementById('color_primary').value,
+        accent: document.getElementById('color_accent').value
+      },
+      margins: {
+        top: parseInt(document.getElementById('margin_top').value) || 20,
+        bottom: parseInt(document.getElementById('margin_bottom').value) || 20,
+        left: parseInt(document.getElementById('margin_left').value) || 15,
+        right: parseInt(document.getElementById('margin_right').value) || 15
+      },
+      paper: document.getElementById('paper_size').value
+    };
+  }
+
+  // Apply a config object to the form fields
+  function applyConfig(cfg) {
+    if (!cfg) cfg = defaultConfig;
+
+    // Header
+    var header = cfg.header || defaultConfig.header;
+    document.getElementById('show_logo').checked = header.show_logo !== false;
+    document.getElementById('logo_position').value = header.logo_position || 'left';
+    document.getElementById('show_company_info').checked = header.show_company_info !== false;
+
+    // Columns
+    var columns = cfg.columns || defaultConfig.columns;
+    ['item_name', 'quantity', 'unit_price', 'vat_rate', 'total'].forEach(function(col) {
+      var cb = document.getElementById('col_' + col);
+      if (cb) cb.checked = columns.indexOf(col) !== -1;
+    });
+
+    // Footer
+    var footer = cfg.footer || defaultConfig.footer;
+    document.getElementById('show_qr_code').checked = footer.show_qr_code !== false;
+    document.getElementById('show_bank_details').checked = footer.show_bank_details !== false;
+    document.getElementById('show_notes').checked = footer.show_notes !== false;
+
+    // Fonts
+    var fonts = cfg.fonts || defaultConfig.fonts;
+    document.getElementById('font_heading').value = fonts.heading || 'Space Grotesk';
+    document.getElementById('font_body').value = fonts.body || 'Inter';
+
+    // Colors
+    var colors = cfg.colors || defaultConfig.colors;
+    document.getElementById('color_primary').value = colors.primary || '#1a1a2e';
+    document.getElementById('color_primary_picker').value = colors.primary || '#1a1a2e';
+    document.getElementById('color_accent').value = colors.accent || '#e94560';
+    document.getElementById('color_accent_picker').value = colors.accent || '#e94560';
+
+    // Margins
+    var margins = cfg.margins || defaultConfig.margins;
+    document.getElementById('margin_top').value = margins.top !== undefined ? margins.top : 20;
+    document.getElementById('margin_bottom').value = margins.bottom !== undefined ? margins.bottom : 20;
+    document.getElementById('margin_left').value = margins.left !== undefined ? margins.left : 15;
+    document.getElementById('margin_right').value = margins.right !== undefined ? margins.right : 15;
+
+    // Paper
+    document.getElementById('paper_size').value = cfg.paper || 'A4';
+  }
+
+  // Sync color picker -> text input
+  function syncColor(name, value) {
+    document.getElementById('color_' + name).value = value;
+  }
+
+  // Sync text input -> color picker
+  function syncColorPicker(name, value) {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+      document.getElementById('color_' + name + '_picker').value = value;
+    }
+  }
+
+  // Send config to preview endpoint
+  function previewLayout() {
+    var config = buildConfig();
+    var loadingEl = document.getElementById('preview_loading');
+    var frameEl = document.getElementById('preview_frame');
+    var placeholderEl = document.getElementById('preview_placeholder');
+
+    loadingEl.classList.add('visible');
+    placeholderEl.style.display = 'none';
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    fetch('{{ url_for("admin.pdf_layout_preview") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({
+        entity_type: currentEntity,
+        config: config
+      })
+    })
+    .then(function(response) {
+      if (!response.ok) throw new Error('Chyba servera: ' + response.status);
+      return response.text();
+    })
+    .then(function(html) {
+      loadingEl.classList.remove('visible');
+      frameEl.style.display = 'block';
+      // Write HTML into iframe
+      var doc = frameEl.contentDocument || frameEl.contentWindow.document;
+      doc.open();
+      doc.write(html);
+      doc.close();
+    })
+    .catch(function(err) {
+      loadingEl.classList.remove('visible');
+      placeholderEl.style.display = 'flex';
+      placeholderEl.innerHTML = '<i data-lucide="alert-circle" style="width:48px;height:48px;opacity:0.5;color:var(--color-danger)"></i><span>Chyba nahladu: ' + err.message + '</span>';
+      if (window.lucide) lucide.createIcons();
+    });
+  }
+
+  // Save layout config via POST
+  function saveLayout() {
+    var config = buildConfig();
+    var saveLoadingEl = document.getElementById('save_loading');
+    saveLoadingEl.classList.add('visible');
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    fetch('{{ url_for("admin.pdf_layout_editor") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({
+        entity_type: currentEntity,
+        config: config
+      })
+    })
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      saveLoadingEl.classList.remove('visible');
+      if (data.ok) {
+        // Show brief success feedback
+        var btn = document.querySelector('button[onclick="saveLayout()"]');
+        var origText = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" style="width:14px;height:14px;margin-right:4px;"></i> Ulozene';
+        btn.style.background = 'var(--color-success)';
+        setTimeout(function() {
+          btn.innerHTML = origText;
+          btn.style.background = '';
+          if (window.lucide) lucide.createIcons();
+        }, 2000);
+        if (window.lucide) lucide.createIcons();
+        // Update our local saved copy
+        savedConfigs[currentEntity] = config;
+      } else {
+        alert('Chyba ukladania: ' + (data.error || 'Neznama chyba'));
+      }
+    })
+    .catch(function(err) {
+      saveLoadingEl.classList.remove('visible');
+      alert('Chyba ukladania: ' + err.message);
+    });
+  }
+
+  // On page load: apply the saved config for delivery_note (default active entity)
+  document.addEventListener('DOMContentLoaded', function() {
+    var initialCfg = savedConfigs['delivery_note'];
+    if (initialCfg && Object.keys(initialCfg).length > 0) {
+      applyConfig(initialCfg);
+    }
+  });
+</script>
+{% endblock %}

@@ -3,13 +3,79 @@
 {% block page_title %}Nastavenia{% endblock %}
 
 {% block content %}
-<form method="post">
+<form method="post" enctype="multipart/form-data">
+
+  {# ── Company Data ───────────────────────────────────────── #}
+  {% if tenant %}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Firemne udaje</strong></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Nazov organizacie</label>
+          <input class="form-control" name="tenant_name" value="{{ tenant.name or '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">ICO</label>
+          <input class="form-control" name="tenant_ico" value="{{ tenant.ico or '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">DIC</label>
+          <input class="form-control" name="tenant_dic" value="{{ tenant.dic or '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">IC DPH</label>
+          <input class="form-control" name="tenant_ic_dph" value="{{ tenant.ic_dph or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Ulica</label>
+          <input class="form-control" name="tenant_street" value="{{ tenant.street or '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Mesto</label>
+          <input class="form-control" name="tenant_city" value="{{ tenant.city or '' }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">PSC</label>
+          <input class="form-control" name="tenant_postal_code" value="{{ tenant.postal_code or '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Email</label>
+          <input class="form-control" name="tenant_email" value="{{ tenant.email or '' }}" type="email">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Telefon</label>
+          <input class="form-control" name="tenant_phone" value="{{ tenant.phone or '' }}">
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Fakturacny email</label>
+          <input class="form-control" name="tenant_billing_email" value="{{ tenant.billing_email or '' }}" type="email">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Logo</label>
+          <input class="form-control" name="tenant_logo" type="file" accept=".png,.jpg,.jpeg,.svg,.webp">
+          <small class="text-muted">PNG, JPG, SVG alebo WebP</small>
+        </div>
+        {% if tenant.logo_filename %}
+        <div class="col-md-2">
+          <label class="form-label">Aktualne logo</label>
+          <div>
+            <img src="{{ url_for('uploaded_file', filename='logos/' + tenant.logo_filename) }}"
+                 alt="Logo" style="max-height: 60px; max-width: 120px; border: 1px solid #ddd; border-radius: 4px; padding: 4px;">
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {# ── General ──────────────────────────────────────────────── #}
   <div class="card mb-4">
-    <div class="card-header"><strong>Všeobecné</strong></div>
+    <div class="card-header"><strong>Vseobecne</strong></div>
     <div class="card-body row g-3">
       <div class="col-md-6">
-        <label class="form-label">Názov stránky</label>
+        <label class="form-label">Nazov stranky</label>
         <input class="form-control" name="site_name" value="{{ site_name }}">
       </div>
     </div>
@@ -17,28 +83,28 @@
 
   {# ── Password policy ─────────────────────────────────────── #}
   <div class="card mb-4">
-    <div class="card-header"><strong>Bezpečnosť — expirácia hesla</strong></div>
+    <div class="card-header"><strong>Bezpecnost — expiracia hesla</strong></div>
     <div class="card-body row g-3">
       <div class="col-md-4">
-        <label class="form-label">Platnosť hesla</label>
+        <label class="form-label">Platnost hesla</label>
         <input class="form-control" type="number" min="0"
                name="password_expiry_value" value="{{ password_expiry_value }}">
-        <small class="text-muted">0 = bez expirácie</small>
+        <small class="text-muted">0 = bez expiracie</small>
       </div>
       <div class="col-md-4">
         <label class="form-label">Jednotka</label>
         <select class="form-select" name="password_expiry_unit">
           <option value="days"{% if password_expiry_unit == 'days' %} selected{% endif %}>Dni</option>
-          <option value="weeks"{% if password_expiry_unit == 'weeks' %} selected{% endif %}>Týždne</option>
+          <option value="weeks"{% if password_expiry_unit == 'weeks' %} selected{% endif %}>Tyzdne</option>
           <option value="months"{% if password_expiry_unit == 'months' %} selected{% endif %}>Mesiace</option>
         </select>
       </div>
     </div>
   </div>
 
-  {# ── Payment Gateway ────────────────────────────────────── #}
+  {# ── Subscription Payment Gateway ────────────────────────── #}
   <div class="card mb-4">
-    <div class="card-header"><strong>Platobna brana</strong></div>
+    <div class="card-header"><strong>Platobna brana (predplatne)</strong></div>
     <div class="card-body row g-3">
       <div class="col-md-6">
         <label class="form-label">Aktivna platobna brana</label>
@@ -52,23 +118,51 @@
     </div>
   </div>
 
+  {# ── Invoice Payment Settings ──────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Platobne nastavenia pre faktury</strong></div>
+    <div class="card-body row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Platobna brana pre faktury</label>
+        <select class="form-select" name="invoice_payment_gateway">
+          <option value="bank_transfer"{% if invoice_payment_gateway == 'bank_transfer' %} selected{% endif %}>Bankovy prevod</option>
+          <option value="gopay"{% if invoice_payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
+          <option value="stripe"{% if invoice_payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
+          <option value="none"{% if invoice_payment_gateway == 'none' %} selected{% endif %}>Ziadna</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">IBAN</label>
+        <input class="form-control" name="invoice_bank_iban" value="{{ invoice_bank_iban }}" placeholder="SK...">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">SWIFT/BIC</label>
+        <input class="form-control" name="invoice_bank_swift" value="{{ invoice_bank_swift }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Nazov banky</label>
+        <input class="form-control" name="invoice_bank_name" value="{{ invoice_bank_name }}">
+      </div>
+    </div>
+  </div>
+
   {# ── Numbering (tag-based) ─────────────────────────────── #}
   <div class="card mb-4">
-    <div class="card-header"><strong>Číslovanie dokladov</strong></div>
+    <div class="card-header"><strong>Cislovanie dokladov</strong></div>
     <div class="card-body">
       <p class="text-muted small mb-3">
-        Dostupné tagy:
-        <code>[YYYY]</code> rok (4-ciferný),
-        <code>[YY]</code> rok (2-ciferný),
+        Dostupne tagy:
+        <code>[YYYY]</code> rok (4-ciferny),
+        <code>[YY]</code> rok (2-ciferny),
         <code>[MM]</code> mesiac,
-        <code>[DD]</code> deň,
+        <code>[DD]</code> den,
         <code>[PARTNER]</code> ID partnera,
-        <code>[TYPE]</code> typ (T=tovar, S=služba),
-        <code>[C...]</code> sekvenčné číslo (počet C = počet číslic, napr. <code>[CCCC]</code> = 4 číslice).<br>
-        Text mimo hranatých zátvoriek je fixný. Číslovanie sa resetuje pri zmene predchádzajúcich tagov.<br>
-        Príklad: <code>DL[YY][MM]-[CCCC]</code> &rarr; <code>DL2601-0001</code>
+        <code>[TYPE]</code> typ (T=tovar, S=sluzba),
+        <code>[C...]</code> sekvencne cislo (pocet C = pocet cislic, napr. <code>[CCCC]</code> = 4 cislice).<br>
+        Text mimo hranatych zatvoriek je fixny. Cislovanie sa resetuje pri zmene predchadzajucich tagov.<br>
+        Priklad: <code>DL[YY][MM]-[CCCC]</code> &rarr; <code>DL2601-0001</code>
       </p>
-      {% set labels = {'product':'Produkty','bundle':'Kombinácie','order':'Objednávky','delivery_note':'Dodacie listy','invoice':'Faktúry'} %}
+      {% set labels = {'product':'Produkty','bundle':'Kombinacie','order':'Objednavky','delivery_note':'Dodacie listy','invoice':'Faktury'} %}
       {% set examples = {'product':'PRD[TYPE]-[CCCC]','bundle':'KMB-[CCCC]','order':'OBJ[YY][MM]-[CCCC]','delivery_note':'DL[YY][MM]-[CCCC]','invoice':'FV[YYYY]-[PARTNER]-[CCCC]'} %}
       {% for etype in entity_types %}
       {% set cfg = numbering.get(etype) %}
@@ -76,16 +170,111 @@
         <div class="col-md-3">
           <label class="form-label fw-bold mb-0">{{ labels[etype] }}</label>
         </div>
-        <div class="col-md-9">
-          <input class="form-control" name="num_{{ etype }}_pattern"
+        <div class="col-md-5">
+          <input class="form-control numbering-pattern-input" name="num_{{ etype }}_pattern"
                  value="{{ cfg.pattern if cfg and cfg.pattern else '' }}"
-                 placeholder="napr. {{ examples[etype] }}">
+                 placeholder="napr. {{ examples[etype] }}" data-entity="{{ etype }}">
+        </div>
+        <div class="col-md-2">
+          <span class="text-muted small numbering-preview" data-entity="{{ etype }}"></span>
+        </div>
+        <div class="col-md-2">
+          <button type="button" class="btn btn-sm btn-outline-warning reset-counter-btn"
+                  data-entity="{{ etype }}" data-label="{{ labels[etype] }}"
+                  title="Resetovat pocitadlo na 0">
+            Reset
+          </button>
         </div>
       </div>
       {% endfor %}
+      <div class="mt-2">
+        <small class="text-muted">Kliknite na tag pre vlozenie:
+          {% for tag in ['[YYYY]','[YY]','[MM]','[DD]','[PARTNER]','[TYPE]','[CCCC]'] %}
+          <button type="button" class="btn btn-outline-secondary btn-sm numbering-tag-btn" style="padding: 1px 6px; font-size: 11px;">{{ tag }}</button>
+          {% endfor %}
+        </small>
+      </div>
     </div>
   </div>
 
-  <button type="submit" class="btn btn-primary mb-4">Uložiť nastavenia</button>
+  {# ── PDF Templates ─────────────────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Sablony PDF dokumentov</strong></div>
+    <div class="card-body">
+      <p class="text-muted small mb-2">Upravte vizualny layout faktury a dodacich listov.</p>
+      <a href="{{ url_for('admin.pdf_layout_editor') }}" class="btn btn-outline">Otvorit editor layoutu</a>
+    </div>
+  </div>
+
+  {# ── Refresh Partners ──────────────────────────────────── #}
+  <div class="card mb-4">
+    <div class="card-header"><strong>Udrzba partnerov</strong></div>
+    <div class="card-body">
+      <p class="text-muted small mb-2">Skontrolujte udaje partnerov oproti obchodnym registrom (RPO/ARES).</p>
+      <a href="{{ url_for('admin.refresh_partners') }}" class="btn btn-outline">Obnovit udaje partnerov</a>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary mb-4">Ulozit nastavenia</button>
 </form>
+
+<script>
+// Numbering tag insertion
+document.querySelectorAll('.numbering-tag-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var focused = document.querySelector('.numbering-pattern-input:focus');
+    if (focused) {
+      var pos = focused.selectionStart;
+      var val = focused.value;
+      var tag = this.textContent;
+      focused.value = val.slice(0, pos) + tag + val.slice(pos);
+      focused.focus();
+      focused.selectionStart = focused.selectionEnd = pos + tag.length;
+    }
+  });
+});
+
+// Live numbering preview
+function updateNumberingPreview() {
+  document.querySelectorAll('.numbering-pattern-input').forEach(function(input) {
+    var pattern = input.value;
+    var preview = document.querySelector('.numbering-preview[data-entity="' + input.dataset.entity + '"]');
+    if (!pattern) { preview.textContent = ''; return; }
+    var now = new Date();
+    var result = pattern
+      .replace('[YYYY]', now.getFullYear())
+      .replace('[YY]', String(now.getFullYear()).slice(-2))
+      .replace('[MM]', String(now.getMonth() + 1).padStart(2, '0'))
+      .replace('[DD]', String(now.getDate()).padStart(2, '0'))
+      .replace('[PARTNER]', '1')
+      .replace('[TYPE]', 'S')
+      .replace(/\[C+\]/g, function(m) { return '0001'.slice(-(m.length - 2)); });
+    preview.textContent = result;
+  });
+}
+document.querySelectorAll('.numbering-pattern-input').forEach(function(input) {
+  input.addEventListener('input', updateNumberingPreview);
+});
+updateNumberingPreview();
+
+// Counter reset buttons
+var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+var csrfVal = csrfMeta ? csrfMeta.getAttribute('content') : '';
+document.querySelectorAll('.reset-counter-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var etype = this.dataset.entity;
+    var label = this.dataset.label;
+    if (!confirm('Naozaj chcete resetovat pocitadlo pre ' + label + '? Dalsie cislo bude zacinat od 1.')) return;
+    fetch('/admin/settings/reset-counter/' + etype, {
+      method: 'POST',
+      headers: {'X-CSRFToken': csrfVal, 'X-Requested-With': 'XMLHttpRequest'}
+    }).then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) alert(label + ': pocitadlo resetovane.');
+        else alert('Chyba: ' + (data.error || 'neznama'));
+      })
+      .catch(function() { alert('Chyba pri resetovani pocitadla.'); });
+  });
+});
+</script>
 {% endblock %}

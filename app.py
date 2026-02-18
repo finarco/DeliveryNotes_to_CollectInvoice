@@ -251,12 +251,22 @@ def _migrate_schema():
         "logistics_plan": [
             ("tenant_id", "INTEGER REFERENCES tenant(id)"),
         ],
+        "tenant": [
+            ("logo_filename", "VARCHAR(255)"),
+        ],
         "invoice": [
             ("invoice_number", "VARCHAR(30)"),
             ("updated_at", "DATETIME"),
             ("total_with_vat", "REAL DEFAULT 0.0"),
             ("is_locked", "BOOLEAN DEFAULT 0"),
             ("tenant_id", "INTEGER REFERENCES tenant(id)"),
+            ("payment_status", "VARCHAR(30) DEFAULT 'pending'"),
+            ("payment_method", "VARCHAR(30)"),
+            ("gateway_payment_id", "VARCHAR(120)"),
+            ("paid_at", "DATETIME"),
+            ("paid_amount", "REAL DEFAULT 0"),
+            ("due_date", "DATE"),
+            ("variable_symbol", "VARCHAR(30)"),
         ],
         "invoice_item": [
             ("source_delivery_id", "INTEGER REFERENCES delivery_note(id)"),
@@ -281,6 +291,7 @@ def _migrate_schema():
         ],
         "pdf_template": [
             ("tenant_id", "INTEGER REFERENCES tenant(id)"),
+            ("layout_config", "TEXT"),
         ],
         "payment": [
             ("gopay_payment_id", "VARCHAR(120)"),
@@ -603,6 +614,11 @@ def create_app():
     app.config["SF_CONFIG"] = sf_cfg
     app.config["GOPAY_CONFIG"] = gopay_cfg
 
+    # Upload folder for logos etc.
+    upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+    os.makedirs(os.path.join(upload_folder, "logos"), exist_ok=True)
+    app.config["UPLOAD_FOLDER"] = upload_folder
+
     # Session security
     app.config["SESSION_COOKIE_HTTPONLY"] = True
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
@@ -641,13 +657,20 @@ def create_app():
     # Request hooks
     # ------------------------------------------------------------------
 
+    # Serve uploaded files (logos etc.)
+    @app.route("/uploads/<path:filename>")
+    def uploaded_file(filename):
+        from flask import send_from_directory
+        return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
     # Endpoints that don't require a tenant
     _TENANT_EXEMPT = {
         "auth.login", "auth.logout", "auth.change_password",
+        "auth.register",
         "tenant.select_tenant", "tenant.switch_tenant",
         "billing.webhook_stripe", "billing.notify_gopay",
         "billing.payment_return",
-        "static",
+        "static", "uploaded_file",
     }
 
     @app.before_request

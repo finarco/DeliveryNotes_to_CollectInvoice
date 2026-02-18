@@ -1,0 +1,149 @@
+{# Shared inline partner creation modal — include in any template that needs it #}
+<div class="modal fade" id="inlineAddPartnerModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="inlineAddPartnerForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Novy partner</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">ICO</label>
+              <div class="input-group">
+                <input class="form-control" name="ico" id="inlinePartnerIco">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="inlinePartnerLookupBtn">Hladat</button>
+              </div>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Nazov partnera</label>
+              <input class="form-control" name="name" required id="inlinePartnerName">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefon</label>
+              <input class="form-control" name="phone">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="street">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Cislo</label>
+              <input class="form-control" name="street_number">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSC</label>
+              <input class="form-control" name="postal_code">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">DIC</label>
+              <input class="form-control" name="dic">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">IC DPH</label>
+              <input class="form-control" name="ic_dph">
+            </div>
+          </div>
+          <div id="inlinePartnerLookupStatus" class="mt-2 small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavriet</button>
+          <button type="submit" class="btn btn-primary">Vytvorit partnera</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var csrfToken = document.querySelector('meta[name="csrf-token"]');
+  var csrf = csrfToken ? csrfToken.getAttribute('content') : '';
+
+  // IČO lookup in inline modal
+  var lookupBtn = document.getElementById('inlinePartnerLookupBtn');
+  if (lookupBtn) {
+    lookupBtn.addEventListener('click', function() {
+      var ico = document.getElementById('inlinePartnerIco').value.trim();
+      if (!ico) return;
+      var status = document.getElementById('inlinePartnerLookupStatus');
+      status.textContent = 'Vyhladavam...';
+      status.className = 'mt-2 small text-muted';
+      fetch('/partners/lookup?ico=' + encodeURIComponent(ico))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) {
+            status.textContent = data.error;
+            status.className = 'mt-2 small text-danger';
+            return;
+          }
+          var form = document.getElementById('inlineAddPartnerForm');
+          if (data.name) form.querySelector('[name="name"]').value = data.name;
+          if (data.dic) form.querySelector('[name="dic"]').value = data.dic;
+          if (data.ic_dph) form.querySelector('[name="ic_dph"]').value = data.ic_dph;
+          if (data.street) form.querySelector('[name="street"]').value = data.street;
+          if (data.street_number) form.querySelector('[name="street_number"]').value = data.street_number;
+          if (data.city) form.querySelector('[name="city"]').value = data.city;
+          if (data.postal_code) form.querySelector('[name="postal_code"]').value = data.postal_code;
+          status.textContent = 'Udaje vyplnene z registra.';
+          status.className = 'mt-2 small text-success';
+        })
+        .catch(function() {
+          status.textContent = 'Chyba pri vyhladavani.';
+          status.className = 'mt-2 small text-danger';
+        });
+    });
+  }
+
+  // AJAX form submit
+  var form = document.getElementById('inlineAddPartnerForm');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var fd = new FormData(form);
+      fd.append('csrf_token', csrf);
+      fetch('/partners', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrf},
+        body: fd,
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.id) {
+          // Add to partner select and select it
+          var selects = document.querySelectorAll('select[name="partner_id"]');
+          selects.forEach(function(sel) {
+            var opt = document.createElement('option');
+            opt.value = data.id;
+            opt.textContent = data.name;
+            opt.selected = true;
+            sel.appendChild(opt);
+          });
+          // Also update hidden fields and search displays
+          var hiddens = document.querySelectorAll('input[name="partner_id"][type="hidden"]');
+          hiddens.forEach(function(h) { h.value = data.id; });
+          // Update all partner search display inputs
+          ['orderPartnerSearch', 'dnPartnerSearch', 'invPartnerSearch', 'partnerSearchDisplay'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = data.name;
+          });
+          bootstrap.Modal.getInstance(document.getElementById('inlineAddPartnerModal')).hide();
+          form.reset();
+        }
+      })
+      .catch(function() {
+        alert('Chyba pri vytvarani partnera.');
+      });
+    });
+  }
+})();
+</script>

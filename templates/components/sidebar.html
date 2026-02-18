@@ -41,6 +41,13 @@
         </div>
       </div>
       {% endif %}
+      <form method="post" action="{{ url_for('tenant.create_tenant') }}" class="mt-2" style="padding: 0 8px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="input-group input-group-sm">
+          <input class="form-control form-control-sm" name="name" placeholder="Nová organizácia..." required style="font-size: 11px;">
+          <button type="submit" class="btn btn-sm btn-outline" style="padding: 2px 8px; font-size: 11px;">+</button>
+        </div>
+      </form>
     </div>
     {% endif %}
 
