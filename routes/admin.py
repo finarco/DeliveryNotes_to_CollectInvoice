@@ -266,16 +266,10 @@ def settings():
             request.form.get("password_expiry_unit", "days").strip(),
         )
 
-        # Payment gateway (stored as global setting with tenant_id=NULL)
+        # Payment gateway (per-tenant)
         gateway_val = request.form.get("payment_gateway", "gopay").strip()
         if gateway_val in ("gopay", "stripe", "manual"):
-            from models import AppSetting as _AS
-            gw_row = _AS.query.filter_by(tenant_id=None, key="payment_gateway").first()
-            if not gw_row:
-                gw_row = _AS(tenant_id=None, key="payment_gateway", value=gateway_val)
-                db.session.add(gw_row)
-            else:
-                gw_row.value = gateway_val
+            _set_setting("payment_gateway", gateway_val)
 
         # Invoice payment settings (per-tenant)
         for key in ("invoice_payment_gateway", "invoice_bank_iban",
@@ -323,11 +317,6 @@ def settings():
         config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
         numbering[etype] = config
 
-    # Load global payment gateway setting
-    from models import AppSetting as _AS
-    gw_row = _AS.query.filter_by(tenant_id=None, key="payment_gateway").first()
-    payment_gateway = gw_row.value if gw_row and gw_row.value else "gopay"
-
     active_tab = request.args.get("tab", "firma")
 
     return render_template(
@@ -338,7 +327,7 @@ def settings():
         password_expiry_unit=_get_setting("password_expiry_unit", "days"),
         numbering=numbering,
         entity_types=_ENTITY_TYPES,
-        payment_gateway=payment_gateway,
+        payment_gateway=_get_setting("payment_gateway", "gopay"),
         invoice_payment_gateway=_get_setting("invoice_payment_gateway", "bank_transfer"),
         invoice_bank_iban=_get_setting("invoice_bank_iban"),
         invoice_bank_swift=_get_setting("invoice_bank_swift"),

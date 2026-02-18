@@ -14,7 +14,15 @@ billing_bp = Blueprint("billing", __name__)
 
 
 def _get_active_gateway() -> str:
-    """Return the active payment gateway from global settings."""
+    """Return the active payment gateway (tenant-scoped, falls back to global)."""
+    from services.tenant import tenant_query
+    try:
+        row = tenant_query(AppSetting).filter_by(key="payment_gateway").first()
+        if row and row.value:
+            return row.value
+    except Exception:
+        pass
+    # Fall back to global setting for backward compatibility
     row = AppSetting.query.filter_by(tenant_id=None, key="payment_gateway").first()
     return row.value if row and row.value else "gopay"
 
