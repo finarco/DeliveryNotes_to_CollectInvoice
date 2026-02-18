@@ -1,6 +1,6 @@
 """Tenant selection and switching routes."""
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 
 from extensions import db
 from models import Tenant, UserTenant
@@ -69,6 +69,13 @@ def create_tenant():
     tenant = Tenant(name=name, slug=slug, is_active=True)
     db.session.add(tenant)
     db.session.flush()
+
+    # Temporarily switch tenant context so the flush guard allows
+    # writing UserTenant and TenantSubscription for the NEW tenant.
+    prev_tenant_id = getattr(g, "_tenant_id", None)
+    prev_tenant = getattr(g, "current_tenant", None)
+    g._tenant_id = tenant.id
+    g.current_tenant = tenant
 
     ut = UserTenant(user_id=user.id, tenant_id=tenant.id, is_default=False)
     db.session.add(ut)
