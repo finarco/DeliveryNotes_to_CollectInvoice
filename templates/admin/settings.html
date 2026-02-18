@@ -3,223 +3,422 @@
 {% block page_title %}Nastavenia{% endblock %}
 
 {% block content %}
-<form method="post" enctype="multipart/form-data">
+<form method="post" enctype="multipart/form-data" id="settingsForm">
+  <input type="hidden" name="_active_tab" id="activeTabInput" value="{{ active_tab }}">
 
-  {# ── Company Data ───────────────────────────────────────── #}
-  {% if tenant %}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Firemne udaje</strong></div>
-    <div class="card-body">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label">Nazov organizacie</label>
-          <input class="form-control" name="tenant_name" value="{{ tenant.name or '' }}">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">ICO</label>
-          <input class="form-control" name="tenant_ico" value="{{ tenant.ico or '' }}">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">DIC</label>
-          <input class="form-control" name="tenant_dic" value="{{ tenant.dic or '' }}">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">IC DPH</label>
-          <input class="form-control" name="tenant_ic_dph" value="{{ tenant.ic_dph or '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Ulica</label>
-          <input class="form-control" name="tenant_street" value="{{ tenant.street or '' }}">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Mesto</label>
-          <input class="form-control" name="tenant_city" value="{{ tenant.city or '' }}">
-        </div>
-        <div class="col-md-2">
-          <label class="form-label">PSC</label>
-          <input class="form-control" name="tenant_postal_code" value="{{ tenant.postal_code or '' }}">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Email</label>
-          <input class="form-control" name="tenant_email" value="{{ tenant.email or '' }}" type="email">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Telefon</label>
-          <input class="form-control" name="tenant_phone" value="{{ tenant.phone or '' }}">
-        </div>
-        <div class="col-md-5">
-          <label class="form-label">Fakturacny email</label>
-          <input class="form-control" name="tenant_billing_email" value="{{ tenant.billing_email or '' }}" type="email">
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Logo</label>
-          <input class="form-control" name="tenant_logo" type="file" accept=".png,.jpg,.jpeg,.svg,.webp">
-          <small class="text-muted">PNG, JPG, SVG alebo WebP</small>
-        </div>
-        {% if tenant.logo_filename %}
-        <div class="col-md-2">
-          <label class="form-label">Aktualne logo</label>
-          <div>
-            <img src="{{ url_for('uploaded_file', filename='logos/' + tenant.logo_filename) }}"
-                 alt="Logo" style="max-height: 60px; max-width: 120px; border: 1px solid #ddd; border-radius: 4px; padding: 4px;">
+  {# ── Tab Navigation ─────────────────────────────────────── #}
+  <ul class="nav nav-tabs settings-tabs mb-4" id="settingsTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'firma' %} active{% endif %}" id="firma-tab"
+              data-bs-toggle="tab" data-bs-target="#firma" type="button" role="tab"
+              aria-controls="firma" aria-selected="{{ 'true' if active_tab == 'firma' else 'false' }}">
+        <i data-lucide="building-2" style="width:16px;height:16px;"></i>
+        Firma
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'billing' %} active{% endif %}" id="billing-tab"
+              data-bs-toggle="tab" data-bs-target="#billing" type="button" role="tab"
+              aria-controls="billing" aria-selected="{{ 'true' if active_tab == 'billing' else 'false' }}">
+        <i data-lucide="credit-card" style="width:16px;height:16px;"></i>
+        Fakturacia
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'dph' %} active{% endif %}" id="dph-tab"
+              data-bs-toggle="tab" data-bs-target="#dph" type="button" role="tab"
+              aria-controls="dph" aria-selected="{{ 'true' if active_tab == 'dph' else 'false' }}">
+        <i data-lucide="percent" style="width:16px;height:16px;"></i>
+        DPH
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'dokumenty' %} active{% endif %}" id="dokumenty-tab"
+              data-bs-toggle="tab" data-bs-target="#dokumenty" type="button" role="tab"
+              aria-controls="dokumenty" aria-selected="{{ 'true' if active_tab == 'dokumenty' else 'false' }}">
+        <i data-lucide="file-text" style="width:16px;height:16px;"></i>
+        Dokumenty
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'bezpecnost' %} active{% endif %}" id="bezpecnost-tab"
+              data-bs-toggle="tab" data-bs-target="#bezpecnost" type="button" role="tab"
+              aria-controls="bezpecnost" aria-selected="{{ 'true' if active_tab == 'bezpecnost' else 'false' }}">
+        <i data-lucide="shield" style="width:16px;height:16px;"></i>
+        Bezpecnost
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link{% if active_tab == 'email' %} active{% endif %}" id="email-tab"
+              data-bs-toggle="tab" data-bs-target="#email" type="button" role="tab"
+              aria-controls="email" aria-selected="{{ 'true' if active_tab == 'email' else 'false' }}">
+        <i data-lucide="mail" style="width:16px;height:16px;"></i>
+        E-mail
+      </button>
+    </li>
+  </ul>
+
+  {# ── Tab Content ────────────────────────────────────────── #}
+  <div class="tab-content" id="settingsTabContent">
+
+    {# ═══ TAB: Firma ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'firma' %} show active{% endif %}"
+         id="firma" role="tabpanel" aria-labelledby="firma-tab">
+      {% if tenant %}
+      <div class="card mb-4">
+        <div class="card-header"><strong>Firemne udaje</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nazov organizacie</label>
+              <input class="form-control" name="tenant_name" value="{{ tenant.name or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">ICO</label>
+              <input class="form-control" name="tenant_ico" value="{{ tenant.ico or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">DIC</label>
+              <input class="form-control" name="tenant_dic" value="{{ tenant.dic or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">IC DPH</label>
+              <input class="form-control" name="tenant_ic_dph" value="{{ tenant.ic_dph or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ulica</label>
+              <input class="form-control" name="tenant_street" value="{{ tenant.street or '' }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="tenant_city" value="{{ tenant.city or '' }}">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">PSC</label>
+              <input class="form-control" name="tenant_postal_code" value="{{ tenant.postal_code or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Email</label>
+              <input class="form-control" name="tenant_email" value="{{ tenant.email or '' }}" type="email">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Telefon</label>
+              <input class="form-control" name="tenant_phone" value="{{ tenant.phone or '' }}">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Fakturacny email</label>
+              <input class="form-control" name="tenant_billing_email" value="{{ tenant.billing_email or '' }}" type="email">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Logo</label>
+              <input class="form-control" name="tenant_logo" type="file" accept=".png,.jpg,.jpeg,.svg,.webp">
+              <small class="text-muted">PNG, JPG, SVG alebo WebP</small>
+            </div>
+            {% if tenant.logo_filename %}
+            <div class="col-md-2">
+              <label class="form-label">Aktualne logo</label>
+              <div>
+                <img src="{{ url_for('uploaded_file', filename='logos/' + tenant.logo_filename) }}"
+                     alt="Logo" style="max-height: 60px; max-width: 120px; border: 1px solid #ddd; border-radius: 4px; padding: 4px;">
+              </div>
+            </div>
+            {% endif %}
           </div>
         </div>
-        {% endif %}
       </div>
+      {% endif %}
     </div>
-  </div>
-  {% endif %}
 
-  {# ── General ──────────────────────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Vseobecne</strong></div>
-    <div class="card-body row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Nazov stranky</label>
-        <input class="form-control" name="site_name" value="{{ site_name }}">
-      </div>
-    </div>
-  </div>
+    {# ═══ TAB: Fakturacia ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'billing' %} show active{% endif %}"
+         id="billing" role="tabpanel" aria-labelledby="billing-tab">
 
-  {# ── Password policy ─────────────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Bezpecnost — expiracia hesla</strong></div>
-    <div class="card-body row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Platnost hesla</label>
-        <input class="form-control" type="number" min="0"
-               name="password_expiry_value" value="{{ password_expiry_value }}">
-        <small class="text-muted">0 = bez expiracie</small>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Jednotka</label>
-        <select class="form-select" name="password_expiry_unit">
-          <option value="days"{% if password_expiry_unit == 'days' %} selected{% endif %}>Dni</option>
-          <option value="weeks"{% if password_expiry_unit == 'weeks' %} selected{% endif %}>Tyzdne</option>
-          <option value="months"{% if password_expiry_unit == 'months' %} selected{% endif %}>Mesiace</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-  {# ── Subscription Payment Gateway ────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Platobna brana (predplatne)</strong></div>
-    <div class="card-body row g-3">
-      <div class="col-md-6">
-        <label class="form-label">Aktivna platobna brana</label>
-        <select class="form-select" name="payment_gateway">
-          <option value="gopay"{% if payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
-          <option value="stripe"{% if payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
-          <option value="manual"{% if payment_gateway == 'manual' %} selected{% endif %}>Manualna (bankovy prevod)</option>
-        </select>
-        <small class="text-muted">Urcuje, cez ktoru branu sa budu spracovavat platby za predplatne.</small>
-      </div>
-    </div>
-  </div>
-
-  {# ── Invoice Payment Settings ──────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Platobne nastavenia pre faktury</strong></div>
-    <div class="card-body row g-3">
-      <div class="col-md-4">
-        <label class="form-label">Platobna brana pre faktury</label>
-        <select class="form-select" name="invoice_payment_gateway">
-          <option value="bank_transfer"{% if invoice_payment_gateway == 'bank_transfer' %} selected{% endif %}>Bankovy prevod</option>
-          <option value="gopay"{% if invoice_payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
-          <option value="stripe"{% if invoice_payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
-          <option value="none"{% if invoice_payment_gateway == 'none' %} selected{% endif %}>Ziadna</option>
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">IBAN</label>
-        <input class="form-control" name="invoice_bank_iban" value="{{ invoice_bank_iban }}" placeholder="SK...">
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">SWIFT/BIC</label>
-        <input class="form-control" name="invoice_bank_swift" value="{{ invoice_bank_swift }}">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Nazov banky</label>
-        <input class="form-control" name="invoice_bank_name" value="{{ invoice_bank_name }}">
-      </div>
-    </div>
-  </div>
-
-  {# ── Numbering (tag-based) ─────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Cislovanie dokladov</strong></div>
-    <div class="card-body">
-      <p class="text-muted small mb-3">
-        Dostupne tagy:
-        <code>[YYYY]</code> rok (4-ciferny),
-        <code>[YY]</code> rok (2-ciferny),
-        <code>[MM]</code> mesiac,
-        <code>[DD]</code> den,
-        <code>[PARTNER]</code> ID partnera,
-        <code>[TYPE]</code> typ (T=tovar, S=sluzba),
-        <code>[C...]</code> sekvencne cislo (pocet C = pocet cislic, napr. <code>[CCCC]</code> = 4 cislice).<br>
-        Text mimo hranatych zatvoriek je fixny. Cislovanie sa resetuje pri zmene predchadzajucich tagov.<br>
-        Priklad: <code>DL[YY][MM]-[CCCC]</code> &rarr; <code>DL2601-0001</code>
-      </p>
-      {% set labels = {'product':'Produkty','bundle':'Kombinacie','order':'Objednavky','delivery_note':'Dodacie listy','invoice':'Faktury'} %}
-      {% set examples = {'product':'PRD[TYPE]-[CCCC]','bundle':'KMB-[CCCC]','order':'OBJ[YY][MM]-[CCCC]','delivery_note':'DL[YY][MM]-[CCCC]','invoice':'FV[YYYY]-[PARTNER]-[CCCC]'} %}
-      {% for etype in entity_types %}
-      {% set cfg = numbering.get(etype) %}
-      <div class="row g-3 mb-3 align-items-center">
-        <div class="col-md-3">
-          <label class="form-label fw-bold mb-0">{{ labels[etype] }}</label>
-        </div>
-        <div class="col-md-5">
-          <input class="form-control numbering-pattern-input" name="num_{{ etype }}_pattern"
-                 value="{{ cfg.pattern if cfg and cfg.pattern else '' }}"
-                 placeholder="napr. {{ examples[etype] }}" data-entity="{{ etype }}">
-        </div>
-        <div class="col-md-2">
-          <span class="text-muted small numbering-preview" data-entity="{{ etype }}"></span>
-        </div>
-        <div class="col-md-2">
-          <button type="button" class="btn btn-sm btn-outline-warning reset-counter-btn"
-                  data-entity="{{ etype }}" data-label="{{ labels[etype] }}"
-                  title="Resetovat pocitadlo na 0">
-            Reset
-          </button>
+      <div class="card mb-4">
+        <div class="card-header"><strong>Platobna brana (predplatne)</strong></div>
+        <div class="card-body row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Aktivna platobna brana</label>
+            <select class="form-select" name="payment_gateway">
+              <option value="gopay"{% if payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
+              <option value="stripe"{% if payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
+              <option value="manual"{% if payment_gateway == 'manual' %} selected{% endif %}>Manualna (bankovy prevod)</option>
+            </select>
+            <small class="text-muted">Urcuje, cez ktoru branu sa budu spracovavat platby za predplatne.</small>
+          </div>
         </div>
       </div>
-      {% endfor %}
-      <div class="mt-2">
-        <small class="text-muted">Kliknite na tag pre vlozenie:
-          {% for tag in ['[YYYY]','[YY]','[MM]','[DD]','[PARTNER]','[TYPE]','[CCCC]'] %}
-          <button type="button" class="btn btn-outline-secondary btn-sm numbering-tag-btn" style="padding: 1px 6px; font-size: 11px;">{{ tag }}</button>
+
+      <div class="card mb-4">
+        <div class="card-header"><strong>Platobne nastavenia pre faktury</strong></div>
+        <div class="card-body row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Platobna brana pre faktury</label>
+            <select class="form-select" name="invoice_payment_gateway">
+              <option value="bank_transfer"{% if invoice_payment_gateway == 'bank_transfer' %} selected{% endif %}>Bankovy prevod</option>
+              <option value="gopay"{% if invoice_payment_gateway == 'gopay' %} selected{% endif %}>GoPay</option>
+              <option value="stripe"{% if invoice_payment_gateway == 'stripe' %} selected{% endif %}>Stripe</option>
+              <option value="none"{% if invoice_payment_gateway == 'none' %} selected{% endif %}>Ziadna</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">IBAN</label>
+            <input class="form-control" name="invoice_bank_iban" value="{{ invoice_bank_iban }}" placeholder="SK...">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">SWIFT/BIC</label>
+            <input class="form-control" name="invoice_bank_swift" value="{{ invoice_bank_swift }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Nazov banky</label>
+            <input class="form-control" name="invoice_bank_name" value="{{ invoice_bank_name }}">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ═══ TAB: DPH ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'dph' %} show active{% endif %}"
+         id="dph" role="tabpanel" aria-labelledby="dph-tab">
+      <div class="card mb-4">
+        <div class="card-header"><strong>Nastavenia DPH</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Predvolena sadzba DPH</label>
+              <select class="form-select" name="default_vat_rate">
+                <option value="0"{% if default_vat_rate == '0' %} selected{% endif %}>0 % (bez DPH)</option>
+                <option value="10"{% if default_vat_rate == '10' %} selected{% endif %}>10 %</option>
+                <option value="20"{% if default_vat_rate == '20' %} selected{% endif %}>20 %</option>
+                <option value="23"{% if default_vat_rate == '23' %} selected{% endif %}>23 %</option>
+              </select>
+              <small class="text-muted">Pouzije sa pri vytvarani novych poloziek.</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Auto-overenie DPH</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" name="auto_check_vat" id="autoCheckVat"
+                       {% if auto_check_vat == 'true' %}checked{% endif %}>
+                <label class="form-check-label" for="autoCheckVat">
+                  Automaticky overit DPH pri vyhladani partnera
+                </label>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Zobrazit typ registracie DPH</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" name="show_vat_reg_type" id="showVatRegType"
+                       {% if show_vat_reg_type == 'true' %}checked{% endif %}>
+                <label class="form-check-label" for="showVatRegType">
+                  Zobrazit typ registracie v detaile partnera
+                </label>
+              </div>
+            </div>
+          </div>
+          <hr class="my-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">FS OpenData API kluc</label>
+              <div class="input-group">
+                <input class="form-control" name="fs_opendata_api_key" id="fsApiKeyInput"
+                       value="{{ fs_opendata_api_key }}" placeholder="Vas API kluc z opendata.financnasprava.sk">
+                <button type="button" class="btn btn-outline" id="testFsApiBtn">Testovat</button>
+              </div>
+              <small class="text-muted">Pouziva sa na overenie DPH registracie cez Financnu spravu SR.</small>
+              <div id="fsApiTestResult" class="mt-2" style="display:none;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# ═══ TAB: Dokumenty ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'dokumenty' %} show active{% endif %}"
+         id="dokumenty" role="tabpanel" aria-labelledby="dokumenty-tab">
+
+      <div class="card mb-4">
+        <div class="card-header"><strong>Cislovanie dokladov</strong></div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">
+            Dostupne tagy:
+            <code>[YYYY]</code> rok (4-ciferny),
+            <code>[YY]</code> rok (2-ciferny),
+            <code>[MM]</code> mesiac,
+            <code>[DD]</code> den,
+            <code>[PARTNER]</code> ID partnera,
+            <code>[TYPE]</code> typ (T=tovar, S=sluzba),
+            <code>[C...]</code> sekvencne cislo (pocet C = pocet cislic, napr. <code>[CCCC]</code> = 4 cislice).<br>
+            Text mimo hranatych zatvoriek je fixny. Cislovanie sa resetuje pri zmene predchadzajucich tagov.<br>
+            Priklad: <code>DL[YY][MM]-[CCCC]</code> &rarr; <code>DL2601-0001</code>
+          </p>
+          {% set labels = {'product':'Produkty','bundle':'Kombinacie','order':'Objednavky','delivery_note':'Dodacie listy','invoice':'Faktury'} %}
+          {% set examples = {'product':'PRD[TYPE]-[CCCC]','bundle':'KMB-[CCCC]','order':'OBJ[YY][MM]-[CCCC]','delivery_note':'DL[YY][MM]-[CCCC]','invoice':'FV[YYYY]-[PARTNER]-[CCCC]'} %}
+          {% for etype in entity_types %}
+          {% set cfg = numbering.get(etype) %}
+          <div class="row g-3 mb-3 align-items-center">
+            <div class="col-md-3">
+              <label class="form-label fw-bold mb-0">{{ labels[etype] }}</label>
+            </div>
+            <div class="col-md-5">
+              <input class="form-control numbering-pattern-input" name="num_{{ etype }}_pattern"
+                     value="{{ cfg.pattern if cfg and cfg.pattern else '' }}"
+                     placeholder="napr. {{ examples[etype] }}" data-entity="{{ etype }}">
+            </div>
+            <div class="col-md-2">
+              <span class="text-muted small numbering-preview" data-entity="{{ etype }}"></span>
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-sm btn-outline-warning reset-counter-btn"
+                      data-entity="{{ etype }}" data-label="{{ labels[etype] }}"
+                      title="Resetovat pocitadlo na 0">
+                Reset
+              </button>
+            </div>
+          </div>
           {% endfor %}
-        </small>
+          <div class="mt-2">
+            <small class="text-muted">Kliknite na tag pre vlozenie:
+              {% for tag in ['[YYYY]','[YY]','[MM]','[DD]','[PARTNER]','[TYPE]','[CCCC]'] %}
+              <button type="button" class="btn btn-outline-secondary btn-sm numbering-tag-btn" style="padding: 1px 6px; font-size: 11px;">{{ tag }}</button>
+              {% endfor %}
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><strong>Sablony PDF dokumentov</strong></div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">Upravte vizualny layout faktury a dodacich listov.</p>
+          <a href="{{ url_for('admin.pdf_layout_editor') }}" class="btn btn-outline">Otvorit editor layoutu</a>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><strong>Udrzba partnerov</strong></div>
+        <div class="card-body">
+          <p class="text-muted small mb-2">Skontrolujte udaje partnerov oproti obchodnym registrom (RPO/ARES).</p>
+          <a href="{{ url_for('admin.refresh_partners') }}" class="btn btn-outline">Obnovit udaje partnerov</a>
+        </div>
       </div>
     </div>
-  </div>
 
-  {# ── PDF Templates ─────────────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Sablony PDF dokumentov</strong></div>
-    <div class="card-body">
-      <p class="text-muted small mb-2">Upravte vizualny layout faktury a dodacich listov.</p>
-      <a href="{{ url_for('admin.pdf_layout_editor') }}" class="btn btn-outline">Otvorit editor layoutu</a>
-    </div>
-  </div>
+    {# ═══ TAB: Bezpecnost ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'bezpecnost' %} show active{% endif %}"
+         id="bezpecnost" role="tabpanel" aria-labelledby="bezpecnost-tab">
 
-  {# ── Refresh Partners ──────────────────────────────────── #}
-  <div class="card mb-4">
-    <div class="card-header"><strong>Udrzba partnerov</strong></div>
-    <div class="card-body">
-      <p class="text-muted small mb-2">Skontrolujte udaje partnerov oproti obchodnym registrom (RPO/ARES).</p>
-      <a href="{{ url_for('admin.refresh_partners') }}" class="btn btn-outline">Obnovit udaje partnerov</a>
+      <div class="card mb-4">
+        <div class="card-header"><strong>Vseobecne</strong></div>
+        <div class="card-body row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nazov stranky</label>
+            <input class="form-control" name="site_name" value="{{ site_name }}">
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><strong>Bezpecnost — expiracia hesla</strong></div>
+        <div class="card-body row g-3">
+          <div class="col-md-4">
+            <label class="form-label">Platnost hesla</label>
+            <input class="form-control" type="number" min="0"
+                   name="password_expiry_value" value="{{ password_expiry_value }}">
+            <small class="text-muted">0 = bez expiracie</small>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Jednotka</label>
+            <select class="form-select" name="password_expiry_unit">
+              <option value="days"{% if password_expiry_unit == 'days' %} selected{% endif %}>Dni</option>
+              <option value="weeks"{% if password_expiry_unit == 'weeks' %} selected{% endif %}>Tyzdne</option>
+              <option value="months"{% if password_expiry_unit == 'months' %} selected{% endif %}>Mesiace</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+
+    {# ═══ TAB: E-mail ═══ #}
+    <div class="tab-pane fade{% if active_tab == 'email' %} show active{% endif %}"
+         id="email" role="tabpanel" aria-labelledby="email-tab">
+      <div class="card mb-4">
+        <div class="card-header"><strong>SMTP nastavenia</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">SMTP server</label>
+              <input class="form-control" name="smtp_host" id="smtpHost"
+                     value="{{ smtp_host }}" placeholder="napr. smtp.gmail.com">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Port</label>
+              <input class="form-control" name="smtp_port" id="smtpPort"
+                     value="{{ smtp_port }}" placeholder="587">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Pouzit TLS</label>
+              <div class="form-check form-switch mt-2">
+                <input class="form-check-input" type="checkbox" name="smtp_use_tls" id="smtpUseTls"
+                       {% if smtp_use_tls == 'true' %}checked{% endif %}>
+                <label class="form-check-label" for="smtpUseTls">STARTTLS</label>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Prihlasovacie meno</label>
+              <input class="form-control" name="smtp_username" id="smtpUsername"
+                     value="{{ smtp_username }}" autocomplete="off">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Heslo</label>
+              <input class="form-control" name="smtp_password" id="smtpPassword" type="password"
+                     placeholder="{{ '(nezmenene)' if smtp_password else '' }}" autocomplete="new-password">
+              <small class="text-muted">Ponechajte prazdne pre zachovanie aktualneho hesla.</small>
+            </div>
+          </div>
+          <hr class="my-4">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Email odosielatela</label>
+              <input class="form-control" name="smtp_sender_email" id="smtpSenderEmail"
+                     value="{{ smtp_sender_email }}" type="email" placeholder="noreply@example.com">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Meno odosielatela</label>
+              <input class="form-control" name="smtp_sender_name" id="smtpSenderName"
+                     value="{{ smtp_sender_name }}" placeholder="ObDoFa">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button type="button" class="btn btn-outline" id="testEmailBtn">Odoslat testovaci e-mail</button>
+            </div>
+          </div>
+          <div id="emailTestResult" class="mt-3" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>{# /tab-content #}
 
   <button type="submit" class="btn btn-primary mb-4">Ulozit nastavenia</button>
 </form>
 
 <script>
-// Numbering tag insertion
+// ── Tab persistence via hidden field ─────────────────────────
+var tabInputEl = document.getElementById('activeTabInput');
+document.querySelectorAll('#settingsTabs button[data-bs-toggle="tab"]').forEach(function(btn) {
+  btn.addEventListener('shown.bs.tab', function() {
+    var target = this.getAttribute('data-bs-target').replace('#', '');
+    tabInputEl.value = target;
+    // Update URL without reload
+    var url = new URL(window.location);
+    url.searchParams.set('tab', target);
+    history.replaceState(null, '', url);
+  });
+});
+
+// ── CSRF helper ──────────────────────────────────────────────
+var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+var csrfVal = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+// ── Numbering tag insertion ──────────────────────────────────
 document.querySelectorAll('.numbering-tag-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var focused = document.querySelector('.numbering-pattern-input:focus');
@@ -234,7 +433,7 @@ document.querySelectorAll('.numbering-tag-btn').forEach(function(btn) {
   });
 });
 
-// Live numbering preview
+// ── Live numbering preview ───────────────────────────────────
 function updateNumberingPreview() {
   document.querySelectorAll('.numbering-pattern-input').forEach(function(input) {
     var pattern = input.value;
@@ -257,9 +456,7 @@ document.querySelectorAll('.numbering-pattern-input').forEach(function(input) {
 });
 updateNumberingPreview();
 
-// Counter reset buttons
-var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-var csrfVal = csrfMeta ? csrfMeta.getAttribute('content') : '';
+// ── Counter reset buttons ────────────────────────────────────
 document.querySelectorAll('.reset-counter-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     var etype = this.dataset.entity;
@@ -275,6 +472,94 @@ document.querySelectorAll('.reset-counter-btn').forEach(function(btn) {
       })
       .catch(function() { alert('Chyba pri resetovani pocitadla.'); });
   });
+});
+
+// ── Test FS API key ──────────────────────────────────────────
+document.getElementById('testFsApiBtn').addEventListener('click', function() {
+  var btn = this;
+  var resultDiv = document.getElementById('fsApiTestResult');
+  var apiKey = document.getElementById('fsApiKeyInput').value.trim();
+  if (!apiKey) {
+    resultDiv.style.display = 'block';
+    resultDiv.className = 'mt-2 alert alert-warning';
+    resultDiv.textContent = 'Zadajte API kluc.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Testujem...';
+  resultDiv.style.display = 'none';
+  fetch('/admin/settings/test-fs-api', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfVal},
+    body: JSON.stringify({api_key: apiKey})
+  }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      resultDiv.style.display = 'block';
+      if (data.ok) {
+        resultDiv.className = 'mt-2 alert alert-success';
+        resultDiv.textContent = data.message;
+      } else {
+        resultDiv.className = 'mt-2 alert alert-danger';
+        resultDiv.textContent = data.error;
+      }
+    })
+    .catch(function() {
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'mt-2 alert alert-danger';
+      resultDiv.textContent = 'Chyba pri testovani API kluca.';
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = 'Testovat';
+    });
+});
+
+// ── Test SMTP email ──────────────────────────────────────────
+document.getElementById('testEmailBtn').addEventListener('click', function() {
+  var btn = this;
+  var resultDiv = document.getElementById('emailTestResult');
+  var payload = {
+    smtp_host: document.getElementById('smtpHost').value.trim(),
+    smtp_port: document.getElementById('smtpPort').value.trim(),
+    smtp_username: document.getElementById('smtpUsername').value.trim(),
+    smtp_password: document.getElementById('smtpPassword').value,
+    smtp_sender_email: document.getElementById('smtpSenderEmail').value.trim(),
+    smtp_sender_name: document.getElementById('smtpSenderName').value.trim(),
+    smtp_use_tls: document.getElementById('smtpUseTls').checked
+  };
+  if (!payload.smtp_host || !payload.smtp_sender_email) {
+    resultDiv.style.display = 'block';
+    resultDiv.className = 'mt-3 alert alert-warning';
+    resultDiv.textContent = 'Vyplnte SMTP server a email odosielatela.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Odosielam...';
+  resultDiv.style.display = 'none';
+  fetch('/admin/settings/test-email', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfVal},
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      resultDiv.style.display = 'block';
+      if (data.ok) {
+        resultDiv.className = 'mt-3 alert alert-success';
+        resultDiv.textContent = data.message;
+      } else {
+        resultDiv.className = 'mt-3 alert alert-danger';
+        resultDiv.textContent = data.error;
+      }
+    })
+    .catch(function() {
+      resultDiv.style.display = 'block';
+      resultDiv.className = 'mt-3 alert alert-danger';
+      resultDiv.textContent = 'Chyba pri odosielani testovacieho emailu.';
+    })
+    .finally(function() {
+      btn.disabled = false;
+      btn.textContent = 'Odoslat testovaci e-mail';
+    });
 });
 </script>
 {% endblock %}

@@ -282,6 +282,24 @@ def settings():
                      "invoice_bank_swift", "invoice_bank_name"):
             _set_setting(key, request.form.get(key, "").strip())
 
+        # DPH settings (per-tenant)
+        _set_setting("default_vat_rate", request.form.get("default_vat_rate", "20").strip())
+        _set_setting("auto_check_vat", "true" if request.form.get("auto_check_vat") else "false")
+        _set_setting("fs_opendata_api_key", request.form.get("fs_opendata_api_key", "").strip())
+        _set_setting("show_vat_reg_type", "true" if request.form.get("show_vat_reg_type") else "false")
+
+        # SMTP / E-mail settings (per-tenant)
+        _set_setting("smtp_host", request.form.get("smtp_host", "").strip())
+        _set_setting("smtp_port", request.form.get("smtp_port", "587").strip())
+        _set_setting("smtp_username", request.form.get("smtp_username", "").strip())
+        # Only update password if non-empty (preserve existing value)
+        smtp_pw = request.form.get("smtp_password", "").strip()
+        if smtp_pw:
+            _set_setting("smtp_password", smtp_pw)
+        _set_setting("smtp_sender_email", request.form.get("smtp_sender_email", "").strip())
+        _set_setting("smtp_sender_name", request.form.get("smtp_sender_name", "").strip())
+        _set_setting("smtp_use_tls", "true" if request.form.get("smtp_use_tls") else "false")
+
         # Numbering configs (tag-based patterns)
         for etype in _ENTITY_TYPES:
             config = tenant_query(NumberingConfig).filter_by(entity_type=etype).first()
@@ -294,7 +312,8 @@ def settings():
         log_action("update", "settings", 0, "settings updated")
         db.session.commit()
         flash("Nastavenia uložené.", "success")
-        return redirect(url_for("admin.settings"))
+        active_tab = request.form.get("_active_tab", "firma")
+        return redirect(url_for("admin.settings", tab=active_tab))
 
     # GET — load current values
     tenant = get_current_tenant()
@@ -309,6 +328,8 @@ def settings():
     gw_row = _AS.query.filter_by(tenant_id=None, key="payment_gateway").first()
     payment_gateway = gw_row.value if gw_row and gw_row.value else "gopay"
 
+    active_tab = request.args.get("tab", "firma")
+
     return render_template(
         "admin/settings.html",
         tenant=tenant,
@@ -322,7 +343,88 @@ def settings():
         invoice_bank_iban=_get_setting("invoice_bank_iban"),
         invoice_bank_swift=_get_setting("invoice_bank_swift"),
         invoice_bank_name=_get_setting("invoice_bank_name"),
+        # DPH settings
+        default_vat_rate=_get_setting("default_vat_rate", "20"),
+        auto_check_vat=_get_setting("auto_check_vat", "false"),
+        fs_opendata_api_key=_get_setting("fs_opendata_api_key"),
+        show_vat_reg_type=_get_setting("show_vat_reg_type", "false"),
+        # SMTP settings
+        smtp_host=_get_setting("smtp_host"),
+        smtp_port=_get_setting("smtp_port", "587"),
+        smtp_username=_get_setting("smtp_username"),
+        smtp_password=_get_setting("smtp_password"),
+        smtp_sender_email=_get_setting("smtp_sender_email"),
+        smtp_sender_name=_get_setting("smtp_sender_name"),
+        smtp_use_tls=_get_setting("smtp_use_tls", "true"),
+        # Tab state
+        active_tab=active_tab,
     )
+
+
+@admin_bp.route("/settings/test-fs-api", methods=["POST"])
+@role_required("manage_all")
+def test_fs_api():
+    """AJAX: Test FS OpenData API key by querying ds_dphs."""
+    import requests as http_requests
+    data = request.get_json(silent=True) or {}
+    api_key = data.get("api_key", "").strip()
+    if not api_key:
+        return jsonify({"ok": False, "error": "API kluc je prazdny."})
+    try:
+        resp = http_requests.get(
+            "https://iz.opendata.financnasprava.sk/api/data/ds_dphs/search",
+            params={"column": "ic_dph", "search": "SK2020317068", "page": 1},
+            headers={"key": api_key},
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            result = resp.json()
+            count = len(result.get("data") or [])
+            return jsonify({"ok": True, "message": f"API kluc je platny. Najdenych {count} zaznamov."})
+        elif resp.status_code == 401:
+            return jsonify({"ok": False, "error": "API kluc je neplatny alebo expiroval (401)."})
+        else:
+            return jsonify({"ok": False, "error": f"Neocakavany HTTP status: {resp.status_code}"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Chyba pripojenia: {e}"})
+
+
+@admin_bp.route("/settings/test-email", methods=["POST"])
+@role_required("manage_all")
+def test_email():
+    """AJAX: Send a test email via provided SMTP settings."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    data = request.get_json(silent=True) or {}
+    host = data.get("smtp_host", "").strip()
+    port = int(data.get("smtp_port", 587))
+    username = data.get("smtp_username", "").strip()
+    password = data.get("smtp_password", "").strip()
+    sender_email = data.get("smtp_sender_email", "").strip()
+    sender_name = data.get("smtp_sender_name", "").strip()
+    use_tls = data.get("smtp_use_tls", True)
+    recipient = data.get("recipient", "").strip() or sender_email
+
+    if not host or not sender_email:
+        return jsonify({"ok": False, "error": "SMTP host a odosielatel su povinne."})
+
+    msg = MIMEText("Toto je testovaci e-mail z aplikacie ObDoFa.", "plain", "utf-8")
+    msg["Subject"] = "ObDoFa — Test SMTP"
+    msg["From"] = f"{sender_name} <{sender_email}>" if sender_name else sender_email
+    msg["To"] = recipient
+
+    try:
+        server = smtplib.SMTP(host, port, timeout=10)
+        if use_tls:
+            server.starttls()
+        if username and password:
+            server.login(username, password)
+        server.sendmail(sender_email, [recipient], msg.as_string())
+        server.quit()
+        return jsonify({"ok": True, "message": f"Testovaci e-mail odoslany na {recipient}."})
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"SMTP chyba: {e}"})
 
 
 @admin_bp.route(
