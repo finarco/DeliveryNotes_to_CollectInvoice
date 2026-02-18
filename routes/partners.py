@@ -14,6 +14,49 @@ from services.tenant import tenant_query, stamp_tenant, tenant_get_or_404
 partners_bp = Blueprint("partners", __name__)
 
 
+@partners_bp.route("/partners/lookup")
+@role_required("manage_partners")
+def lookup_partner():
+    """Proxy to RPO/ARES business registers for company lookup."""
+    from flask import jsonify
+    from services.company_lookup import lookup_by_ico, search_by_name
+
+    ico = request.args.get("ico", "").strip()
+    name = request.args.get("name", "").strip()
+
+    if ico:
+        result = lookup_by_ico(ico)
+        if result:
+            return jsonify(result)
+        return jsonify({"error": "Firma nebola nájdená."}), 404
+    elif name:
+        results = search_by_name(name)
+        return jsonify(results)
+
+    return jsonify({"error": "Zadajte IČO alebo názov."}), 400
+
+
+@partners_bp.route("/partners/search")
+@role_required("manage_partners")
+def search_partners():
+    """Search existing partners by name or ICO for autocomplete."""
+    from flask import jsonify
+    q = request.args.get("q", "").strip()
+    if not q or len(q) < 2:
+        return jsonify([])
+    results = tenant_query(Partner).filter(
+        Partner.is_deleted.is_(False),
+        db.or_(
+            Partner.name.ilike(f"%{q}%"),
+            Partner.ico.ilike(f"%{q}%"),
+        )
+    ).limit(20).all()
+    return jsonify([
+        {"id": p.id, "name": p.name, "ico": p.ico or "", "city": p.city or ""}
+        for p in results
+    ])
+
+
 @partners_bp.route("/partners", methods=["GET", "POST"])
 @role_required("manage_partners")
 def list_partners():
@@ -54,6 +97,10 @@ def list_partners():
         stamp_tenant(hq_addr)
         partner.addresses.append(hq_addr)
         db.session.commit()
+        # Return JSON for AJAX requests (inline partner creation)
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            from flask import jsonify
+            return jsonify({"id": partner.id, "name": partner.name})
         flash("Partner uložený.", "success")
         return redirect(url_for("partners.list_partners"))
     partners = tenant_query(Partner).filter_by(is_deleted=False).all()

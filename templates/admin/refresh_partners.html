@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block page_title %}Obnova udajov partnerov{% endblock %}
+
+{% block content %}
+{% if changes %}
+<form method="post">
+  <div class="card mb-4">
+    <div class="card-header">
+      <strong>Navrhované zmeny</strong>
+      <span class="badge badge-info">{{ changes|length }}</span>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="table" style="margin-bottom: 0;">
+        <thead>
+          <tr>
+            <th style="width: 40px;">
+              <input type="checkbox" id="selectAll" checked>
+            </th>
+            <th>Partner</th>
+            <th>Pole</th>
+            <th>Aktualna hodnota</th>
+            <th>Nova hodnota</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in changes %}
+          <tr>
+            <td>
+              <input type="checkbox" name="apply" value="{{ loop.index0 }}" checked class="change-cb">
+              <input type="hidden" name="partner_id" value="{{ c.partner_id }}">
+              <input type="hidden" name="field" value="{{ c.field }}">
+              <input type="hidden" name="new_value" value="{{ c.new_value }}">
+            </td>
+            <td>{{ c.partner_name }}</td>
+            <td><code>{{ c.field }}</code></td>
+            <td><span class="text-muted">{{ c.old_value or '-' }}</span></td>
+            <td><strong>{{ c.new_value }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button type="submit" class="btn btn-primary">Aplikovat vybrane zmeny</button>
+  <a href="{{ url_for('admin.settings') }}" class="btn btn-secondary">Spat</a>
+</form>
+<script>
+document.getElementById('selectAll').addEventListener('change', function() {
+  document.querySelectorAll('.change-cb').forEach(function(cb) { cb.checked = this.checked; }.bind(this));
+});
+</script>
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <p class="text-muted mb-0">Vsetky udaje partnerov su aktualne. Ziadne zmeny nie su potrebne.</p>
+  </div>
+</div>
+<a href="{{ url_for('admin.settings') }}" class="btn btn-secondary mt-3">Spat</a>
+{% endif %}
+{% endblock %}

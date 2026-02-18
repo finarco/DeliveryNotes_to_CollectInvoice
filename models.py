@@ -37,6 +37,7 @@ class Tenant(db.Model):
     email = db.Column(db.String(120))
     phone = db.Column(db.String(60))
     billing_email = db.Column(db.String(120))
+    logo_filename = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=utc_now)
     updated_at = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
@@ -531,6 +532,14 @@ class Invoice(db.Model):
     total_with_vat = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
     status = db.Column(db.String(30), default="draft")
     is_locked = db.Column(db.Boolean, default=False)
+    # Payment tracking
+    payment_status = db.Column(db.String(30), default="pending")
+    payment_method = db.Column(db.String(30))
+    gateway_payment_id = db.Column(db.String(120))
+    paid_at = db.Column(db.DateTime)
+    paid_amount = db.Column(db.Numeric(10, 2, asdecimal=True), default=0.0)
+    due_date = db.Column(db.Date)
+    variable_symbol = db.Column(db.String(30))
 
     partner = db.relationship("Partner")
     items = db.relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")
@@ -568,6 +577,7 @@ class PdfTemplate(db.Model):
     entity_type = db.Column(db.String(40), nullable=False)
     html_content = db.Column(db.Text, default="")
     css_content = db.Column(db.Text, default="")
+    layout_config = db.Column(db.Text)  # JSON layout configuration for visual editor
 
     __table_args__ = (
         db.UniqueConstraint("tenant_id", "entity_type", name="uq_pdf_template_tenant"),

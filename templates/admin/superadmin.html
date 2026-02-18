@@ -6,6 +6,10 @@
 <div class="page-subtitle">Globálny prehľad všetkých organizácií</div>
 {% endblock %}
 
+{% block page_actions %}
+<button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createTenantModal">Nová organizácia</button>
+{% endblock %}
+
 {% block content %}
 {# Metric Cards #}
 <div class="row g-3 mb-4">
@@ -65,44 +69,72 @@
           <th>Mesto</th>
           <th>Používatelia</th>
           <th>Plán</th>
-          <th>Stav</th>
+          <th>Stav predplatného</th>
+          <th>Aktívna</th>
           <th>Vytvorené</th>
+          <th>Akcie</th>
         </tr>
       </thead>
       <tbody>
         {% for t in tenants %}
+        {% set td = tenant_data[t.id] %}
         <tr>
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
               <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">
-                {{ t['name'][0].upper() if t['name'] else '?' }}
+                {{ t.name[0].upper() if t.name else '?' }}
               </div>
               <div>
-                <div style="font-weight: 500;">{{ t['name'] }}</div>
-                <div style="font-size: 12px; color: var(--color-text-secondary);">{{ t['slug'] }}</div>
+                <div style="font-weight: 500;">{{ t.name }}</div>
+                <div style="font-size: 12px; color: var(--color-text-secondary);">{{ t.slug }}</div>
               </div>
             </div>
           </td>
-          <td>{{ t['ico'] or '-' }}</td>
-          <td>{{ t['city'] or '-' }}</td>
-          <td>{{ t['user_count'] }}</td>
-          <td>{{ t['plan_name'] or 'Žiadny' }}</td>
+          <td>{{ t.ico or '-' }}</td>
+          <td>{{ t.city or '-' }}</td>
+          <td>{{ td.user_count }}</td>
+          <td>{{ td.plan_name or 'Žiadny' }}</td>
           <td>
-            {% if t['sub_status'] == 'active' %}
+            {% if td.sub_status == 'active' %}
               <span class="badge badge-success">Aktívne</span>
-            {% elif t['sub_status'] == 'trial' %}
+            {% elif td.sub_status == 'trial' %}
               <span class="badge badge-info">Skúšobné</span>
-            {% elif t['sub_status'] == 'suspended' %}
+            {% elif td.sub_status == 'suspended' %}
               <span class="badge badge-danger">Pozastavené</span>
-            {% elif t['sub_status'] == 'cancelled' %}
+            {% elif td.sub_status == 'cancelled' %}
               <span class="badge" style="background: var(--color-text-secondary); color: white;">Zrušené</span>
-            {% elif t['sub_status'] %}
-              <span class="badge badge-warning">{{ t['sub_status'] }}</span>
+            {% elif td.sub_status %}
+              <span class="badge badge-warning">{{ td.sub_status }}</span>
             {% else %}
               <span class="badge" style="background: var(--color-text-secondary); color: white;">Bez predplatného</span>
             {% endif %}
           </td>
-          <td>{{ t['created_at'].strftime('%d.%m.%Y') if t['created_at'] else '-' }}</td>
+          <td>
+            {% if t.is_active %}
+              <span class="badge badge-success">Áno</span>
+            {% else %}
+              <span class="badge badge-inactive">Nie</span>
+            {% endif %}
+          </td>
+          <td>{{ t.created_at.strftime('%d.%m.%Y') if t.created_at else '-' }}</td>
+          <td>
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-sm btn-outline-info btn-edit-tenant"
+                data-bs-toggle="modal" data-bs-target="#editTenantModal"
+                data-tenant-id="{{ t.id }}"
+                data-detail-url="{{ url_for('admin.superadmin_tenant_detail', tenant_id=t.id) }}">
+                Upraviť
+              </button>
+              <form method="post" action="{{ url_for('admin.superadmin_toggle_tenant', tenant_id=t.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if t.is_active %}
+                  <button type="submit" class="btn btn-sm btn-outline-warning">Deaktivovať</button>
+                {% else %}
+                  <button type="submit" class="btn btn-sm btn-outline-success">Aktivovať</button>
+                {% endif %}
+              </form>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -152,4 +184,183 @@
   </div>
 </div>
 {% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Create Tenant Modal                                                  #}
+{# ------------------------------------------------------------------ #}
+<div class="modal fade" id="createTenantModal" tabindex="-1" aria-labelledby="createTenantModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('admin.superadmin_create_tenant') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="createTenantModalLabel">Nová organizácia</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavrieť"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Názov organizácie <span class="text-danger">*</span></label>
+              <input class="form-control" name="name" placeholder="Napr. Firma s.r.o." required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">IČO</label>
+              <input class="form-control" name="ico" placeholder="12345678">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">DIČ</label>
+              <input class="form-control" name="dic" placeholder="SK1234567890">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Ulica a číslo</label>
+              <input class="form-control" name="street" placeholder="Hlavná 1">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Mesto</label>
+              <input class="form-control" name="city" placeholder="Bratislava">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">PSČ</label>
+              <input class="form-control" name="postal_code" placeholder="81000">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">E-mail</label>
+              <input class="form-control" type="email" name="email" placeholder="firma@example.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Telefón</label>
+              <input class="form-control" name="phone" placeholder="+421900000000">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary">Vytvoriť organizáciu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ------------------------------------------------------------------ #}
+{# Edit Tenant Modal                                                    #}
+{# ------------------------------------------------------------------ #}
+<div class="modal fade" id="editTenantModal" tabindex="-1" aria-labelledby="editTenantModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form method="post" id="editTenantForm" action="">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editTenantModalLabel">Upraviť organizáciu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavrieť"></button>
+        </div>
+        <div class="modal-body">
+          <div id="editTenantLoading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Načítava sa...</span>
+            </div>
+          </div>
+          <div id="editTenantFields" style="display: none;">
+            <div class="row g-3">
+              <div class="col-md-12">
+                <label class="form-label">Názov organizácie <span class="text-danger">*</span></label>
+                <input class="form-control" name="name" id="editName" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">IČO</label>
+                <input class="form-control" name="ico" id="editIco">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">DIČ</label>
+                <input class="form-control" name="dic" id="editDic">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">Ulica a číslo</label>
+                <input class="form-control" name="street" id="editStreet">
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Mesto</label>
+                <input class="form-control" name="city" id="editCity">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">PSČ</label>
+                <input class="form-control" name="postal_code" id="editPostalCode">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">E-mail</label>
+                <input class="form-control" type="email" name="email" id="editEmail">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Telefón</label>
+                <input class="form-control" name="phone" id="editPhone">
+              </div>
+            </div>
+          </div>
+          <div id="editTenantError" class="alert alert-danger mt-3" style="display: none;">
+            Chyba pri načítaní dát organizácie.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zavrieť</button>
+          <button type="submit" class="btn btn-primary" id="editTenantSubmit">Uložiť zmeny</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var editModal = document.getElementById('editTenantModal');
+  if (!editModal) return;
+
+  editModal.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    var detailUrl = btn.dataset.detailUrl;
+    var tenantId = btn.dataset.tenantId;
+
+    // Build the edit form action URL using the tenant id
+    var editBaseUrl = '{{ url_for("admin.superadmin_edit_tenant", tenant_id=0) }}';
+    document.getElementById('editTenantForm').action = editBaseUrl.replace('/0/', '/' + tenantId + '/');
+
+    // Reset state
+    document.getElementById('editTenantLoading').style.display = '';
+    document.getElementById('editTenantFields').style.display = 'none';
+    document.getElementById('editTenantError').style.display = 'none';
+    document.getElementById('editTenantSubmit').disabled = true;
+
+    fetch(detailUrl, {headers: {'Accept': 'application/json'}})
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function (data) {
+        document.getElementById('editName').value = data.name || '';
+        document.getElementById('editIco').value = data.ico || '';
+        document.getElementById('editDic').value = data.dic || '';
+        document.getElementById('editStreet').value = data.street || '';
+        document.getElementById('editCity').value = data.city || '';
+        document.getElementById('editPostalCode').value = data.postal_code || '';
+        document.getElementById('editEmail').value = data.email || '';
+        document.getElementById('editPhone').value = data.phone || '';
+
+        document.getElementById('editTenantLoading').style.display = 'none';
+        document.getElementById('editTenantFields').style.display = '';
+        document.getElementById('editTenantSubmit').disabled = false;
+      })
+      .catch(function () {
+        document.getElementById('editTenantLoading').style.display = 'none';
+        document.getElementById('editTenantError').style.display = '';
+      });
+  });
+
+  editModal.addEventListener('hidden.bs.modal', function () {
+    // Clear fields on close so stale data is not shown on next open
+    ['editName', 'editIco', 'editDic', 'editStreet', 'editCity', 'editPostalCode', 'editEmail', 'editPhone']
+      .forEach(function (id) { document.getElementById(id).value = ''; });
+  });
+}());
+</script>
 {% endblock %}

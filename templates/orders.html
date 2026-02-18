@@ -23,11 +23,12 @@
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label">Partner</label>
-              <select class="form-select" name="partner_id" required>
-                {% for partner in partners %}
-                <option value="{{ partner.id }}">{{ partner.name }}</option>
-                {% endfor %}
-              </select>
+              <div class="input-group">
+                <input type="text" class="form-control" id="orderPartnerSearch" placeholder="Hľadať partnera..." autocomplete="off">
+                <input type="hidden" name="partner_id" id="orderPartnerIdHidden" required>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#inlineAddPartnerModal">+ Nový</button>
+              </div>
+              <div id="orderPartnerResults" class="list-group position-absolute" style="z-index:1050;display:none;max-height:200px;overflow-y:auto;"></div>
             </div>
             <div class="col-md-4">
               <label class="form-label">Adresa zvozu</label>
@@ -785,5 +786,45 @@ function showOrderDetail(orderId) {
 </script>
 
 </div>{# End orders-table-view #}
+
+{% include "components/add_partner_modal.html" %}
+
+<script>
+(function() {
+  var searchInput = document.getElementById('orderPartnerSearch');
+  var hiddenInput = document.getElementById('orderPartnerIdHidden');
+  var resultsDiv = document.getElementById('orderPartnerResults');
+  if (!searchInput) return;
+  var debounceTimer;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(debounceTimer);
+    var q = searchInput.value.trim();
+    if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
+    debounceTimer = setTimeout(function() {
+      fetch('/partners/search?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          resultsDiv.innerHTML = '';
+          if (!data.length) { resultsDiv.innerHTML = '<div class="list-group-item text-muted small">Žiadne výsledky</div>'; }
+          data.forEach(function(p) {
+            var item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action small';
+            item.textContent = p.name + (p.ico ? ' (' + p.ico + ')' : '') + (p.city ? ' — ' + p.city : '');
+            item.addEventListener('click', function(e) {
+              e.preventDefault();
+              searchInput.value = p.name;
+              hiddenInput.value = p.id;
+              resultsDiv.style.display = 'none';
+            });
+            resultsDiv.appendChild(item);
+          });
+          resultsDiv.style.display = '';
+        });
+    }, 300);
+  });
+  document.addEventListener('click', function(e) { if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) resultsDiv.style.display = 'none'; });
+})();
+</script>
 
 {% endblock %}
